@@ -1,8 +1,8 @@
 # gex_builder.py
 # -------------------------------------------------------
-# MarketData.app GEX Builder (v4.2)
+# MarketData.app GEX Builder (v4.3)
 # Supports multiple tickers via tickers.txt
-# Fetches option chains, computes GEX, saves CSV per symbol
+# Adds debugging to detect correct JSON keys for gamma, OI, etc.
 # -------------------------------------------------------
 
 import os
@@ -24,10 +24,9 @@ if os.path.exists("tickers.txt"):
 else:
     TICKERS = ["AAPL", "SPY", "QQQ"]  # fallback if file missing
 
-print("🚀 Starting MarketData Multi-GEX Builder")
+print("🚀 Starting MarketData Multi-GEX Builder (v4.3)")
 print(f"Tickers: {', '.join(TICKERS)}")
 print(f"API key present: {'Yes' if API_KEY else 'No'}")
-
 
 # ───────────────────────────────────────────────
 # 2️⃣ Helper functions
@@ -66,11 +65,24 @@ for symbol in TICKERS:
         if not snap:
             continue
 
+        # --- 🔍 Debug: show first 3 raw snapshots so we can inspect fields
+        if i <= 3:
+            print(f"\n🔍 DEBUG {symbol} sample snapshot ({i}):")
+            print(snap)
+
         try:
-            strike = snap.get("strike")
-            oi = snap.get("openInterest")
-            gamma = snap.get("gamma")
-            underlying = snap.get("underlyingPrice")
+            # Flexible field detection (covers both snake_case and camelCase)
+            strike = snap.get("strike") or snap.get("strikePrice")
+            oi = snap.get("open_interest") or snap.get("openInterest")
+            gamma = (
+                snap.get("gamma")
+                or (snap.get("greeks", {}).get("gamma") if isinstance(snap.get("greeks"), dict) else None)
+            )
+            underlying = (
+                snap.get("underlyingPrice")
+                or snap.get("underlying_price")
+                or snap.get("underlying", {}).get("price")
+            )
 
             if all([strike, oi, gamma, underlying]):
                 gex = gamma * oi * 100 * underlying
