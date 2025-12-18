@@ -1,12 +1,11 @@
 # gex_builder.py
 # -------------------------------------------------------
-# Pulls option-chain data from Massive (Polygon.io rebrand),
+# Pulls option-chain data from Massive (formerly Polygon.io),
 # computes per-strike Gamma Exposure (GEX),
 # and writes <SYMBOL>_GEX.csv for TradingView.
 # -------------------------------------------------------
 
 import os
-import math
 import requests
 import pandas as pd
 from datetime import datetime
@@ -14,15 +13,14 @@ from datetime import datetime
 # ───────────────────────────────────────────────
 # 1.  Configuration
 # ───────────────────────────────────────────────
-API_KEY = os.getenv("API_KEY")  # GitHub secret MASSIVE_KEY will populate this
-SYMBOL  = "AAPL"                # change or loop through tickers if you like
-
-BASE_URL = "https://api.massive.com/v3/snapshot/options"
+API_KEY = os.getenv("API_KEY")          # must match your GitHub secret name
+SYMBOL  = "AAPL"                        # change if desired
+BASE_URL = "https://api.massive.com"
 
 # ───────────────────────────────────────────────
-# 2.  Fetch option snapshot from Massive
+# 2.  Try main snapshot endpoint first
 # ───────────────────────────────────────────────
-url = f"{BASE_URL}/{SYMBOL}?apiKey={API_KEY}"
+url = f"{BASE_URL}/v3/snapshot/options/{SYMBOL}?apiKey={API_KEY}"
 print(f"Requesting: {url}")
 
 try:
@@ -30,49 +28,57 @@ try:
     r.raise_for_status()
     data = r.json()
 except Exception as e:
-    print(f"❌  Request failed: {e}")
+    print(f"❌ Request failed: {e}")
     raise SystemExit(1)
 
-# quick peek at what came back
 print(f"HTTP {r.status_code}")
-if isinstance(data, dict):
-    print(f"Top-level keys: {list(data.keys())}")
-else:
-    print(f"Returned type: {type(data)}")
-
-# Massive returns results list under "results"
+print("First 500 chars of response:")
+print(str(data)[:500])
 results = data.get("results", [])
-print(f"Results count: {len(results)}")
 
 # ───────────────────────────────────────────────
-# 3.  Build rows and compute GEX
+# 3.  If snapshot returned nothing, try contracts endpoint
+# ───────────────────────────────────────────────
+if not results:
+    alt_url = f"{BASE_URL}/v3/reference/options/contracts?ticker={SYMBOL}&apiKey={API_KEY}"
+    print(f"⚠️ No results in snapshot; trying contracts endpoint:\n{alt_url}")
+    try:
+        r2 = requests.get(alt_url, timeout=30)
+        r2.raise_for_status()
+        data = r2.json()
+        results = data.get("results", [])
+        print(f"Contracts endpoint returned {len(results)} records")
+    except Exception as e:
+        print(f"❌ Second request failed: {e}")
+        results = []
+
+# ───────────────────────────────────────────────
+# 4.  Compute GEX
 # ───────────────────────────────────────────────
 rows = []
 for opt in results:
     details = opt.get("details", {})
     greeks  = opt.get("greeks", {})
-    strike  = details.get("strike_price")
+    strike  = details.get("strike_price") or opt.get("strike_price")
     oi      = opt.get("open_interest")
-    gamma   = greeks.get("gamma")
-    under   = opt.get("underlying_asset", {}).get("price")
+    gamma   = greeks.get("gamma") or opt.get("gamma")
+    under   = opt.get("underlying_asset", {}).get("price") or opt.get("underlying_price")
 
     if all([strike, oi, gamma, under]):
         gex = gamma * oi * 100 * under
         rows.append({"strike": strike, "GEX": gex})
 
 # ───────────────────────────────────────────────
-# 4.  Save or warn
+# 5.  Save or warn
 # ───────────────────────────────────────────────
-if rows:
-    df = pd.DataFrame(rows).sort_values("strike")
+df = pd.DataFrame(rows)
+if "strike" in df.columns and not df.empty:
+    df = df.sort_values("strike")
     filename = f"{SYMBOL}_GEX.csv"
     df.to_csv(filename, index=False)
-    print(f"✅  {datetime.now()}  Saved {filename}  ({len(df)} strikes)")
+    print(f"✅ {datetime.now()} Saved {filename} ({len(df)} strikes)")
 else:
-    print("⚠️  No valid option data returned from Massive. "
-          "Check API key, symbol, or market hours.")
+    print("⚠️ No option data or 'strike' column found. "
+          "Check API key, symbol, or endpoint response.")
 
-# ───────────────────────────────────────────────
-# 5.  Done
-# ───────────────────────────────────────────────
 print("Finished run.")
