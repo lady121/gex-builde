@@ -1,8 +1,10 @@
 name: Build GEX each night
+permissions:
+  contents: write
 
 on:
   schedule:
-    - cron: "30 1 * * *"  # runs daily at 1:30 AM UTC (8:30 PM ET)
+    - cron: "30 1 * * *"  # 8:30 PM ET (after market close)
   workflow_dispatch:
 
 jobs:
