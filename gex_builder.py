@@ -1,78 +1,85 @@
 # gex_builder.py
 # -------------------------------------------------------
-# Pulls option-chain data from MarketData.app,
-# computes per-strike Gamma Exposure (GEX),
-# and writes <SYMBOL>_GEX.csv for TradingView.
+# Updated MarketData.app version
+# Step 1: Get all option symbols for the ticker
+# Step 2: Fetch snapshots for each contract (OI, gamma, etc.)
+# Step 3: Compute GEX and save CSV
 # -------------------------------------------------------
 
 import os
 import requests
 import pandas as pd
 from datetime import datetime
+import time
 
-# ───────────────────────────────────────────────
-# CONFIGURATION
-# ───────────────────────────────────────────────
-API_KEY = os.getenv("MARKETDATA_KEY")  # secret from GitHub Actions
-SYMBOL = "AAPL"                        # change or loop through symbols
-BASE_URL = "https://api.marketdata.app/v1/options/chain"
+API_KEY = os.getenv("MARKETDATA_KEY")
+SYMBOL = "AAPL"
+BASE_URL = "https://api.marketdata.app/v1/options"
 
-print("🚀 Starting MarketData GEX Builder")
+print("🚀 Starting MarketData GEX Builder (v2)")
 print(f"Symbol: {SYMBOL}")
 print(f"API key present: {'Yes' if API_KEY else 'No'}")
 
 # ───────────────────────────────────────────────
-# 1. Request the option chain
+# 1. Get list of option symbols
 # ───────────────────────────────────────────────
-url = f"{BASE_URL}/{SYMBOL}?token={API_KEY}"
-print(f"Requesting: {url}")
+chain_url = f"{BASE_URL}/chain/{SYMBOL}?token={API_KEY}"
+print(f"Requesting chain: {chain_url}")
+r = requests.get(chain_url, timeout=30)
 
-try:
-    r = requests.get(url, timeout=30)
-    print(f"HTTP status: {r.status_code}")
-    if r.status_code != 200:
-        print(r.text[:500])
-        raise SystemExit(1)
-    data = r.json()
-except Exception as e:
-    print(f"❌ Request failed: {e}")
+if r.status_code != 200:
+    print(f"❌ Chain request failed ({r.status_code}): {r.text[:500]}")
     raise SystemExit(1)
 
-# MarketData returns dict with keys 'calls' and 'puts'
-calls = data.get("calls", [])
-puts = data.get("puts", [])
-results = calls + puts
-print(f"Returned {len(results)} total options")
+chain_data = r.json()
+option_symbols = chain_data.get("optionSymbol", [])
+print(f"Returned {len(option_symbols)} option symbols")
+
+if not option_symbols:
+    print("⚠️ No option symbols found — check API plan or symbol")
+    raise SystemExit(0)
+
+# Limit to first 500 to stay within rate limits
+option_symbols = option_symbols[:500]
 
 # ───────────────────────────────────────────────
-# 2. Compute GEX per strike
+# 2. Fetch snapshots for each option
 # ───────────────────────────────────────────────
 rows = []
-for opt in results:
+for i, opt_sym in enumerate(option_symbols, start=1):
+    snap_url = f"{BASE_URL}/snapshot/{opt_sym}?token={API_KEY}"
     try:
-        strike = opt.get("strike")
-        oi = opt.get("open_interest")
-        gamma = opt.get("greeks", {}).get("gamma")
-        under = opt.get("underlying_price") or data.get("underlying", {}).get("price")
+        snap_r = requests.get(snap_url, timeout=15)
+        if snap_r.status_code != 200:
+            continue
+        d = snap_r.json()
+        oi = d.get("openInterest")
+        gamma = d.get("gamma")
+        strike = d.get("strike")
+        underlying = d.get("underlyingPrice")
 
-        if all([strike, oi, gamma, under]):
-            gex = gamma * oi * 100 * under
+        if all([oi, gamma, strike, underlying]):
+            gex = gamma * oi * 100 * underlying
             rows.append({"strike": strike, "GEX": gex})
     except Exception as e:
-        print(f"⚠️ Error processing option: {e}")
+        print(f"⚠️ Error on {opt_sym}: {e}")
+        continue
 
-print(f"Total valid rows built: {len(rows)}")
+    # Pause briefly to avoid rate limits
+    time.sleep(0.1)
+
+print(f"✅ Processed {len(rows)} valid contracts")
 
 # ───────────────────────────────────────────────
-# 3. Save CSV
+# 3. Save results
 # ───────────────────────────────────────────────
 df = pd.DataFrame(rows)
 if "strike" in df.columns and not df.empty:
     df = df.sort_values("strike")
     filename = f"{SYMBOL}_GEX.csv"
     df.to_csv(filename, index=False)
-    print(f"✅ {datetime.now()}  Saved {filename}  ({len(df)} strikes)")
+    print(f"✅ {datetime.now()} Saved {filename} ({len(df)} strikes)")
 else:
-    print("⚠️ No valid strike data found — check symbol or plan permissions.")
+    print("⚠️ No valid GEX rows — check API response or limits.")
 
 print("🏁 Finished run.")
