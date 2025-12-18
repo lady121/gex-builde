@@ -10,6 +10,12 @@ from datetime import datetime
 import sys
 
 # ───────────────────────────────────────────────
+# Debug: Version Check
+# ───────────────────────────────────────────────
+# This helps confirm the correct code is running in your logs.
+print(f"[{datetime.now()}] --- Starting GEX Builder Script (v2.1) ---")
+
+# ───────────────────────────────────────────────
 # 1. Configuration
 # ───────────────────────────────────────────────
 API_KEY = os.getenv("API_KEY")
@@ -35,7 +41,6 @@ try:
     data = r.json()
 except requests.exceptions.RequestException as e:
     print(f"❌ Request failed: {e}")
-    # If response exists, print it for debugging
     if 'r' in locals() and r is not None:
         print(f"Response text: {r.text[:500]}")
     sys.exit(1)
@@ -47,7 +52,8 @@ results = data.get("results", [])
 print(f"✅ Data received. Found {len(results)} option contracts.")
 
 if not results:
-    print("⚠️ Warning: 'results' list is empty. Check market hours or symbol.")
+    print("⚠️ Warning: 'results' list is empty. Check market hours, symbol, or API permissions.")
+    # Exit gracefully so the pipeline doesn't 'fail', but no CSV is made.
     sys.exit(0)
 
 # ───────────────────────────────────────────────
@@ -62,11 +68,11 @@ for opt in results:
     oi      = opt.get("open_interest")
     gamma   = greeks.get("gamma")
     
-    # Safely get underlying price (handle potential missing nested dicts)
+    # Safely get underlying price
     under_asset = opt.get("underlying_asset")
     under = under_asset.get("price") if isinstance(under_asset, dict) else None
 
-    # Strict check: ensure all values are present and are numbers
+    # Strict check: ensure all values are present
     if all(v is not None for v in [strike, oi, gamma, under]):
         try:
             gex = float(gamma) * float(oi) * 100 * float(under)
@@ -79,7 +85,8 @@ print(f"Computed GEX for {len(rows)} valid strikes.")
 # ───────────────────────────────────────────────
 # 4. Save to CSV
 # ───────────────────────────────────────────────
-# Define columns explicitly to prevent KeyError if rows is empty
+# Define columns explicitly. This prevents the "KeyError: strike" 
+# if 'rows' is empty, because the DataFrame will still have the 'strike' column header.
 df = pd.DataFrame(rows, columns=["strike", "GEX"])
 
 if not df.empty:
@@ -88,12 +95,12 @@ if not df.empty:
     df.to_csv(filename, index=False)
     print(f"✅ {datetime.now()} Saved {filename} ({len(df)} rows)")
     
-    # Print preview
+    # Print preview for logs
     print("\nTop 5 Strikes by GEX:")
     print(df.nlargest(5, "GEX"))
 else:
-    print("⚠️ No valid GEX data computed. CSV was not created.")
-    # Debug: Print first raw result to see structure if logic failed
+    print("⚠️ No valid GEX data computed (DataFrame is empty). CSV was not created.")
+    # Debug: Print first raw result to see why parsing might have failed
     if results:
         print("\nDEBUG: Sample raw data (first item):")
         print(results[0])
