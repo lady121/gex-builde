@@ -4,7 +4,7 @@ permissions:
 
 on:
   schedule:
-    - cron: "30 1 * * *"  # 8:30 PM ET (after market close)
+    - cron: "30 1 * * *"
   workflow_dispatch:
 
 jobs:
@@ -25,13 +25,13 @@ jobs:
 
       - name: Run GEX builder
         env:
-          MARKETDATA_KEY: ${{ secrets.MARKETDATA_KEY }}
-        run: python gex_builder.py
+          FINNHUB_KEY: ${{ secrets.FINNHUB_KEY }}
+        run: python gex_builder_finnhub.py
 
       - name: Commit and push results
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
           git add *.csv || echo "No CSVs to add"
-          git commit -m "Auto-update GEX data" || echo "No changes to commit"
+          git commit -m "Auto-update Finnhub GEX data" || echo "No changes to commit"
           git push
