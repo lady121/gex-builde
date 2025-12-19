@@ -1,93 +1,88 @@
-# gex_builder.py
-# -------------------------------------------------------
-# MarketData.app GEX Builder (v5)
-# Uses /v1/options/quotes/{optionSymbol}/ endpoint
-# -------------------------------------------------------
-
 import os
-import time
 import requests
 import pandas as pd
 from datetime import datetime
+from time import sleep
 
-API_KEY = os.getenv("MARKETDATA_KEY")
-BASE = "https://api.marketdata.app/v1/options"
+# ==========================
+# MarketData GEX Builder (v5)
+# ==========================
 
-# Load tickers from tickers.txt
-TICKERS = []
-if os.path.exists("tickers.txt"):
-    with open("tickers.txt") as f:
-        TICKERS = [x.strip().upper() for x in f if x.strip()]
-else:
-    TICKERS = ["SPY", "QQQ", "NVDA"]
+API_KEY = os.getenv("MARKETDATA_KEY") or "YOUR_FALLBACK_KEY_HERE"
+BASE_URL = "https://api.marketdata.app/v1/options"
 
-print("🚀 Starting MarketData GEX Builder (v5 – quotes endpoint)")
+# Read tickers from tickers.txt
+with open("tickers.txt") as f:
+    TICKERS = [t.strip().upper() for t in f if t.strip()]
+
+print("🚀 Starting MarketData Multi-GEX Builder (v5)")
 print(f"Tickers: {', '.join(TICKERS)}")
-print(f"API key present: {'Yes' if API_KEY else 'No'}")
+print(f"API key present: {'Yes' if API_KEY else 'No'}\n")
 
-def fetch_chain(symbol):
-    """Return list of option contract symbols for the ticker."""
-    url = f"{BASE}/chain/{symbol}?token={API_KEY}"
-    r = requests.get(url, timeout=30)
-    if r.status_code not in (200, 203):
-        print(f"❌ Chain fail for {symbol}: {r.status_code}")
-        return []
-    data = r.json()
-    return data.get("optionSymbol", [])[:400]  # limit to 400 to respect rate limits
-
-def fetch_quote(option_symbol):
-    """Return option quote with greeks + OI."""
-    url = f"{BASE}/quotes/{option_symbol}?token={API_KEY}"
-    r = requests.get(url, timeout=15)
-    if r.status_code not in (200, 203):
+def get_option_chain(ticker):
+    url = f"{BASE_URL}/chain/{ticker}?token={API_KEY}"
+    r = requests.get(url)
+    if r.status_code != 200:
+        print(f"❌ Chain fetch failed for {ticker}: {r.status_code}")
         return None
-    return r.json()
 
-# -------------------------------------------------------
-# Main loop
-# -------------------------------------------------------
-for symbol in TICKERS:
-    print(f"\n📈 Processing {symbol}")
-    option_list = fetch_chain(symbol)
-    print(f"Found {len(option_list)} option symbols")
+    data = r.json()
+    if data.get("s") != "ok" or "optionSymbol" not in data:
+        print(f"⚠️ No valid chain data for {ticker}")
+        return None
+
+    return data["optionSymbol"]
+
+def get_option_quote(symbol):
+    url = f"{BASE_URL}/quotes/{symbol}?token={API_KEY}"
+    r = requests.get(url)
+    if r.status_code != 200:
+        return None
+    data = r.json()
+    if data.get("s") != "ok":
+        return None
+    return data.get("results", [{}])[0]
+
+def build_gex_for_ticker(ticker):
+    print(f"📈 Processing {ticker}")
+    symbols = get_option_chain(ticker)
+    if not symbols:
+        return pd.DataFrame()
 
     rows = []
-    for i, opt_sym in enumerate(option_list, start=1):
-        data = fetch_quote(opt_sym)
-        if not data:
-            continue
-
-        # Debug: print first 2 samples
-        if i <= 2:
-            print(f"🔍 Sample for {symbol}: {data}")
-
-        try:
-            strike = data.get("strike") or data.get("strikePrice")
-            oi = data.get("open_interest") or data.get("openInterest")
-            gamma = None
-            greeks = data.get("greeks")
-            if isinstance(greeks, dict):
-                gamma = greeks.get("gamma")
-            underlying = (
-                data.get("underlying_price")
-                or data.get("underlyingPrice")
-            )
-
-            if all([strike, oi, gamma, underlying]):
-                gex = gamma * oi * 100 * underlying
-                rows.append({"strike": strike, "GEX": gex})
-        except Exception as e:
-            print(f"⚠️ Error on {opt_sym}: {e}")
-
-        time.sleep(0.1)  # prevent API throttling
+    count = 0
+    for sym in symbols[:400]:  # limit for free/trial plans
+        q = get_option_quote(sym)
+        if q and "greeks" in q:
+            greeks = q["greeks"]
+            try:
+                rows.append({
+                    "symbol": sym,
+                    "strike": q.get("strike"),
+                    "gamma": greeks.get("gamma"),
+                    "open_interest": q.get("open_interest"),
+                    "last": q.get("last"),
+                })
+                count += 1
+            except Exception:
+                continue
+        sleep(0.05)  # small delay to avoid rate limits
 
     df = pd.DataFrame(rows)
-    if not df.empty:
-        df = df.sort_values("strike")
-        fname = f"{symbol}_GEX.csv"
-        df.to_csv(fname, index=False)
-        print(f"✅ Saved {fname} ({len(df)} strikes)")
-    else:
-        print(f"⚠️ No valid data for {symbol}")
+    if df.empty:
+        print(f"⚠️ No valid option data found for {ticker}\n")
+        return df
 
-print("\n🏁 Finished all tickers.")
+    df = df.sort_values("strike").reset_index(drop=True)
+    out_file = f"{ticker}_GEX_{datetime.now().strftime('%Y%m%d')}.csv"
+    df.to_csv(out_file, index=False)
+    print(f"✅ Saved {ticker} data → {out_file} ({len(df)} rows)\n")
+    return df
+
+def main():
+    for ticker in TICKERS:
+        build_gex_for_ticker(ticker)
+    print("🏁 Finished all tickers.")
+
+if __name__ == "__main__":
+    main()
