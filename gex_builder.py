@@ -1,115 +1,99 @@
-# gex_builder.py
-# ==================================================
-# MarketData.app GEX Builder (v6.1)
-# Builds strike-level GEX CSVs for all tickers in tickers.txt
-# and automatically writes the latest date into latest.txt
-# ==================================================
-
 import os
 import time
 import requests
 import pandas as pd
 from datetime import datetime
 
-API_KEY = os.getenv("MARKETDATA_KEY") or "YOUR_BACKUP_TOKEN"
-BASE_URL = "https://api.marketdata.app/v1/options"
+API_KEY = os.getenv("MARKETDATA_KEY")
+TICKERS = ["SPY", "QQQ", "NVDA", "BBAI", "RR", "BMNU"]
+BASE_URL = "https://api.marketdata.app/v1/options/chain/"
+HEADERS = {"User-Agent": "GEX-Builder/1.0"}
 
-# Load tickers
-if os.path.exists("tickers.txt"):
-    with open("tickers.txt") as f:
-        TICKERS = [t.strip().upper() for t in f if t.strip()]
-else:
-    TICKERS = ["SPY", "QQQ", "NVDA"]
+def fetch_option_chain(symbol, retries=3, delay=5):
+    """Fetch option chain data from MarketData with retry logic."""
+    for attempt in range(1, retries + 1):
+        try:
+            url = f"{BASE_URL}{symbol}?token={API_KEY}"
+            response = requests.get(url, headers=HEADERS, timeout=20)
+            if response.status_code == 200:
+                data = response.json()
+                if "optionSymbol" in data:
+                    print(f"✅ [{symbol}] Chain fetched successfully ({len(data['optionSymbol'])} symbols)")
+                    return data
+                else:
+                    print(f"⚠️ [{symbol}] No 'optionSymbol' in response.")
+                    return None
+            elif response.status_code == 203:
+                print(f"⚠️ [{symbol}] Access limited (203) – check plan permissions.")
+                return None
+            else:
+                print(f"⚠️ [{symbol}] HTTP {response.status_code}")
+        except Exception as e:
+            print(f"❌ [{symbol}] Attempt {attempt}/{retries} failed: {e}")
+        if attempt < retries:
+            wait = delay * attempt
+            print(f"🔁 Retrying {symbol} in {wait}s...")
+            time.sleep(wait)
+    print(f"🚫 [{symbol}] Failed after {retries} retries.")
+    return None
 
-print("🚀 Starting MarketData GEX Builder (v6.1)")
-print(f"Tickers: {', '.join(TICKERS)}")
-print(f"API key present: {'Yes' if API_KEY else 'No'}\n")
-
-def get_chain(symbol):
-    """Get the list of option contract symbols."""
-    url = f"{BASE_URL}/chain/{symbol}?token={API_KEY}"
-    r = requests.get(url, timeout=20)
-    if r.status_code not in (200, 203):
-        print(f"❌ Chain fetch failed for {symbol}: {r.status_code}")
-        return []
-    data = r.json()
-    if data.get("s") != "ok":
-        print(f"⚠️ No valid chain data for {symbol}")
-        return []
-    return data.get("optionSymbol", [])
-
-def get_quote(option_symbol):
-    """Get the quote for an individual option contract."""
-    url = f"{BASE_URL}/quotes/{option_symbol}?token={API_KEY}"
-    r = requests.get(url, timeout=15)
-    if r.status_code not in (200, 203):
-        return None
-    data = r.json()
-    if data.get("s") != "ok":
-        return None
-    return data
 
 def build_gex(symbol):
-    print(f"📈 Processing {symbol}")
-    chain = get_chain(symbol)
-    if not chain:
-        print(f"⚠️ No option symbols found for {symbol}")
+    """Build GEX dataframe for a given ticker."""
+    data = fetch_option_chain(symbol)
+    if not data or "optionSymbol" not in data:
+        print(f"⚠️ Skipping {symbol}: No data received.")
         return None
 
     rows = []
-    for i, opt in enumerate(chain[:400]):  # limit for speed & rate control
-        q = get_quote(opt)
-        if not q:
-            continue
-
+    for i, opt in enumerate(data["optionSymbol"]):
         try:
-            strike = q.get("strike", [None])[0] if isinstance(q.get("strike"), list) else q.get("strike")
-            gamma = q.get("gamma", [None])[0] if isinstance(q.get("gamma"), list) else q.get("gamma")
-            oi = q.get("openInterest", [None])[0] if isinstance(q.get("openInterest"), list) else q.get("openInterest")
-            underlying = q.get("underlyingPrice", [None])[0] if isinstance(q.get("underlyingPrice"), list) else q.get("underlyingPrice")
+            strike = data.get("strike", [])[i] if "strike" in data else None
+            gamma = data.get("gamma", [0])[i] if "gamma" in data else 0
+            oi = data.get("openInterest", [0])[i] if "openInterest" in data else 0
+            under = data.get("underlying", [symbol])[i] if "underlying" in data else symbol
+            gex = gamma * oi * 100 if gamma and oi else 0
+            if strike:
+                rows.append([strike, gamma, oi, under, gex])
+        except Exception as e:
+            print(f"⚠️ [{symbol}] Parsing error: {e}")
 
-            if all(v is not None for v in [strike, gamma, oi, underlying]):
-                gex = gamma * oi * 100 * underlying
-                rows.append({
-                    "strike": strike,
-                    "gamma": gamma,
-                    "oi": oi,
-                    "underlying": underlying,
-                    "GEX": gex
-                })
-        except Exception:
-            continue
-
-        if i % 25 == 0:
-            time.sleep(0.2)  # avoid throttling
-
-    df = pd.DataFrame(rows)
-    if df.empty:
-        print(f"⚠️ No valid GEX data for {symbol}")
+    if not rows:
+        print(f"⚠️ [{symbol}] No valid rows to save.")
         return None
 
-    df = df.sort_values("strike").reset_index(drop=True)
+    df = pd.DataFrame(rows, columns=["strike", "gamma", "oi", "underlying", "GEX"]).sort_values("strike")
     date_tag = datetime.now().strftime("%Y%m%d")
     fname = f"{symbol}_GEX_{date_tag}.csv"
     df.to_csv(fname, index=False)
-    print(f"✅ Saved {fname} ({len(df)} rows)")
+    print(f"💾 [{symbol}] Saved {fname} ({len(df)} rows)")
     return fname
 
 
-# ===========================
-# Main
-# ===========================
-generated_files = []
-for ticker in TICKERS:
-    result = build_gex(ticker)
-    if result:
-        generated_files.append(result)
+def main():
+    print("🚀 Starting MarketData Multi-GEX Builder (v6 Stable)")
+    if not API_KEY:
+        print("❌ Missing MARKETDATA_KEY environment variable.")
+        return
 
-# Write latest.txt for TradingView auto-fetch
-if generated_files:
-    latest_date = datetime.now().strftime("%Y%m%d")
-    with open("latest.txt", "w") as f:
-        f.write(latest_date)
-    print(f"🕒 Updated latest.txt with {latest_date}")
+    saved = []
+    for symbol in TICKERS:
+        print(f"\n📈 Processing {symbol}")
+        fname = build_gex(symbol)
+        if fname:
+            saved.append(fname)
 
-print("\n🏁 Finished all tickers.")
+    if saved:
+        latest_file = "latest.txt"
+        date_tag = datetime.now().strftime("%Y%m%d")
+        with open(latest_file, "w") as f:
+            f.write(date_tag)
+        print(f"🕒 Updated {latest_file} with {date_tag}")
+    else:
+        print("⚠️ No valid CSVs created.")
+
+    print("\n🏁 GEX Builder finished successfully.")
+
+
+if __name__ == "__main__":
+    main()
