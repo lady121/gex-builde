@@ -1,36 +1,38 @@
-name: Build GEX each night
+name: Build GEX Data
 
 on:
   schedule:
-    - cron: "0 1 * * *"  # every night at 1 AM UTC
-  workflow_dispatch:
+    - cron: "0 21 * * 1-5"  # Runs every weekday at 9 PM UTC (after market close)
+  workflow_dispatch:        # Allow manual runs too
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
-      - name: Checkout repo
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: 3.11
+          python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          pip install requests pandas
 
-      - name: Run GEX builder
+      - name: Run GEX Builder
         env:
           MARKETDATA_KEY: ${{ secrets.MARKETDATA_KEY }}
         run: python gex_builder.py
 
-      - name: Commit CSVs and latest.txt
+      - name: Create latest.txt file
+        run: echo $(date +'%Y%m%d') > latest.txt
+
+      - name: Commit generated files
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git add *.csv latest.txt || echo "No files to add"
-          git commit -m "Daily GEX update" || echo "No changes to commit"
-          git push || echo "Push skipped"
+          git add *.csv latest.txt || echo "No new files"
+          git commit -m "📈 Daily GEX update $(date)" || echo "No changes"
+          git push
