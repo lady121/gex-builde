@@ -1,7 +1,8 @@
 # gex_builder.py
 # ==================================================
-# MarketData.app GEX Builder (v6)
-# Uses /v1/options/chain + /v1/options/quotes
+# MarketData.app GEX Builder (v6.1)
+# Builds strike-level GEX CSVs for all tickers in tickers.txt
+# and automatically writes the latest date into latest.txt
 # ==================================================
 
 import os
@@ -20,7 +21,7 @@ if os.path.exists("tickers.txt"):
 else:
     TICKERS = ["SPY", "QQQ", "NVDA"]
 
-print("🚀 Starting MarketData GEX Builder (v6)")
+print("🚀 Starting MarketData GEX Builder (v6.1)")
 print(f"Tickers: {', '.join(TICKERS)}")
 print(f"API key present: {'Yes' if API_KEY else 'No'}\n")
 
@@ -69,7 +70,13 @@ def build_gex(symbol):
 
             if all(v is not None for v in [strike, gamma, oi, underlying]):
                 gex = gamma * oi * 100 * underlying
-                rows.append({"strike": strike, "gamma": gamma, "oi": oi, "underlying": underlying, "GEX": gex})
+                rows.append({
+                    "strike": strike,
+                    "gamma": gamma,
+                    "oi": oi,
+                    "underlying": underlying,
+                    "GEX": gex
+                })
         except Exception:
             continue
 
@@ -82,15 +89,27 @@ def build_gex(symbol):
         return None
 
     df = df.sort_values("strike").reset_index(drop=True)
-    fname = f"{symbol}_GEX_{datetime.now().strftime('%Y%m%d')}.csv"
+    date_tag = datetime.now().strftime("%Y%m%d")
+    fname = f"{symbol}_GEX_{date_tag}.csv"
     df.to_csv(fname, index=False)
     print(f"✅ Saved {fname} ({len(df)} rows)")
-    return df
+    return fname
+
 
 # ===========================
 # Main
 # ===========================
+generated_files = []
 for ticker in TICKERS:
-    build_gex(ticker)
+    result = build_gex(ticker)
+    if result:
+        generated_files.append(result)
+
+# Write latest.txt for TradingView auto-fetch
+if generated_files:
+    latest_date = datetime.now().strftime("%Y%m%d")
+    with open("latest.txt", "w") as f:
+        f.write(latest_date)
+    print(f"🕒 Updated latest.txt with {latest_date}")
 
 print("\n🏁 Finished all tickers.")
