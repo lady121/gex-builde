@@ -38,9 +38,8 @@ def fetch_option_chain(symbol):
         if r.status_code == 200:
             data = r.json()
             if "s" in data and data["s"] == "ok":
-                count = len(data.get("optionSymbol", []))
-                print(f"📊 {symbol}: {count} option contracts found.")
-                return data
+                print(f"📊 {symbol}: {len(data.get('optionSymbol', []))} contracts found.")
+                return data.get("optionSymbol", [])
             else:
                 print(f"⚠️ {symbol}: No option data returned (s=no_data).")
         else:
@@ -48,6 +47,35 @@ def fetch_option_chain(symbol):
     except Exception as e:
         print(f"❌ {symbol}: Exception fetching chain -> {e}")
     return None
+
+
+def build_gex_dataframe(symbol, contracts):
+    """Fetch Greeks for each contract and build dataframe"""
+    records = []
+    for opt_symbol in contracts[:100]:  # limit to 100 per run to avoid rate limits
+        g_url = f"{BASE_URL}/greeks/{opt_symbol}?token={MARKETDATA_TOKEN}"
+        try:
+            g = requests.get(g_url, timeout=10)
+            if g.status_code == 200:
+                greeks = g.json()
+                if "gamma" in greeks and "openInterest" in greeks:
+                    strike = greeks.get("strike")
+                    gamma = greeks.get("gamma")
+                    oi = greeks.get("openInterest")
+                    under = greeks.get("underlyingPrice", 0)
+                    gex_val = (gamma or 0) * (oi or 0) * 100
+                    if gex_val != 0:
+                        records.append([strike, gamma, oi, under, gex_val])
+            time.sleep(0.2)
+        except Exception as e:
+            print(f"⚠️ Error fetching greeks for {opt_symbol}: {e}")
+
+    if not records:
+        print(f"⚠️ {symbol}: No valid GEX data to save.")
+        return None
+
+    df = pd.DataFrame(records, columns=["strike", "gamma", "oi", "underlying", "GEX"])
+    return df
 
 # === COMPUTE GEX FROM OPTION CHAIN ===
 def build_gex_dataframe(symbol, chain_json):
@@ -113,3 +141,4 @@ def run_gex_builder():
 
 if __name__ == "__main__":
     run_gex_builder()
+
