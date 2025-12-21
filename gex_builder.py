@@ -2,13 +2,19 @@ import requests
 import pandas as pd
 import io
 import time
+import os
 from datetime import datetime
 
 # === CONFIGURATION ===
-MARKETDATA_TOKEN = "YOUR_MARKETDATA_API_KEY"  # replace with your token
+# Token comes from GitHub Secret
+MARKETDATA_TOKEN = os.getenv("MARKETDATA_TOKEN")  # Automatically set from GitHub Secrets
 BASE_URL = "https://api.marketdata.app/v1/options"
 OUTPUT_DIR = "."
+LOG_DIR = "logs"
 TICKER_FILE = "tickers.txt"
+
+# === Ensure log directory exists ===
+os.makedirs(LOG_DIR, exist_ok=True)
 
 # === LOAD TICKERS FROM FILE ===
 def load_tickers_from_file(filename=TICKER_FILE):
@@ -23,26 +29,28 @@ def load_tickers_from_file(filename=TICKER_FILE):
 
 # === FETCH OPTION DATA FOR A SINGLE TICKER ===
 def fetch_option_chain(symbol):
-    """Fetches full option chain from MarketData."""
+    if not MARKETDATA_TOKEN:
+        print("❌ No MarketData token found! Please add it as a GitHub secret named MARKETDATA_TOKEN.")
+        return None
     url = f"{BASE_URL}/chain/{symbol}?token={MARKETDATA_TOKEN}"
     try:
-        r = requests.get(url)
+        r = requests.get(url, timeout=20)
         if r.status_code == 200:
             data = r.json()
             if "s" in data and data["s"] == "ok":
-                print(f"📊 {symbol}: {len(data.get('optionSymbol', []))} contracts found")
+                count = len(data.get("optionSymbol", []))
+                print(f"📊 {symbol}: {count} option contracts found.")
                 return data
             else:
-                print(f"⚠️ {symbol}: No option data available (s=no_data)")
+                print(f"⚠️ {symbol}: No option data returned (s=no_data).")
         else:
-            print(f"⚠️ {symbol}: HTTP {r.status_code}")
+            print(f"⚠️ {symbol}: HTTP {r.status_code}.")
     except Exception as e:
         print(f"❌ {symbol}: Exception fetching chain -> {e}")
     return None
 
 # === COMPUTE GEX FROM OPTION CHAIN ===
 def build_gex_dataframe(symbol, chain_json):
-    """Converts MarketData JSON into a clean DataFrame with GEX columns."""
     try:
         df = pd.DataFrame({
             "strike": chain_json.get("strike", []),
@@ -50,7 +58,7 @@ def build_gex_dataframe(symbol, chain_json):
             "oi": chain_json.get("openInterest", []),
             "underlying": chain_json.get("underlyingPrice", []),
         })
-        df["GEX"] = df["gamma"] * df["oi"] * 100  # approximate gamma exposure
+        df["GEX"] = df["gamma"] * df["oi"] * 100
         df = df.dropna()
         if df.empty:
             print(f"⚠️ {symbol}: No valid GEX data to save.")
@@ -62,7 +70,6 @@ def build_gex_dataframe(symbol, chain_json):
 
 # === SAVE CSV ===
 def save_csv(symbol, df):
-    """Saves the GEX data to CSV with today’s date."""
     date_str = datetime.utcnow().strftime("%Y%m%d")
     filename = f"{OUTPUT_DIR}/{symbol}_GEX_{date_str}.csv"
     try:
@@ -73,9 +80,8 @@ def save_csv(symbol, df):
         print(f"❌ Failed to save {symbol}: {e}")
         return False
 
-# === WRITE latest.txt FOR GITHUB INDICATOR ===
+# === WRITE latest.txt ===
 def update_latest_file():
-    """Writes current date into latest.txt for downstream scripts."""
     date_str = datetime.utcnow().strftime("%Y%m%d")
     try:
         with open(f"{OUTPUT_DIR}/latest.txt", "w") as f:
@@ -100,7 +106,7 @@ def run_gex_builder():
             continue
 
         save_csv(symbol, df)
-        time.sleep(0.5)  # avoid rate limits
+        time.sleep(0.5)
 
     update_latest_file()
     print("\n🏁 Finished all tickers.")
