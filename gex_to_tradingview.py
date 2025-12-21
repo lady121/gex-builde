@@ -13,7 +13,6 @@ OUTPUT_FILE = "GEX_Master_Indicator.pine"
 
 # === AUTO-DETECT TICKERS ===
 def get_all_tickers_from_repo(repo_api_url):
-    """Scans GitHub repo for *_GEX_YYYYMMDD.csv files and extracts tickers automatically."""
     tickers = set()
     try:
         resp = requests.get(repo_api_url)
@@ -29,7 +28,6 @@ def get_all_tickers_from_repo(repo_api_url):
     return sorted(list(tickers))
 
 def fetch_data_for_symbol(symbol, repo):
-    """Fetches GEX data for one ticker."""
     print(f"--- Processing {symbol} ---")
     try:
         latest_url = f"{BASE_GITHUB_URL}/{repo}/main/latest.txt"
@@ -149,15 +147,16 @@ if barstate.islast
 
     print(f"\n✅ SUCCESS! File created: {OUTPUT_FILE}")
 
-    # === AUTO COMMIT SECTION ===
     if os.getenv("GITHUB_ACTIONS") == "true":
         print("🔄 Running in GitHub Actions, committing file...")
-        subprocess.run(["git", "config", "user.name", "github-actions"], check=True)
-        subprocess.run(["git", "config", "user.email", "actions@github.com"], check=True)
-        subprocess.run(["git", "add", OUTPUT_FILE], check=True)
-        subprocess.run(["git", "commit", "-m", f"Auto-update Pine script for {first_date}"], check=True)
-        subprocess.run(["git", "push"], check=True)
-        print("✅ File committed & pushed to repo!")
+        subprocess.run(["git", "config", "user.name", "github-actions"])
+        subprocess.run(["git", "config", "user.email", "actions@github.com"])
+        subprocess.run(["git", "add", "-A"])
+        result = subprocess.run(["git", "commit", "-m", f"Auto-update Pine script for {first_date}"])
+        if result.returncode != 0:
+            print("ℹ️ No new changes to commit.")
+        subprocess.run(["git", "push"])
+        print("✅ Git push complete.")
 
 if __name__ == "__main__":
     generate_master_pine_script(REPO_PATH)
