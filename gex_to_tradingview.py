@@ -1,92 +1,94 @@
 import requests
 import pandas as pd
 import io
-import re
 import os
 import subprocess
 
 # === CONFIGURATION ===
 REPO_PATH = "lady121/gex-builde"
 BASE_GITHUB_URL = "https://raw.githubusercontent.com"
-GITHUB_API_URL = f"https://api.github.com/repos/{REPO_PATH}/contents"
-OUTPUT_FILE = "GEX_Master_Indicator.pine"
 
-# === AUTO-DETECT TICKERS ===
-def get_all_tickers_from_repo(repo_api_url):
-    tickers = set()
-    try:
-        resp = requests.get(repo_api_url)
-        resp.raise_for_status()
-        files = resp.json()
-        for file in files:
-            name = file["name"]
-            match = re.match(r"([A-Z]+)_GEX_\d{8}\.csv", name)
-            if match:
-                tickers.add(match.group(1))
-    except Exception as e:
-        print(f"[!] Failed to auto-detect tickers: {e}")
-    return sorted(list(tickers))
+def load_tickers():
+    """Load tickers from tickers.txt dynamically"""
+    if not os.path.exists("tickers.txt"):
+        print("❌ No tickers.txt found.")
+        return []
+    with open("tickers.txt", "r") as f:
+        tickers = [line.strip().upper() for line in f if line.strip()]
+    print(f"✅ Loaded tickers: {', '.join(tickers)}")
+    return tickers
 
 def fetch_data_for_symbol(symbol, repo):
-    print(f"--- Processing {symbol} ---")
+    """Fetch GEX data for one ticker"""
     try:
+        # Get latest date from repo
         latest_url = f"{BASE_GITHUB_URL}/{repo}/main/latest.txt"
-        file_date = requests.get(latest_url).text.strip()
+        date_resp = requests.get(latest_url)
+        date_resp.raise_for_status()
+        file_date = date_resp.text.strip().replace("\n", "")
     except Exception as e:
-        print(f"  [X] Error fetching date for {symbol}: {e}")
+        print(f"❌ {symbol}: Failed to fetch date → {e}")
         return None, None
 
     try:
         csv_url = f"{BASE_GITHUB_URL}/{repo}/main/{symbol}_GEX_{file_date}.csv"
         csv_resp = requests.get(csv_url)
         csv_resp.raise_for_status()
-        df = pd.read_csv(io.StringIO(csv_resp.text), header=None)
+        df = pd.read_csv(io.StringIO(csv_resp.text))
+
+        # Clean & prepare data
         df_clean = pd.DataFrame({
-            "strike": pd.to_numeric(df[0], errors="coerce"),
-            "gex": pd.to_numeric(df[4], errors="coerce")
+            "strike": pd.to_numeric(df.iloc[:, 0], errors="coerce"),
+            "gex": pd.to_numeric(df.iloc[:, 4], errors="coerce"),
         }).dropna()
         df_clean = df_clean.sort_values(by="strike")
-        print(f"  [OK] {symbol}: {len(df_clean)} levels loaded.")
+
+        print(f"✅ {symbol}: {len(df_clean)} GEX records loaded.")
         return file_date, df_clean
+
     except Exception as e:
-        print(f"  [X] Failed to fetch or parse CSV for {symbol}: {e}")
+        print(f"⚠️ {symbol}: Could not fetch or parse CSV ({e})")
         return None, None
 
 def generate_master_pine_script(repo):
-    print("\n=== STARTING AUTO-GEX MASTER GENERATION ===")
-    symbols = get_all_tickers_from_repo(GITHUB_API_URL)
+    print("=== STARTING AUTO-GEX MASTER GENERATION ===")
+    symbols = load_tickers()
     if not symbols:
-        print("[!] No tickers found in repo.")
+        print("❌ No tickers found. Exiting.")
         return
-
-    print(f"Detected tickers: {', '.join(symbols)}")
 
     pine_data_blocks = ""
     first_date = ""
-    valid_syms = []
+    successful_symbols = []
 
     for sym in symbols:
         file_date, df = fetch_data_for_symbol(sym, repo)
         if df is not None and not df.empty:
             if not first_date:
                 first_date = file_date
+
             s_list = [str(round(x, 2)) for x in df["strike"].tolist()]
             g_list = [str(int(x)) for x in df["gex"].tolist()]
+
+            s_str = ", ".join(s_list)
+            g_str = ", ".join(g_list)
+
             block = f"""
     if sym == "{sym}"
-        s := array.from({', '.join(s_list)})
-        g := array.from({', '.join(g_list)})
+        s := array.from({s_str})
+        g := array.from({g_str})
 """
             pine_data_blocks += block
-            valid_syms.append(sym)
+            successful_symbols.append(sym)
 
-    if not valid_syms:
-        print("[!] No valid symbols had data.")
+    if not successful_symbols:
+        print("❌ No valid GEX data found for any symbols. Aborting.")
         return
 
-    print(f"Building Pine Script for: {', '.join(valid_syms)}")
+    print(f"✅ Building Pine Script for: {', '.join(successful_symbols)}")
 
-    pine_code = f"""//V6
+    # === Build Final Pine Script ===
+    pine_code = f"""//@version=6
 indicator("GEX Master Auto: {first_date}", overlay=true, max_boxes_count=500, max_labels_count=500)
 
 // === SETTINGS ===
@@ -100,7 +102,7 @@ load_data() =>
     float[] s = array.new_float(0)
     float[] g = array.new_float(0)
     // -- AUTO-GENERATED DATA BLOCKS START --
-    {pine_data_blocks}
+{pine_data_blocks}
     // -- AUTO-GENERATED DATA BLOCKS END --
     [s, g]
 
@@ -110,53 +112,60 @@ if barstate.islast
     if array.size(strikes) > 0
         float max_gex = 0.0
         float total_gex = 0.0
+
         for i = 0 to array.size(gex_vals) - 1
             val = array.get(gex_vals, i)
             total_gex += val
             if math.abs(val) > max_gex
                 max_gex := math.abs(val)
 
+        // === Improved Gamma Visualization ===
         for i = 0 to array.size(strikes) - 1
             s_price = array.get(strikes, i)
             g_val = array.get(gex_vals, i)
-            float len_norm = max_gex > 0 ? (math.abs(g_val) / max_gex) * (50 * width_scale) : 0
-            col = g_val > 0 ? color.new(color.green, 40) : color.new(color.red, 40)
-            border_col = g_val > 0 ? color.green : color.red
-            float box_height = (s_price * 0.0005)
-            box.new(bar_index + 5, s_price + box_height, bar_index + 5 + math.round(len_norm), s_price - box_height,
-                    border_color=border_col, bgcolor=col)
-            if math.abs(g_val) > text_size_threshold
-                label.new(bar_index + 5 + math.round(len_norm), s_price,
-                    str.tostring(math.round(g_val / 1000000)) + "M",
-                    style=label.style_none, textcolor=border_col, size=size.small)
 
+            float len_norm = max_gex > 0 ? (math.abs(g_val) / max_gex) * (100 * width_scale) : 0
+            color bar_color = g_val > 0 ? color.new(color.green, 0) : color.new(color.red, 0)
+            color label_color = g_val > 0 ? color.green : color.red
+
+            // Draw line for each strike (horizontal gamma wall)
+            line.new(bar_index - 5, s_price, bar_index + 20, s_price, color=bar_color, width=2, extend=extend.none)
+
+            // Label for each strike showing price + notional
+            string txt = "Strike: " + str.tostring(s_price) + "\\n" + str.tostring(math.round(g_val / 1000000)) + "M"
+            label.new(bar_index + 25, s_price, txt, style=label.style_label_left,
+                      textcolor=color.white, bgcolor=color.new(label_color, 60), size=size.tiny)
+
+        // === Dashboard Summary ===
         if show_dashboard
             string regime = total_gex > 0 ? "Short Vol (Pos GEX)" : "Long Vol (Neg GEX)"
             color reg_col = total_gex > 0 ? color.green : color.red
             var table dash = table.new(position.top_right, 1, 1)
-            table.cell(dash, 0, 0, syminfo.ticker + " GEX: " +
-                str.tostring(math.round(total_gex/1000000)) + "M\\n" + regime + "\\nDate: {first_date}",
+            table.cell(dash, 0, 0,
+                syminfo.ticker + " GEX: " + str.tostring(math.round(total_gex/1000000)) +
+                "M\\n" + regime + "\\nDate: {first_date}",
                 bgcolor=color.new(reg_col, 80), text_color=color.white)
     else
         var table err = table.new(position.bottom_right, 1, 1)
-        table.cell(err, 0, 0, "No GEX Data for " + syminfo.ticker, bgcolor=color.gray, text_color=color.white)
+        table.cell(err, 0, 0, "No GEX Data for " + syminfo.ticker,
+                   bgcolor=color.gray, text_color=color.white)
 """
 
-    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
+    filename = "GEX_Master_Indicator.pine"
+    with open(filename, "w") as f:
         f.write(pine_code)
 
-    print(f"\n✅ SUCCESS! File created: {OUTPUT_FILE}")
+    print(f"✅ SUCCESS! File created: {filename}")
 
-    if os.getenv("GITHUB_ACTIONS") == "true":
-        print("🔄 Running in GitHub Actions, committing file...")
-        subprocess.run(["git", "config", "user.name", "github-actions"])
-        subprocess.run(["git", "config", "user.email", "actions@github.com"])
-        subprocess.run(["git", "add", "-A"])
-        result = subprocess.run(["git", "commit", "-m", f"Auto-update Pine script for {first_date}"])
-        if result.returncode != 0:
-            print("ℹ️ No new changes to commit.")
-        subprocess.run(["git", "push"])
-        print("✅ Git push complete.")
+    # Auto commit if on GitHub Actions
+    if os.getenv("GITHUB_ACTIONS"):
+        try:
+            print("🔄 Running in GitHub Actions, committing file...")
+            subprocess.run(["git", "add", filename], check=False)
+            subprocess.run(["git", "commit", "-m", f"Auto-update Pine script for {first_date}"], check=False)
+            subprocess.run(["git", "push"], check=False)
+        except Exception as e:
+            print(f"⚠️ Commit skipped: {e}")
 
 if __name__ == "__main__":
     generate_master_pine_script(REPO_PATH)
