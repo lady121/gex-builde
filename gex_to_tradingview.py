@@ -134,7 +134,7 @@ if barstate.islast
             // Label for each strike showing price + notional
             string txt = "Strike: " + str.tostring(s_price) + "\\n" + str.tostring(math.round(g_val / 1000000)) + "M"
             label.new(bar_index + 25, s_price, txt, style=label.style_label_left,
-                      textcolor=color.white, bgcolor=color.new(label_color, 60), size=size.tiny)
+                      textcolor=color.white, color=color.new(label_color, 60), size=size.tiny)
 
         // === Dashboard Summary ===
         if show_dashboard
@@ -157,7 +157,7 @@ if barstate.islast
 
     print(f"✅ SUCCESS! File created: {filename}")
 
-    # Auto commit if on GitHub Actions
+    # Auto commit if running in GitHub Actions
     if os.getenv("GITHUB_ACTIONS"):
         try:
             print("🔄 Running in GitHub Actions, committing file...")
