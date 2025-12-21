@@ -2,17 +2,17 @@ name: Auto Build GEX Master Pine
 
 on:
   schedule:
-    - cron: "0 22 * * 1-5"  # Runs every weekday at 10 PM UTC
+    - cron: "0 22 * * 1-5"  # Every weekday at 10 PM UTC
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      # 1️⃣ Pull latest repo
+      # 1️⃣ Checkout repository
       - uses: actions/checkout@v4
 
-      # 2️⃣ Setup Python
+      # 2️⃣ Set up Python
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -22,15 +22,14 @@ jobs:
       - name: Install dependencies
         run: pip install pandas requests
 
-      # 4️⃣ Run your Python generator
+      # 4️⃣ Run Python generator
       - name: Generate Pine Script
         run: python gex_to_tradingview.py
 
-      # 5️⃣ Commit and push the Pine file (Option B fix)
+      # 5️⃣ Commit & push (silences 'nothing to commit' errors)
       - name: Commit updated Pine script
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
           git add -A
-          git commit -m "Auto-update GEX Master Pine $(date)" || echo "ℹ️ No new changes to commit"
-          git push || echo "ℹ️ Nothing new to push (no GEX data change)"
+          git diff --quiet && echo "ℹ️ No changes to commit." || (git commit -m "Auto-update GEX Master Pine $(date)" && git push)
