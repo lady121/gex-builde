@@ -1,115 +1,125 @@
-# gex_builder.py
-# ==================================================
-# MarketData.app GEX Builder (v6.1)
-# Builds strike-level GEX CSVs for all tickers in tickers.txt
-# and automatically writes the latest date into latest.txt
-# ==================================================
-
-import os
-import time
 import requests
 import pandas as pd
+import concurrent.futures
+import os
+import time
 from datetime import datetime
 
-API_KEY = os.getenv("MARKETDATA_KEY") or "YOUR_BACKUP_TOKEN"
+# === CONFIGURATION ===
+MARKETDATA_TOKEN = os.getenv("MARKETDATA_TOKEN")  # read from GitHub Secrets
 BASE_URL = "https://api.marketdata.app/v1/options"
+OUTPUT_DIR = "."
+LOG_DIR = "logs"
+TICKER_FILE = "tickers.txt"
+MAX_CONTRACTS = 100  # per ticker to avoid rate limits
+THREADS = 10         # concurrent requests for Greeks
 
-# Load tickers
-if os.path.exists("tickers.txt"):
-    with open("tickers.txt") as f:
-        TICKERS = [t.strip().upper() for t in f if t.strip()]
-else:
-    TICKERS = ["SPY", "QQQ", "NVDA"]
+os.makedirs(LOG_DIR, exist_ok=True)
 
-print("🚀 Starting MarketData GEX Builder (v6.1)")
-print(f"Tickers: {', '.join(TICKERS)}")
-print(f"API key present: {'Yes' if API_KEY else 'No'}\n")
+# === LOAD TICKERS FROM FILE ===
+def load_tickers_from_file(filename=TICKER_FILE):
+    try:
+        with open(filename, "r") as f:
+            tickers = [line.strip().upper() for line in f if line.strip()]
+        print(f"✅ Loaded {len(tickers)} tickers from {filename}: {', '.join(tickers)}")
+        return tickers
+    except Exception as e:
+        print(f"⚠️ Could not load {filename}, using fallback list. Error: {e}")
+        return ["SPY", "QQQ", "NVDA"]
 
-def get_chain(symbol):
-    """Get the list of option contract symbols."""
-    url = f"{BASE_URL}/chain/{symbol}?token={API_KEY}"
-    r = requests.get(url, timeout=20)
-    if r.status_code not in (200, 203):
-        print(f"❌ Chain fetch failed for {symbol}: {r.status_code}")
-        return []
-    data = r.json()
-    if data.get("s") != "ok":
-        print(f"⚠️ No valid chain data for {symbol}")
-        return []
-    return data.get("optionSymbol", [])
-
-def get_quote(option_symbol):
-    """Get the quote for an individual option contract."""
-    url = f"{BASE_URL}/quotes/{option_symbol}?token={API_KEY}"
-    r = requests.get(url, timeout=15)
-    if r.status_code not in (200, 203):
+# === FETCH OPTION CHAIN ===
+def fetch_option_chain(symbol):
+    if not MARKETDATA_TOKEN:
+        print("❌ No MarketData token found! Add it as a GitHub secret named MARKETDATA_TOKEN.")
         return None
-    data = r.json()
-    if data.get("s") != "ok":
-        return None
-    return data
+    url = f"{BASE_URL}/chain/{symbol}?token={MARKETDATA_TOKEN}"
+    try:
+        r = requests.get(url, timeout=20)
+        if r.status_code == 200:
+            data = r.json()
+            if "s" in data and data["s"] == "ok":
+                contracts = data.get("optionSymbol", [])[:MAX_CONTRACTS]
+                print(f"📊 {symbol}: {len(contracts)} contracts fetched.")
+                return contracts
+            else:
+                print(f"⚠️ {symbol}: No data returned (s=no_data).")
+        else:
+            print(f"⚠️ {symbol}: HTTP {r.status_code}.")
+    except Exception as e:
+        print(f"❌ {symbol}: Error fetching chain -> {e}")
+    return None
 
-def build_gex(symbol):
-    print(f"📈 Processing {symbol}")
-    chain = get_chain(symbol)
-    if not chain:
-        print(f"⚠️ No option symbols found for {symbol}")
-        return None
+# === FETCH GREEKS FOR ONE CONTRACT ===
+def fetch_greeks(contract):
+    g_url = f"{BASE_URL}/greeks/{contract}?token={MARKETDATA_TOKEN}"
+    try:
+        g = requests.get(g_url, timeout=10)
+        if g.status_code == 200:
+            j = g.json()
+            strike = j.get("strike")
+            gamma = j.get("gamma", 0)
+            oi = j.get("openInterest", 0)
+            under = j.get("underlyingPrice", 0)
+            gex_val = (gamma or 0) * (oi or 0) * 100
+            if gex_val != 0:
+                return [strike, gamma, oi, under, gex_val]
+    except Exception as e:
+        print(f"⚠️ Error fetching {contract}: {e}")
+    return None
 
-    rows = []
-    for i, opt in enumerate(chain[:400]):  # limit for speed & rate control
-        q = get_quote(opt)
-        if not q:
+# === BUILD GEX DATAFRAME ===
+def build_gex_dataframe(symbol, contracts):
+    print(f"🔍 Fetching Greeks for {symbol} ({len(contracts)} contracts)...")
+    records = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=THREADS) as executor:
+        for res in executor.map(fetch_greeks, contracts):
+            if res:
+                records.append(res)
+            time.sleep(0.05)
+    if not records:
+        print(f"⚠️ {symbol}: No valid GEX records.")
+        return None
+    df = pd.DataFrame(records, columns=["strike", "gamma", "oi", "underlying", "GEX"])
+    return df.sort_values("strike")
+
+# === SAVE CSV ===
+def save_csv(symbol, df):
+    date_str = datetime.utcnow().strftime("%Y%m%d")
+    filename = f"{OUTPUT_DIR}/{symbol}_GEX_{date_str}.csv"
+    try:
+        df.to_csv(filename, index=False, header=False)
+        print(f"✅ Saved {symbol} → {filename} ({len(df)} rows)")
+        return True
+    except Exception as e:
+        print(f"❌ Failed to save {symbol}: {e}")
+        return False
+
+# === WRITE LATEST.TXT ===
+def update_latest_file():
+    date_str = datetime.utcnow().strftime("%Y%m%d")
+    try:
+        with open(f"{OUTPUT_DIR}/latest.txt", "w") as f:
+            f.write(date_str)
+        print(f"🕒 Updated latest.txt → {date_str}")
+    except Exception as e:
+        print(f"⚠️ Failed to update latest.txt: {e}")
+
+# === MAIN BUILDER ===
+def run_gex_builder():
+    print("🚀 Starting MarketData GEX Builder (Multithreaded Mode)")
+    tickers = load_tickers_from_file()
+    for symbol in tickers:
+        print(f"\n📈 Processing {symbol}")
+        contracts = fetch_option_chain(symbol)
+        if not contracts:
             continue
-
-        try:
-            strike = q.get("strike", [None])[0] if isinstance(q.get("strike"), list) else q.get("strike")
-            gamma = q.get("gamma", [None])[0] if isinstance(q.get("gamma"), list) else q.get("gamma")
-            oi = q.get("openInterest", [None])[0] if isinstance(q.get("openInterest"), list) else q.get("openInterest")
-            underlying = q.get("underlyingPrice", [None])[0] if isinstance(q.get("underlyingPrice"), list) else q.get("underlyingPrice")
-
-            if all(v is not None for v in [strike, gamma, oi, underlying]):
-                gex = gamma * oi * 100 * underlying
-                rows.append({
-                    "strike": strike,
-                    "gamma": gamma,
-                    "oi": oi,
-                    "underlying": underlying,
-                    "GEX": gex
-                })
-        except Exception:
+        df = build_gex_dataframe(symbol, contracts)
+        if df is None or df.empty:
             continue
+        save_csv(symbol, df)
+        time.sleep(0.5)
+    update_latest_file()
+    print("\n🏁 Finished all tickers.")
 
-        if i % 25 == 0:
-            time.sleep(0.2)  # avoid throttling
-
-    df = pd.DataFrame(rows)
-    if df.empty:
-        print(f"⚠️ No valid GEX data for {symbol}")
-        return None
-
-    df = df.sort_values("strike").reset_index(drop=True)
-    date_tag = datetime.now().strftime("%Y%m%d")
-    fname = f"{symbol}_GEX_{date_tag}.csv"
-    df.to_csv(fname, index=False)
-    print(f"✅ Saved {fname} ({len(df)} rows)")
-    return fname
-
-
-# ===========================
-# Main
-# ===========================
-generated_files = []
-for ticker in TICKERS:
-    result = build_gex(ticker)
-    if result:
-        generated_files.append(result)
-
-# Write latest.txt for TradingView auto-fetch
-if generated_files:
-    latest_date = datetime.now().strftime("%Y%m%d")
-    with open("latest.txt", "w") as f:
-        f.write(latest_date)
-    print(f"🕒 Updated latest.txt with {latest_date}")
-
-print("\n🏁 Finished all tickers.")
+if __name__ == "__main__":
+    run_gex_builder()
