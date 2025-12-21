@@ -9,18 +9,28 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      # 1️⃣ Pull latest repo
       - uses: actions/checkout@v4
+
+      # 2️⃣ Setup Python
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install pandas requests
+
+      # 3️⃣ Install dependencies
+      - name: Install dependencies
+        run: pip install pandas requests
+
+      # 4️⃣ Run your Python generator
       - name: Generate Pine Script
         run: python gex_to_tradingview.py
+
+      # 5️⃣ Commit and push the Pine file (Option B fix)
       - name: Commit updated Pine script
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git add GEX_Master_Indicator.pine
-          git commit -m "Auto-update GEX Master Pine"
-          git push
+          git add -A
+          git commit -m "Auto-update GEX Master Pine $(date)" || echo "ℹ️ No new changes to commit"
+          git push || echo "ℹ️ Nothing new to push (no GEX data change)"
