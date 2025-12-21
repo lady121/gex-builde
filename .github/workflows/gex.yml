@@ -1,25 +1,40 @@
-name: Build GEX Master Pine
+name: Build Daily GEX CSVs
+
 on:
   schedule:
-    - cron: "0 22 * * 1-5"   # every weekday at 10 PM UTC
-  workflow_dispatch:
+    # Run once daily after market close (10:30 PM UTC = 5:30 PM ET)
+    - cron: "30 22 * * 1-5"
+  workflow_dispatch:  # allows you to run it manually
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install pandas requests
-      - name: Generate Master Pine
-        run: python gex_to_tradingview.py
-      - name: Commit updated Pine
+
+      - name: Install dependencies
+        run: |
+          pip install pandas requests
+
+      - name: Run GEX Builder
+        env:
+          MARKETDATA_TOKEN: ${{ secrets.MARKETDATA_TOKEN }}
+        run: |
+          echo "=== Starting Daily GEX Builder ==="
+          mkdir -p logs
+          python gex_builder.py > logs/gex_builder_$(date +'%Y%m%d_%H%M').log 2>&1 || true
+
+      - name: Commit CSV updates if changed
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git add GEX_Master_Indicator.pine
-          git commit -m "Auto-update GEX Pine $(date)"
+          git add -A
+          git diff --cached --quiet && echo "ℹ️ No changes to commit." && exit 0
+          git commit -m "Daily GEX CSV update $(date)"
           git push
