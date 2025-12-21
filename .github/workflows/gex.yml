@@ -1,39 +1,54 @@
-name: Build Daily GEX CSVs
+name: Build Daily GEX CSVs (Stable Original Mode)
 
 on:
   schedule:
-    - cron: "30 22 * * 1-5"   # runs after market close
-  workflow_dispatch:
+    # Run every weekday after market close (10:30 PM UTC = 5:30 PM ET)
+    - cron: "30 22 * * 1-5"
+  workflow_dispatch:  # allows manual runs
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    permissions:
+      contents: write   # allows workflow to push commits to repo
 
-      - name: Set up Python
+    steps:
+      - name: 🧭 Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # fetch entire history for proper commits
+
+      - name: 🐍 Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
+      - name: 📦 Install dependencies
         run: |
           pip install pandas requests
 
-      - name: Run GEX Builder
+      - name: ⚙️ Run GEX Builder
         env:
           MARKETDATA_TOKEN: ${{ secrets.MARKETDATA_TOKEN }}
         run: |
-          echo "=== RUNNING DAILY GEX BUILDER ==="
+          echo "=== RUNNING GEX BUILDER ==="
           mkdir -p logs
-          python gex_builder.py > logs/gex_builder_$(date +'%Y%m%d_%H%M').log 2>&1 || true
+          python gex_builder.py > logs/gex_builder_$(date +'%Y%m%d_%H%M').log 2>&1
+          echo "=== GEX BUILDER COMPLETE ==="
 
-      - name: Commit CSV updates if changed
+      - name: 🧹 Commit & Push CSV Updates
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git add -A
-          git diff --cached --quiet && echo "ℹ️ No changes to commit." && exit 0
-          git commit -m "Daily GEX CSV update $(date)"
-          git push
+
+          # Add only relevant files
+          git add *.csv latest.txt logs/
+
+          # If there are changes, commit and push
+          if git diff --cached --quiet; then
+            echo "ℹ️ No new data to commit."
+          else
+            git commit -m "Daily GEX CSV update $(date)"
+            git push
+            echo "✅ Changes committed and pushed."
+          fi
