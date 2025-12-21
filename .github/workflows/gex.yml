@@ -2,9 +2,8 @@ name: Build Daily GEX CSVs
 
 on:
   schedule:
-    # Run once daily after market close (10:30 PM UTC = 5:30 PM ET)
-    - cron: "30 22 * * 1-5"
-  workflow_dispatch:  # allows you to run it manually
+    - cron: "30 22 * * 1-5"   # runs after market close
+  workflow_dispatch:
 
 jobs:
   build:
@@ -26,7 +25,7 @@ jobs:
         env:
           MARKETDATA_TOKEN: ${{ secrets.MARKETDATA_TOKEN }}
         run: |
-          echo "=== Starting Daily GEX Builder ==="
+          echo "=== RUNNING DAILY GEX BUILDER ==="
           mkdir -p logs
           python gex_builder.py > logs/gex_builder_$(date +'%Y%m%d_%H%M').log 2>&1 || true
 
