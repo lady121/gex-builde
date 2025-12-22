@@ -51,7 +51,7 @@ def fetch_data_for_symbol(symbol, repo):
         return None, None
 
 def generate_master_pine_script(repo):
-    print("=== STARTING AUTO-GEX MASTER GENERATION (V3) ===")
+    print("=== STARTING AUTO-GEX MASTER GENERATION (V4) ===")
     symbols = load_tickers()
     if not symbols:
         print("❌ No tickers found. Exiting.")
@@ -87,13 +87,12 @@ def generate_master_pine_script(repo):
 
     print(f"✅ Building Pine Script for: {', '.join(successful_symbols)}")
 
-    # === Build Final Pine Script (V3 Fixes) ===
-    # 1. Title updated to V3
-    # 2. Uses extend=extend.right for infinite rays (prevents floating)
-    # 3. Uses yloc=yloc.price for labels (prevents floating)
+    # === Build Final Pine Script (V4 Fixes) ===
+    # 1. extend=extend.both: Makes lines infinite horizontal rails (fixes 'following' issue).
+    # 2. 3-Way Staggering: Shifts labels to 3 different positions to stop overlapping.
     
     pine_code = f"""//@version=6
-indicator("GEX Master Auto V3: {first_date}", overlay=true, max_lines_count=500, max_labels_count=500, max_boxes_count=500)
+indicator("GEX Master Auto V4: {first_date}", overlay=true, max_lines_count=500, max_labels_count=500, max_boxes_count=500)
 
 // === SETTINGS ===
 var float width_scale = input.float(0.5, "Bar Width Scale", minval=0.1, step=0.1)
@@ -117,7 +116,6 @@ load_data() =>
 // === MAIN LOGIC ===
 if barstate.islast
     // 1. CLEAR OLD DRAWINGS
-    // Essential for keeping chart clean when data updates
     while array.size(drawn_lines) > 0
         line.delete(array.pop(drawn_lines))
     while array.size(drawn_labels) > 0
@@ -145,24 +143,28 @@ if barstate.islast
             color bar_color = g_val > 0 ? color.new(color.green, 0) : color.new(color.red, 0)
             color label_color = g_val > 0 ? color.green : color.red
             
-            // === V3 FIX: INFINITE RAYS ===
-            // 'extend.right' treats the line as an infinite price level.
-            // This prevents it from floating visually when you scroll up/down.
-            // We start the line 100 bars back (bar_index - 100) so you can see it cutting through recent history.
-            line l = line.new(bar_index - 100, s_price, bar_index + 1, s_price, 
-                              xloc=xloc.bar_index, extend=extend.right, 
+            // === V4 FIX: EXTEND BOTH ===
+            // Use extend.both to make lines infinite in both directions (like grid lines).
+            // This ensures they never 'move' or 'disappear' regardless of how you scroll.
+            line l = line.new(bar_index, s_price, bar_index + 1, s_price, 
+                              xloc=xloc.bar_index, extend=extend.both, 
                               color=bar_color, width=2)
             array.push(drawn_lines, l)
 
             // Label Logic
             if math.abs(g_val) >= text_size_threshold
-                // Stagger logic in Bar Index (X-axis)
-                int x_offset = (i % 2 == 0) ? 15 : 30
+                // === V4 FIX: 3-WAY STAGGER ===
+                // We use modulo 3 to create 3 separate lanes for text.
+                // Lane 1: +15 bars, Lane 2: +30 bars, Lane 3: +45 bars
+                int x_offset = 15
+                if i % 3 == 1
+                    x_offset := 30
+                else if i % 3 == 2
+                    x_offset := 45
                 
                 string txt = str.tostring(s_price) + "\\n" + str.tostring(math.round(g_val / 1000000)) + "M"
                 
-                // === V3 FIX: LOCK TO PRICE ===
-                // yloc=yloc.price forces the label to stick to the Y-axis value.
+                // yloc=yloc.price forces the label to stick to the Y-axis value
                 label lbl = label.new(bar_index + x_offset, s_price, txt, 
                                       xloc=xloc.bar_index, yloc=yloc.price, 
                                       style=label.style_label_left,
