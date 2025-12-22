@@ -21,6 +21,7 @@ def load_tickers():
 def fetch_data_for_symbol(symbol, repo):
     """Fetch GEX data for one ticker"""
     try:
+        # Get latest date from repo
         latest_url = f"{BASE_GITHUB_URL}/{repo}/main/latest.txt"
         date_resp = requests.get(latest_url)
         date_resp.raise_for_status()
@@ -35,6 +36,7 @@ def fetch_data_for_symbol(symbol, repo):
         csv_resp.raise_for_status()
         df = pd.read_csv(io.StringIO(csv_resp.text))
 
+        # Clean & prepare data
         df_clean = pd.DataFrame({
             "strike": pd.to_numeric(df.iloc[:, 0], errors="coerce"),
             "gex": pd.to_numeric(df.iloc[:, 4], errors="coerce"),
@@ -85,19 +87,14 @@ def generate_master_pine_script(repo):
 
     print(f"✅ Building Pine Script for: {', '.join(successful_symbols)}")
 
-    # === Pine Script Output ===
+    # === Build Final Pine Script ===
     pine_code = f"""//@version=6
 indicator("GEX Master Auto: {first_date}", overlay=true, max_boxes_count=500, max_labels_count=500)
 
-// === USER SETTINGS ===
+// === SETTINGS ===
 var float width_scale = input.float(0.5, "Bar Width Scale", minval=0.1, step=0.1)
+var float text_size_threshold = input.float(100000000, "Text Label Threshold (Notional)")
 var bool show_dashboard = input.bool(true, "Show Dashboard")
-
-// Custom styling options
-max_labels = input.int(20, "Max Labels", minval=5, maxval=100)
-line_thickness = input.float(2.0, "Line Thickness", minval=0.5, maxval=10)
-label_spacing_mult = input.float(1.0, "Label Spacing (Multiplier)", minval=0.1, maxval=10)
-label_size_opt = input.string("normal", "Label Size", options=["tiny", "small", "normal", "large"])
 
 // === DATA LOADING ===
 load_data() =>
@@ -122,38 +119,22 @@ if barstate.islast
             if math.abs(val) > max_gex
                 max_gex := math.abs(val)
 
-        // === Sort by Gamma magnitude and only show top levels ===
-        float[] sorted_idx = array.new_int()
-        for i = 0 to array.size(gex_vals) - 1
-            array.push(sorted_idx, i)
+        // === Improved Gamma Visualization ===
+        for i = 0 to array.size(strikes) - 1
+            s_price = array.get(strikes, i)
+            g_val = array.get(gex_vals, i)
 
-        // ✅ FINAL FIX: Pine v6-compliant one-liner
-        array.sort(sorted_idx, (a, b) => (math.abs(array.get(gex_vals, a)) > math.abs(array.get(gex_vals, b)) ? -1 : 1))
-
-        // === Draw Lines and Labels with user control ===
-        float spacing = syminfo.mintick * 40 * label_spacing_mult
-
-        for i = 0 to math.min(array.size(sorted_idx), max_labels) - 1
-            idx = array.get(sorted_idx, i)
-            s_price = array.get(strikes, idx)
-            g_val = array.get(gex_vals, idx)
-
+            float len_norm = max_gex > 0 ? (math.abs(g_val) / max_gex) * (100 * width_scale) : 0
             color bar_color = g_val > 0 ? color.new(color.green, 0) : color.new(color.red, 0)
             color label_color = g_val > 0 ? color.green : color.red
 
-            // Horizontal gamma wall line
-            line.new(bar_index - 5, s_price, bar_index + 20, s_price, color=bar_color, width=line_thickness, extend=extend.none)
+            // Draw line for each strike (horizontal gamma wall)
+            line.new(bar_index - 5, s_price, bar_index + 20, s_price, color=bar_color, width=2, extend=extend.none)
 
-            // Vertical offset to prevent overlap
-            float y_offset = s_price + (spacing * (i % 15))
-
-            // Label showing strike + notional
+            // Label for each strike showing price + notional
             string txt = "Strike: " + str.tostring(s_price) + "\\n" + str.tostring(math.round(g_val / 1000000)) + "M"
-            label.new(bar_index + 30, y_offset, txt,
-                      style=label.style_label_left,
-                      textcolor=color.white,
-                      color=color.new(label_color, 40),
-                      size=label_size_opt)
+            label.new(bar_index + 25, s_price, txt, style=label.style_label_left,
+                      textcolor=color.white, color=color.new(label_color, 60), size=size.tiny)
 
         // === Dashboard Summary ===
         if show_dashboard
@@ -176,6 +157,7 @@ if barstate.islast
 
     print(f"✅ SUCCESS! File created: {filename}")
 
+    # Auto commit if running in GitHub Actions
     if os.getenv("GITHUB_ACTIONS"):
         try:
             print("🔄 Running in GitHub Actions, committing file...")
