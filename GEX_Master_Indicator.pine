@@ -61,7 +61,9 @@ if barstate.islast
             if math.abs(val) > max_gex
                 max_gex := math.abs(val)
 
-        // === Improved Gamma Visualization ===
+        // === Improved Gamma Visualization with Label Spacing ===
+        float spacing = syminfo.mintick * 40  // controls label spacing
+
         for i = 0 to array.size(strikes) - 1
             s_price = array.get(strikes, i)
             g_val = array.get(gex_vals, i)
@@ -70,13 +72,18 @@ if barstate.islast
             color bar_color = g_val > 0 ? color.new(color.green, 0) : color.new(color.red, 0)
             color label_color = g_val > 0 ? color.green : color.red
 
-            // Draw line for each strike (horizontal gamma wall)
+            // Draw horizontal gamma wall
             line.new(bar_index - 5, s_price, bar_index + 20, s_price, color=bar_color, width=2, extend=extend.none)
 
-            // Label for each strike showing price + notional
+            // Spread labels vertically to prevent overlap
+            float y_offset = s_price + (spacing * (i % 12))
             string txt = "Strike: " + str.tostring(s_price) + "\n" + str.tostring(math.round(g_val / 1000000)) + "M"
-            label.new(bar_index + 25, s_price, txt, style=label.style_label_left,
-                      textcolor=color.white, color=color.new(label_color, 60), size=size.tiny)
+
+            label.new(bar_index + 30, y_offset, txt,
+                      style=label.style_label_left,
+                      textcolor=color.white,
+                      color=color.new(label_color, 40),
+                      size=size.normal)
 
         // === Dashboard Summary ===
         if show_dashboard
