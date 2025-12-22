@@ -18,7 +18,6 @@ def load_tickers():
     print(f"✅ Loaded tickers: {', '.join(tickers)}")
     return tickers
 
-
 def fetch_data_for_symbol(symbol, repo):
     """Fetch GEX data for one ticker"""
     try:
@@ -50,7 +49,6 @@ def fetch_data_for_symbol(symbol, repo):
     except Exception as e:
         print(f"⚠️ {symbol}: Could not fetch or parse CSV ({e})")
         return None, None
-
 
 def generate_master_pine_script(repo):
     print("=== STARTING AUTO-GEX MASTER GENERATION ===")
@@ -90,6 +88,8 @@ def generate_master_pine_script(repo):
     print(f"✅ Building Pine Script for: {', '.join(successful_symbols)}")
 
     # === Build Final Pine Script ===
+    # FIX: Removed 'var' from loop variables (label_offset, last_label_price)
+    # inside barstate.islast to prevent infinite incrementing on ticks.
     pine_code = f"""//@version=6
 indicator("GEX Master Auto: {first_date}", overlay=true, max_boxes_count=500, max_labels_count=500)
 
@@ -103,8 +103,7 @@ load_data() =>
     string sym = syminfo.ticker
     float[] s = array.new_float(0)
     float[] g = array.new_float(0)
-    // -- AUTO-GENERATED DATA BLOCKS START --
-{pine_data_blocks}
+    // -- AUTO-GENERATED DATA BLOCKS START --{pine_data_blocks}
     // -- AUTO-GENERATED DATA BLOCKS END --
     [s, g]
 
@@ -122,9 +121,10 @@ if barstate.islast
                 max_gex := math.abs(val)
 
         // === Improved Gamma Visualization ===
-        var float last_label_price = na
-        var int label_offset = 25
-        var int skip_distance = 2  // only draw labels if >2 points apart
+        // NOTE: Do NOT use 'var' here, or these will persist/increment across real-time ticks
+        float last_label_price = na
+        int label_offset = 25
+        int skip_distance = 2  // only draw labels if >2 points apart
 
         for i = 0 to array.size(strikes) - 1
             s_price = array.get(strikes, i)
@@ -136,7 +136,7 @@ if barstate.islast
             // Draw horizontal GEX line
             line.new(bar_index - 5, s_price, bar_index + 20, s_price, color=bar_color, width=2, extend=extend.none)
 
-            // === Readable Labels with Spacing & Stagger ===
+            // Draw readable labels with spacing and stagger
             if na(last_label_price) or math.abs(s_price - last_label_price) > skip_distance
                 string txt = "Strike: " + str.tostring(s_price) + "\\n" + str.tostring(math.round(g_val / 1000000)) + "M"
                 label.new(bar_index + label_offset, s_price, txt,
@@ -168,7 +168,6 @@ if barstate.islast
 
     print(f"✅ SUCCESS! File created: {filename}")
 
-    # Auto commit if running in GitHub Actions
     if os.getenv("GITHUB_ACTIONS"):
         try:
             print("🔄 Running in GitHub Actions, committing file...")
@@ -177,7 +176,6 @@ if barstate.islast
             subprocess.run(["git", "push"], check=False)
         except Exception as e:
             print(f"⚠️ Commit skipped: {e}")
-
 
 if __name__ == "__main__":
     generate_master_pine_script(REPO_PATH)
