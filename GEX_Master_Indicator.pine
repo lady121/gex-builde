@@ -71,8 +71,9 @@ if barstate.islast
         for i = 0 to array.size(gex_vals) - 1
             array.push(sorted_idx, i)
 
-        array.sort(sorted_idx, order=order.descending, function(a, b) =>
-            math.abs(array.get(gex_vals, a)) > math.abs(array.get(gex_vals, b)) ? 1 : -1
+        // ✅ FIXED: Correct sort syntax (Pine v6)
+        array.sort(sorted_idx, (a, b) =>
+            math.abs(array.get(gex_vals, a)) > math.abs(array.get(gex_vals, b)) ? -1 : 1
         )
 
         // === Draw Lines and Labels with user control ===
