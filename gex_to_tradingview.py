@@ -115,11 +115,10 @@ if barstate.islast
             if math.abs(val) > max_gex
                 max_gex := math.abs(val)
 
-        // === Improved Gamma Visualization (Anchored to Price) ===
+        // === Improved Gamma Visualization (Anchored & Stable) ===
         float last_label_price = na
         int skip_distance = 2
 
-        // Clear previous drawings
         var line[] lines = array.new_line()
         var label[] labels = array.new_label()
         for l in lines
@@ -136,27 +135,26 @@ if barstate.islast
             color bar_color = g_val > 0 ? color.new(color.green, 0) : color.new(color.red, 0)
             color label_color = g_val > 0 ? color.green : color.red
 
-            // 🟢 FIXED: line anchored to price & time correctly
+            // ✅ Anchored to price & bar index (legal, stable)
             ln = line.new(
-                x1=time,
+                x1=bar_index - 1,
                 y1=s_price,
-                x2=time + 24 * 60 * 60 * 60,
+                x2=bar_index + 50,
                 y2=s_price,
-                xloc=xloc.bar_time,
-                yloc=yloc.price,     // 🔥 anchors vertically to price
+                xloc=xloc.bar_index,
                 extend=extend.right,
                 color=bar_color,
                 width=2)
             array.push(lines, ln)
 
-            // 🟢 FIXED: label anchored to price level
+            // ✅ Label pinned to price
             if na(last_label_price) or math.abs(s_price - last_label_price) > skip_distance
                 string txt = "Strike: " + str.tostring(s_price) + "\\n" + str.tostring(math.round(g_val / 1000000)) + "M"
                 lb = label.new(
-                    x=time,
+                    x=bar_index,
                     y=s_price,
                     text=txt,
-                    xloc=xloc.bar_time,
+                    xloc=xloc.bar_index,
                     yloc=yloc.price,
                     style=label.style_label_left,
                     textcolor=color.white,
