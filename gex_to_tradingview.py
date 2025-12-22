@@ -21,7 +21,6 @@ def load_tickers():
 def fetch_data_for_symbol(symbol, repo):
     """Fetch GEX data for one ticker"""
     try:
-        # Get latest date from repo
         latest_url = f"{BASE_GITHUB_URL}/{repo}/main/latest.txt"
         date_resp = requests.get(latest_url)
         date_resp.raise_for_status()
@@ -36,7 +35,6 @@ def fetch_data_for_symbol(symbol, repo):
         csv_resp.raise_for_status()
         df = pd.read_csv(io.StringIO(csv_resp.text))
 
-        # Clean & prepare data
         df_clean = pd.DataFrame({
             "strike": pd.to_numeric(df.iloc[:, 0], errors="coerce"),
             "gex": pd.to_numeric(df.iloc[:, 4], errors="coerce"),
@@ -87,7 +85,7 @@ def generate_master_pine_script(repo):
 
     print(f"✅ Building Pine Script for: {', '.join(successful_symbols)}")
 
-    # === Build Final Pine Script ===
+    # === Pine Script Output ===
     pine_code = f"""//@version=6
 indicator("GEX Master Auto: {first_date}", overlay=true, max_boxes_count=500, max_labels_count=500)
 
@@ -129,8 +127,9 @@ if barstate.islast
         for i = 0 to array.size(gex_vals) - 1
             array.push(sorted_idx, i)
 
-        array.sort(sorted_idx, order=order.descending, function(a, b) =>
-            math.abs(array.get(gex_vals, a)) > math.abs(array.get(gex_vals, b)) ? 1 : -1
+        // ✅ FIXED: Correct sort syntax (Pine v6)
+        array.sort(sorted_idx, (a, b) =>
+            math.abs(array.get(gex_vals, a)) > math.abs(array.get(gex_vals, b)) ? -1 : 1
         )
 
         // === Draw Lines and Labels with user control ===
@@ -179,7 +178,6 @@ if barstate.islast
 
     print(f"✅ SUCCESS! File created: {filename}")
 
-    # Auto commit if running in GitHub Actions
     if os.getenv("GITHUB_ACTIONS"):
         try:
             print("🔄 Running in GitHub Actions, committing file...")
