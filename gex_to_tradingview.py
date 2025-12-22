@@ -103,7 +103,8 @@ load_data() =>
     [s, g]
 
 // === MAIN LOGIC ===
-if barstate.islast
+// Stable version: draw once at end of confirmed history (not every bar)
+if barstate.islastconfirmedhistory
     [strikes, gex_vals] = load_data()
     if array.size(strikes) > 0
         float max_gex = 0.0
@@ -115,31 +116,29 @@ if barstate.islast
             if math.abs(val) > max_gex
                 max_gex := math.abs(val)
 
-        // === Improved Gamma Visualization (Anchored & Stable) ===
-        float last_label_price = na
-        int skip_distance = 2
-
+        // clear any old drawings
         var line[] lines = array.new_line()
         var label[] labels = array.new_label()
-        for l in lines
-            line.delete(l)
-        for lb in labels
-            label.delete(lb)
-        array.clear(lines)
-        array.clear(labels)
+        if barstate.isfirst
+            for l in lines
+                line.delete(l)
+            for lb in labels
+                label.delete(lb)
+            array.clear(lines)
+            array.clear(labels)
 
+        // draw price-locked horizontal lines
         for i = 0 to array.size(strikes) - 1
             s_price = array.get(strikes, i)
             g_val = array.get(gex_vals, i)
-            float len_norm = max_gex > 0 ? (math.abs(g_val) / max_gex) * (100 * width_scale) : 0
             color bar_color = g_val > 0 ? color.new(color.green, 0) : color.new(color.red, 0)
             color label_color = g_val > 0 ? color.green : color.red
 
-            // ✅ Anchored to price & bar index (legal, stable)
+            // === Price-anchored horizontal GEX line ===
             ln = line.new(
-                x1=bar_index - 1,
+                x1=bar_index - 500,
                 y1=s_price,
-                x2=bar_index + 50,
+                x2=bar_index + 500,
                 y2=s_price,
                 xloc=xloc.bar_index,
                 extend=extend.right,
@@ -147,21 +146,18 @@ if barstate.islast
                 width=2)
             array.push(lines, ln)
 
-            // ✅ Label pinned to price
-            if na(last_label_price) or math.abs(s_price - last_label_price) > skip_distance
-                string txt = "Strike: " + str.tostring(s_price) + "\\n" + str.tostring(math.round(g_val / 1000000)) + "M"
-                lb = label.new(
-                    x=bar_index,
-                    y=s_price,
-                    text=txt,
-                    xloc=xloc.bar_index,
-                    yloc=yloc.price,
-                    style=label.style_label_left,
-                    textcolor=color.white,
-                    color=color.new(label_color, 60),
-                    size=size.small)
-                array.push(labels, lb)
-                last_label_price := s_price
+            // === Label anchored to price ===
+            lb = label.new(
+                x=bar_index + 1,
+                y=s_price,
+                text="Strike: " + str.tostring(s_price) + "\\n" + str.tostring(math.round(g_val / 1000000)) + "M",
+                xloc=xloc.bar_index,
+                yloc=yloc.price,
+                style=label.style_label_left,
+                textcolor=color.white,
+                color=color.new(label_color, 60),
+                size=size.small)
+            array.push(labels, lb)
 
         // === Dashboard Summary ===
         if show_dashboard
