@@ -37,13 +37,17 @@ def fetch_data_for_symbol(symbol, repo):
         df = pd.read_csv(io.StringIO(csv_resp.text))
 
         # Clean & prepare data
-        df_clean = pd.DataFrame({
+        df_raw = pd.DataFrame({
             "strike": pd.to_numeric(df.iloc[:, 0], errors="coerce"),
             "gex": pd.to_numeric(df.iloc[:, 4], errors="coerce"),
         }).dropna()
+
+        # === FIX 1: MERGE DUPLICATE STRIKES ===
+        # This prevents "labels on top of each other" and halves the object count.
+        df_clean = df_raw.groupby("strike", as_index=False)["gex"].sum()
         df_clean = df_clean.sort_values(by="strike")
 
-        print(f"✅ {symbol}: {len(df_clean)} GEX records loaded.")
+        print(f"✅ {symbol}: {len(df_clean)} unique strikes loaded (merged).")
         return file_date, df_clean
 
     except Exception as e:
@@ -51,7 +55,7 @@ def fetch_data_for_symbol(symbol, repo):
         return None, None
 
 def generate_master_pine_script(repo):
-    print("=== STARTING AUTO-GEX MASTER GENERATION (V4) ===")
+    print("=== STARTING AUTO-GEX MASTER GENERATION (V5) ===")
     symbols = load_tickers()
     if not symbols:
         print("❌ No tickers found. Exiting.")
@@ -87,16 +91,18 @@ def generate_master_pine_script(repo):
 
     print(f"✅ Building Pine Script for: {', '.join(successful_symbols)}")
 
-    # === Build Final Pine Script (V4 Fixes) ===
-    # 1. extend=extend.both: Makes lines infinite horizontal rails (fixes 'following' issue).
-    # 2. 3-Way Staggering: Shifts labels to 3 different positions to stop overlapping.
+    # === Build Final Pine Script (V5 Fixes) ===
+    # 1. 'strike_range_pct' input added to filter lines outside visible area.
+    # 2. This drastic reduction in objects prevents the "following/floating" glitches.
+    # 3. Uses extend.both (Infinite Horizontal Lines) which are grid-like and stable.
     
     pine_code = f"""//@version=6
-indicator("GEX Master Auto V4: {first_date}", overlay=true, max_lines_count=500, max_labels_count=500, max_boxes_count=500)
+indicator("GEX Master Auto V5: {first_date}", overlay=true, max_lines_count=500, max_labels_count=500, max_boxes_count=500)
 
 // === SETTINGS ===
 var float width_scale = input.float(0.5, "Bar Width Scale", minval=0.1, step=0.1)
 var float text_size_threshold = input.float(1000000, "Text Label Threshold (Notional)", tooltip="Only show labels where GEX > this value")
+var float strike_range_pct = input.float(15.0, "Visible Range %", minval=1.0, step=1.0, tooltip="Only draw lines within this % of the current price. Reduces lag and clutter.")
 var bool show_dashboard = input.bool(true, "Show Dashboard")
 
 // === STORAGE FOR DRAWING OBJECTS ===
@@ -116,12 +122,19 @@ load_data() =>
 // === MAIN LOGIC ===
 if barstate.islast
     // 1. CLEAR OLD DRAWINGS
+    // Essential for keeping chart clean when data updates
     while array.size(drawn_lines) > 0
         line.delete(array.pop(drawn_lines))
     while array.size(drawn_labels) > 0
         label.delete(array.pop(drawn_labels))
 
     [strikes, gex_vals] = load_data()
+    
+    // === V5 RANGE FILTER ===
+    // We calculate a "Safe Zone" around the current price.
+    // Lines outside this zone are NOT drawn. This keeps us under the 500 line limit.
+    float upper_bound = close * (1 + strike_range_pct / 100)
+    float lower_bound = close * (1 - strike_range_pct / 100)
     
     if array.size(strikes) > 0
         float max_gex = 0.0
@@ -139,37 +152,38 @@ if barstate.islast
             s_price = array.get(strikes, i)
             g_val = array.get(gex_vals, i)
 
-            // Draw line for each strike
-            color bar_color = g_val > 0 ? color.new(color.green, 0) : color.new(color.red, 0)
-            color label_color = g_val > 0 ? color.green : color.red
-            
-            // === V4 FIX: EXTEND BOTH ===
-            // Use extend.both to make lines infinite in both directions (like grid lines).
-            // This ensures they never 'move' or 'disappear' regardless of how you scroll.
-            line l = line.new(bar_index, s_price, bar_index + 1, s_price, 
-                              xloc=xloc.bar_index, extend=extend.both, 
-                              color=bar_color, width=2)
-            array.push(drawn_lines, l)
+            // === V5 FILTER LOGIC ===
+            // Only proceed if the strike is relevant to current price action
+            if s_price >= lower_bound and s_price <= upper_bound
 
-            // Label Logic
-            if math.abs(g_val) >= text_size_threshold
-                // === V4 FIX: 3-WAY STAGGER ===
-                // We use modulo 3 to create 3 separate lanes for text.
-                // Lane 1: +15 bars, Lane 2: +30 bars, Lane 3: +45 bars
-                int x_offset = 15
-                if i % 3 == 1
-                    x_offset := 30
-                else if i % 3 == 2
-                    x_offset := 45
+                // Draw line for each strike
+                color bar_color = g_val > 0 ? color.new(color.green, 0) : color.new(color.red, 0)
+                color label_color = g_val > 0 ? color.green : color.red
                 
-                string txt = str.tostring(s_price) + "\\n" + str.tostring(math.round(g_val / 1000000)) + "M"
-                
-                // yloc=yloc.price forces the label to stick to the Y-axis value
-                label lbl = label.new(bar_index + x_offset, s_price, txt, 
-                                      xloc=xloc.bar_index, yloc=yloc.price, 
-                                      style=label.style_label_left,
-                                      textcolor=color.white, color=color.new(label_color, 40), size=size.normal)
-                array.push(drawn_labels, lbl)
+                // Infinite Grid Lines (extend.both) anchored to TIME (safer than bar_index)
+                line l = line.new(time, s_price, time + 1, s_price, 
+                                  xloc=xloc.bar_time, extend=extend.both, 
+                                  color=bar_color, width=2)
+                array.push(drawn_lines, l)
+
+                // Label Logic
+                if math.abs(g_val) >= text_size_threshold
+                    // 3-Way Stagger to prevent overlap
+                    // We use time-based offset (approx 12 hours * multiplier)
+                    int x_offset_ms = 1000 * 60 * 60 * 12
+                    if i % 3 == 1
+                        x_offset_ms := x_offset_ms * 2
+                    else if i % 3 == 2
+                        x_offset_ms := x_offset_ms * 3
+                    
+                    string txt = str.tostring(s_price) + "\\n" + str.tostring(math.round(g_val / 1000000)) + "M"
+                    
+                    // Locked to Price (yloc.price)
+                    label lbl = label.new(time + x_offset_ms, s_price, txt, 
+                                          xloc=xloc.bar_time, yloc=yloc.price, 
+                                          style=label.style_label_left,
+                                          textcolor=color.white, color=color.new(label_color, 40), size=size.normal)
+                    array.push(drawn_labels, lbl)
 
         // === Dashboard Summary ===
         if show_dashboard
