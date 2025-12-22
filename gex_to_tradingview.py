@@ -102,76 +102,51 @@ load_data() =>
     // -- AUTO-GENERATED DATA BLOCKS END --
     [s, g]
 
-// === MAIN LOGIC ===
-// Stable version: draw once at end of confirmed history (not every bar)
+// === True Price-Anchored GEX Visualization ===
 if barstate.islastconfirmedhistory
     [strikes, gex_vals] = load_data()
     if array.size(strikes) > 0
-        float max_gex = 0.0
         float total_gex = 0.0
-
         for i = 0 to array.size(gex_vals) - 1
-            val = array.get(gex_vals, i)
-            total_gex += val
-            if math.abs(val) > max_gex
-                max_gex := math.abs(val)
+            total_gex += array.get(gex_vals, i)
 
-        // clear any old drawings
-        var line[] lines = array.new_line()
-        var label[] labels = array.new_label()
-        if barstate.isfirst
-            for l in lines
-                line.delete(l)
-            for lb in labels
+        // clear once
+        var label[] gex_labels = array.new_label()
+        // Note: For persistent drawings, using a line array to track and clear is safer than just relying on isfirst
+        var line[] gex_lines = array.new_line()
+        
+        if barstate.isfirst or array.size(gex_labels) > 0
+            for lb in gex_labels
                 label.delete(lb)
-            array.clear(lines)
-            array.clear(labels)
+            for ln in gex_lines
+                line.delete(ln)
+            array.clear(gex_labels)
+            array.clear(gex_lines)
 
-        // draw price-locked horizontal lines
+        // draw permanent horizontal lines
         for i = 0 to array.size(strikes) - 1
             s_price = array.get(strikes, i)
-            g_val = array.get(gex_vals, i)
-            color bar_color = g_val > 0 ? color.new(color.green, 0) : color.new(color.red, 0)
+            g_val   = array.get(gex_vals, i)
+            color bar_color  = g_val > 0 ? color.new(color.green, 0) : color.new(color.red, 0)
             color label_color = g_val > 0 ? color.green : color.red
 
-            // === Price-anchored horizontal GEX line ===
-            ln = line.new(
-                x1=bar_index - 500,
-                y1=s_price,
-                x2=bar_index + 500,
-                y2=s_price,
-                xloc=xloc.bar_index,
-                extend=extend.right,
-                color=bar_color,
-                width=2)
-            array.push(lines, ln)
+            // 🟢 This line is locked to the price scale forever
+            // Switched from hline() to line.new() because hline does not support dynamic variables from arrays.
+            ln = line.new(bar_index, s_price, bar_index + 1, s_price, extend=extend.both, color=bar_color, style=line.style_solid)
+            array.push(gex_lines, ln)
 
-            // === Label anchored to price ===
+            // optional label for info
             lb = label.new(
-                x=bar_index + 1,
+                x=bar_index,
                 y=s_price,
-                text="Strike: " + str.tostring(s_price) + "\\n" + str.tostring(math.round(g_val / 1000000)) + "M",
+                text="Strike: " + str.tostring(s_price) + "\\n" + str.tostring(math.round(g_val / 1e6)) + "M",
                 xloc=xloc.bar_index,
                 yloc=yloc.price,
                 style=label.style_label_left,
                 textcolor=color.white,
                 color=color.new(label_color, 60),
                 size=size.small)
-            array.push(labels, lb)
-
-        // === Dashboard Summary ===
-        if show_dashboard
-            string regime = total_gex > 0 ? "Short Vol (Pos GEX)" : "Long Vol (Neg GEX)"
-            color reg_col = total_gex > 0 ? color.green : color.red
-            var table dash = table.new(position.top_right, 1, 1)
-            table.cell(dash, 0, 0,
-                syminfo.ticker + " GEX: " + str.tostring(math.round(total_gex/1000000)) +
-                "M\\n" + regime + "\\nDate: {first_date}",
-                text_color=color.white, bgcolor=color.new(reg_col, 80))
-    else
-        var table err = table.new(position.bottom_right, 1, 1)
-        table.cell(err, 0, 0, "No GEX Data for " + syminfo.ticker,
-                   text_color=color.white, bgcolor=color.gray)
+            array.push(gex_labels, lb)
 """
 
     filename = "GEX_Master_Indicator.pine"
