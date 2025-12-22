@@ -144,11 +144,11 @@ if barstate.islast
             table.cell(dash, 0, 0,
                 syminfo.ticker + " GEX: " + str.tostring(math.round(total_gex/1000000)) +
                 "M\\n" + regime + "\\nDate: {first_date}",
-                bgcolor=color.new(reg_col, 80), text_color=color.white)
+                text_color=color.white, bgcolor=color.new(reg_col, 80))
     else
         var table err = table.new(position.bottom_right, 1, 1)
         table.cell(err, 0, 0, "No GEX Data for " + syminfo.ticker,
-                   bgcolor=color.gray, text_color=color.white)
+                   text_color=color.white, bgcolor=color.gray)
 """
 
     filename = "GEX_Master_Indicator.pine"
