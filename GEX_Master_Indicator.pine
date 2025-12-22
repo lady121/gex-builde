@@ -71,10 +71,8 @@ if barstate.islast
         for i = 0 to array.size(gex_vals) - 1
             array.push(sorted_idx, i)
 
-        // ✅ FIXED: Correct sort syntax (Pine v6)
-        array.sort(sorted_idx, (a, b) =>
-            math.abs(array.get(gex_vals, a)) > math.abs(array.get(gex_vals, b)) ? -1 : 1
-        )
+        // ✅ FINAL FIX: Pine v6-compliant one-liner
+        array.sort(sorted_idx, (a, b) => (math.abs(array.get(gex_vals, a)) > math.abs(array.get(gex_vals, b)) ? -1 : 1))
 
         // === Draw Lines and Labels with user control ===
         float spacing = syminfo.mintick * 40 * label_spacing_mult
