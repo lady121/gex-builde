@@ -88,12 +88,17 @@ def generate_master_pine_script(repo):
     print(f"✅ Building Pine Script for: {', '.join(successful_symbols)}")
 
     # === Build Final Pine Script ===
+    # Updates:
+    # 1. Added logic to filter labels by 'text_size_threshold'
+    # 2. Changed label size from size.tiny to size.normal
+    # 3. Added offset staggering (i % 2) to separate close labels
+    
     pine_code = f"""//@version=6
 indicator("GEX Master Auto: {first_date}", overlay=true, max_boxes_count=500, max_labels_count=500)
 
 // === SETTINGS ===
 var float width_scale = input.float(0.5, "Bar Width Scale", minval=0.1, step=0.1)
-var float text_size_threshold = input.float(100000000, "Text Label Threshold (Notional)")
+var float text_size_threshold = input.float(1000000, "Text Label Threshold (Notional)", tooltip="Only show labels where GEX > this value")
 var bool show_dashboard = input.bool(true, "Show Dashboard")
 
 // === DATA LOADING ===
@@ -113,6 +118,7 @@ if barstate.islast
         float max_gex = 0.0
         float total_gex = 0.0
 
+        // Calculate Max/Total first
         for i = 0 to array.size(gex_vals) - 1
             val = array.get(gex_vals, i)
             total_gex += val
@@ -124,17 +130,21 @@ if barstate.islast
             s_price = array.get(strikes, i)
             g_val = array.get(gex_vals, i)
 
-            float len_norm = max_gex > 0 ? (math.abs(g_val) / max_gex) * (100 * width_scale) : 0
+            // Draw line for each strike (horizontal gamma wall)
             color bar_color = g_val > 0 ? color.new(color.green, 0) : color.new(color.red, 0)
             color label_color = g_val > 0 ? color.green : color.red
+            line.new(bar_index, s_price, bar_index + 15, s_price, color=bar_color, width=2)
 
-            // Draw line for each strike (horizontal gamma wall)
-            line.new(bar_index - 5, s_price, bar_index + 20, s_price, color=bar_color, width=2, extend=extend.none)
-
-            // Label for each strike showing price + notional
-            string txt = "Strike: " + str.tostring(s_price) + "\\n" + str.tostring(math.round(g_val / 1000000)) + "M"
-            label.new(bar_index + 25, s_price, txt, style=label.style_label_left,
-                      textcolor=color.white, color=color.new(label_color, 60), size=size.tiny)
+            // Label Logic - Only draw if GEX > Threshold to reduce clutter
+            if math.abs(g_val) >= text_size_threshold
+                // Stagger logic: Push every other label further out to avoid overlap
+                int x_offset = (i % 2 == 0) ? 20 : 35
+                
+                string txt = str.tostring(s_price) + "\\n" + str.tostring(math.round(g_val / 1000000)) + "M"
+                
+                // Changed size.tiny to size.normal for readability
+                label.new(bar_index + x_offset, s_price, txt, style=label.style_label_left,
+                          textcolor=color.white, color=color.new(label_color, 40), size=size.normal)
 
         // === Dashboard Summary ===
         if show_dashboard
