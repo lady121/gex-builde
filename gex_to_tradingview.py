@@ -21,6 +21,7 @@ def load_tickers():
 def fetch_data_for_symbol(symbol, repo):
     """Fetch GEX data for one ticker"""
     try:
+        # Get latest date from repo
         latest_url = f"{BASE_GITHUB_URL}/{repo}/main/latest.txt"
         date_resp = requests.get(latest_url)
         date_resp.raise_for_status()
@@ -35,6 +36,7 @@ def fetch_data_for_symbol(symbol, repo):
         csv_resp.raise_for_status()
         df = pd.read_csv(io.StringIO(csv_resp.text))
 
+        # Clean & prepare data
         df_clean = pd.DataFrame({
             "strike": pd.to_numeric(df.iloc[:, 0], errors="coerce"),
             "gex": pd.to_numeric(df.iloc[:, 4], errors="coerce"),
@@ -43,6 +45,7 @@ def fetch_data_for_symbol(symbol, repo):
 
         print(f"✅ {symbol}: {len(df_clean)} GEX records loaded.")
         return file_date, df_clean
+
     except Exception as e:
         print(f"⚠️ {symbol}: Could not fetch or parse CSV ({e})")
         return None, None
@@ -85,6 +88,8 @@ def generate_master_pine_script(repo):
     print(f"✅ Building Pine Script for: {', '.join(successful_symbols)}")
 
     # === Build Final Pine Script ===
+    # FIX: Removed 'var' from loop variables (label_offset, last_label_price)
+    # inside barstate.islast to prevent infinite incrementing on ticks.
     pine_code = f"""//@version=6
 indicator("GEX Master Auto: {first_date}", overlay=true, max_boxes_count=500, max_labels_count=500)
 
@@ -115,19 +120,11 @@ if barstate.islast
             if math.abs(val) > max_gex
                 max_gex := math.abs(val)
 
-        // === Improved Gamma Visualization (Fixed Anchoring) ===
+        // === Improved Gamma Visualization ===
+        // NOTE: Do NOT use 'var' here, or these will persist/increment across real-time ticks
         float last_label_price = na
-        int skip_distance = 2
-
-        // Clear existing drawings
-        var line[] lines = array.new_line()
-        var label[] labels = array.new_label()
-        for l in lines
-            line.delete(l)
-        for lb in labels
-            label.delete(lb)
-        array.clear(lines)
-        array.clear(labels)
+        int label_offset = 25
+        int skip_distance = 2  // only draw labels if >2 points apart
 
         for i = 0 to array.size(strikes) - 1
             s_price = array.get(strikes, i)
@@ -136,27 +133,19 @@ if barstate.islast
             color bar_color = g_val > 0 ? color.new(color.green, 0) : color.new(color.red, 0)
             color label_color = g_val > 0 ? color.green : color.red
 
-            // Draw line anchored to price & time
-            ln = line.new(
-                x1=bar_time, y1=s_price,
-                x2=bar_time + 24 * 60 * 60 * 5, y2=s_price,
-                xloc=xloc.bar_time,
-                extend=extend.right,
-                color=bar_color, width=2)
-            array.push(lines, ln)
+            // Draw horizontal GEX line
+            line.new(bar_index - 5, s_price, bar_index + 20, s_price, color=bar_color, width=2, extend=extend.none)
 
-            // Label fixed at price
+            // Draw readable labels with spacing and stagger
             if na(last_label_price) or math.abs(s_price - last_label_price) > skip_distance
                 string txt = "Strike: " + str.tostring(s_price) + "\\n" + str.tostring(math.round(g_val / 1000000)) + "M"
-                lb = label.new(
-                    x=bar_time, y=s_price, text=txt,
-                    xloc=xloc.bar_time,
-                    style=label.style_label_left,
-                    textcolor=color.white,
-                    color=color.new(label_color, 60),
-                    size=size.small)
-                array.push(labels, lb)
+                label.new(bar_index + label_offset, s_price, txt,
+                          style=label.style_label_left,
+                          textcolor=color.white,
+                          color=color.new(label_color, 60),
+                          size=size.small)
                 last_label_price := s_price
+                label_offset += 3
 
         // === Dashboard Summary ===
         if show_dashboard
