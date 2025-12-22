@@ -89,9 +89,9 @@ def generate_master_pine_script(repo):
 
     # === Build Final Pine Script ===
     # Updates:
-    # 1. Added logic to filter labels by 'text_size_threshold'
-    # 2. Changed label size from size.tiny to size.normal
-    # 3. Added offset staggering (i % 2) to separate close labels
+    # 1. Added explicit cleanup (array.pop/delete) to prevent ghosting/floating artifacts.
+    # 2. Switched to xloc.bar_time to anchor lines to time instead of bar index (fixes scrolling issues).
+    # 3. Kept label staggering and threshold logic.
     
     pine_code = f"""//@version=6
 indicator("GEX Master Auto: {first_date}", overlay=true, max_boxes_count=500, max_labels_count=500)
@@ -100,6 +100,12 @@ indicator("GEX Master Auto: {first_date}", overlay=true, max_boxes_count=500, ma
 var float width_scale = input.float(0.5, "Bar Width Scale", minval=0.1, step=0.1)
 var float text_size_threshold = input.float(1000000, "Text Label Threshold (Notional)", tooltip="Only show labels where GEX > this value")
 var bool show_dashboard = input.bool(true, "Show Dashboard")
+
+// === STORAGE FOR DRAWING OBJECTS ===
+// We use arrays to store the lines/labels so we can delete them before redrawing.
+// This prevents "ghost" lines that seem to float or stick when scrolling.
+var line[] drawn_lines = array.new_line()
+var label[] drawn_labels = array.new_label()
 
 // === DATA LOADING ===
 load_data() =>
@@ -113,7 +119,16 @@ load_data() =>
 
 // === MAIN LOGIC ===
 if barstate.islast
+    // 1. CLEAR OLD DRAWINGS
+    // This is crucial. We wipe the screen of our specific objects every frame
+    // so they don't 'detach' from the price during scrolls/updates.
+    while array.size(drawn_lines) > 0
+        line.delete(array.pop(drawn_lines))
+    while array.size(drawn_labels) > 0
+        label.delete(array.pop(drawn_labels))
+
     [strikes, gex_vals] = load_data()
+    
     if array.size(strikes) > 0
         float max_gex = 0.0
         float total_gex = 0.0
@@ -126,25 +141,34 @@ if barstate.islast
                 max_gex := math.abs(val)
 
         // === Improved Gamma Visualization ===
+        // We use 'time' + milliseconds for X-axis to lock drawings to specific moments in time.
+        // This prevents them from sliding around when bar indices change.
+        int time_start = time
+        int time_end = time + (1000 * 60 * 60 * 24 * 3) // Extend 3 days into future
+
         for i = 0 to array.size(strikes) - 1
             s_price = array.get(strikes, i)
             g_val = array.get(gex_vals, i)
 
-            // Draw line for each strike (horizontal gamma wall)
+            // Draw line for each strike
             color bar_color = g_val > 0 ? color.new(color.green, 0) : color.new(color.red, 0)
             color label_color = g_val > 0 ? color.green : color.red
-            line.new(bar_index, s_price, bar_index + 15, s_price, color=bar_color, width=2)
+            
+            // Draw Line using xloc.bar_time
+            line l = line.new(time_start, s_price, time_end, s_price, xloc=xloc.bar_time, color=bar_color, width=2)
+            array.push(drawn_lines, l)
 
-            // Label Logic - Only draw if GEX > Threshold to reduce clutter
+            // Label Logic
             if math.abs(g_val) >= text_size_threshold
-                // Stagger logic: Push every other label further out to avoid overlap
-                int x_offset = (i % 2 == 0) ? 20 : 35
+                // Stagger logic in TIME (X-axis)
+                // 1 bar approx 1 day on daily, but to be safe we use raw time offsets
+                int x_offset_ms = (i % 2 == 0) ? (1000 * 60 * 60 * 12) : (1000 * 60 * 60 * 36) // 12h vs 36h offset
                 
                 string txt = str.tostring(s_price) + "\\n" + str.tostring(math.round(g_val / 1000000)) + "M"
                 
-                // Changed size.tiny to size.normal for readability
-                label.new(bar_index + x_offset, s_price, txt, style=label.style_label_left,
+                label lbl = label.new(time + x_offset_ms, s_price, txt, xloc=xloc.bar_time, style=label.style_label_left,
                           textcolor=color.white, color=color.new(label_color, 40), size=size.normal)
+                array.push(drawn_labels, lbl)
 
         // === Dashboard Summary ===
         if show_dashboard
