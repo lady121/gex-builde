@@ -1,16 +1,16 @@
 # ===========================================================
-# MarketData.app GEX Builder v7.2 — Full Gamma Suite (Stable)
+# MarketData.app GEX Builder v7.3 — Full Gamma Suite (Stable)
 # Author: PulsR | Maintained by Code GPT
 # ===========================================================
 # Features:
-#  ✅ Flip Zone Detection (net cumulative GEX crosses zero)
+#  ✅ Flip Zone Detection (where net cumulative GEX crosses zero)
 #  ✅ Gamma Squeeze Index (GSI)
 #  ✅ Call/Put/Net GEX analytics
 #  ✅ Pressure Zones & Gamma Neutral Zone
 #  ✅ API-based live MarketData.app option data
-#  ✅ Safe extraction of missing/variant API fields
-#  ✅ Automatic skip for malformed data
-#  ✅ CSV, TXT, and optional PNG outputs
+#  ✅ Safe handling for missing/variant API fields
+#  ✅ Skips incomplete quotes (no 'strike' errors)
+#  ✅ Produces CSV, TXT, and PNG files (optional)
 # ===========================================================
 
 import os
@@ -22,7 +22,7 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 
 # ===============================================
-# Config
+# Configuration
 # ===============================================
 API_KEY = os.getenv("MARKETDATA_KEY") or "YOUR_BACKUP_TOKEN"
 BASE_URL = "https://api.marketdata.app/v1/options"
@@ -38,38 +38,45 @@ if os.path.exists("tickers.txt"):
 else:
     TICKERS = ["SPY", "QQQ", "NVDA"]
 
-print("🚀 Starting MarketData GEX Builder (v7.2 — Full Gamma Suite)")
+print("🚀 Starting MarketData GEX Builder (v7.3 — Full Gamma Suite)")
 print(f"Tickers: {', '.join(TICKERS)}")
 print(f"API key present: {'Yes' if API_KEY else 'No'}\n")
 
 
 # ===============================================
-# Helpers
+# Helper Functions
 # ===============================================
 def get_chain(symbol):
-    """Fetch option symbols for a given ticker."""
+    """Fetch the list of option symbols for a ticker."""
     url = f"{BASE_URL}/chain/{symbol}?token={API_KEY}"
-    r = requests.get(url, timeout=20)
-    if r.status_code not in (200, 203):
-        print(f"❌ Chain fetch failed for {symbol}: {r.status_code}")
+    try:
+        r = requests.get(url, timeout=20)
+        if r.status_code not in (200, 203):
+            print(f"❌ Chain fetch failed for {symbol}: {r.status_code}")
+            return []
+        data = r.json()
+        if data.get("s") != "ok":
+            print(f"⚠️ No valid chain data for {symbol}")
+            return []
+        return data.get("optionSymbol", [])
+    except Exception as e:
+        print(f"❌ Error fetching chain for {symbol}: {e}")
         return []
-    data = r.json()
-    if data.get("s") != "ok":
-        print(f"⚠️ No valid chain data for {symbol}")
-        return []
-    return data.get("optionSymbol", [])
 
 
 def get_quote(option_symbol):
     """Fetch individual option quote data."""
     url = f"{BASE_URL}/quotes/{option_symbol}?token={API_KEY}"
-    r = requests.get(url, timeout=15)
-    if r.status_code not in (200, 203):
+    try:
+        r = requests.get(url, timeout=15)
+        if r.status_code not in (200, 203):
+            return None
+        data = r.json()
+        if data.get("s") != "ok":
+            return None
+        return data
+    except Exception:
         return None
-    data = r.json()
-    if data.get("s") != "ok":
-        return None
-    return data
 
 
 def infer_option_type(symbol_str):
@@ -86,18 +93,20 @@ def infer_option_type(symbol_str):
 
 
 def safe_extract(d, keys, default=None):
-    """Try multiple keys safely."""
+    """Try multiple keys safely from a dict."""
+    if not isinstance(d, dict):
+        return default
     for k in keys:
         val = d.get(k)
         if val is not None:
-            if isinstance(val, list):
+            if isinstance(val, list) and len(val) > 0:
                 return val[0]
             return val
     return default
 
 
 def compute_flip_zone(df):
-    """Find the flip zone where cumulative GEX crosses zero."""
+    """Find flip zone strike where cumulative GEX crosses zero."""
     df_sorted = df.sort_values("strike").reset_index(drop=True)
     df_sorted["cum_gex"] = df_sorted["net_gex"].cumsum()
     signs = np.sign(df_sorted["cum_gex"])
@@ -110,7 +119,7 @@ def compute_flip_zone(df):
 
 
 # ===============================================
-# Core Function
+# Main GEX Builder
 # ===============================================
 def build_gex(symbol):
     print(f"\n📈 Processing {symbol}")
@@ -130,9 +139,8 @@ def build_gex(symbol):
             oi = safe_extract(q, ["openInterest", "open_interest", "oi"])
             underlying = safe_extract(q, ["underlyingPrice", "underlying_price", "underlying"])
 
-            # Skip incomplete quotes
             if any(v is None for v in [strike, gamma, oi, underlying]):
-                continue
+                continue  # skip incomplete quote
 
             gex = gamma * oi * 100 * underlying
             otype = infer_option_type(opt)
@@ -146,11 +154,11 @@ def build_gex(symbol):
                     "type": otype
                 })
         except Exception as e:
-            print(f"⚠️ Skipping {opt} due to error: {e}")
+            print(f"⚠️ Skipping {opt} due to parsing error: {e}")
             continue
 
         if i % 25 == 0:
-            time.sleep(0.2)
+            time.sleep(0.2)  # throttle to avoid rate limits
 
     df = pd.DataFrame(rows)
     if df.empty:
@@ -158,12 +166,12 @@ def build_gex(symbol):
         return None, None
 
     # ===============================================
-    # Aggregate & Compute GEX Metrics
+    # Aggregation and Computation
     # ===============================================
     grouped = df.groupby(["strike", "type"])["GEX"].sum().unstack(fill_value=0)
     grouped.rename(columns={"C": "call_gex", "P": "put_gex"}, inplace=True)
 
-    # Ensure both call_gex & put_gex columns exist
+    # Ensure both columns exist
     if "call_gex" not in grouped.columns:
         grouped["call_gex"] = 0.0
     if "put_gex" not in grouped.columns:
@@ -185,7 +193,7 @@ def build_gex(symbol):
         np.nan,
     )
 
-    # Pressure Zones
+    # Pressure Zones (top 10%)
     cutoff = grouped["abs_net_gex"].quantile(0.9)
     grouped["pressure_zone"] = grouped["abs_net_gex"] >= cutoff
 
@@ -221,7 +229,7 @@ def build_gex(symbol):
 
 
 # ===============================================
-# Main Loop
+# Main Execution Loop
 # ===============================================
 generated_files = []
 flip_summary = {}
@@ -237,7 +245,7 @@ for ticker in TICKERS:
         print(f"❌ Error while processing {ticker}: {e}")
 
 # ===============================================
-# Summary Outputs
+# Write Summary Files
 # ===============================================
 if generated_files:
     latest_date = datetime.now().strftime("%Y%m%d")
