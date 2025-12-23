@@ -13,9 +13,8 @@ TITLE = "GEX Master Auto"
 VERSION = 6
 
 # --- DATA LOADING PLACEHOLDER ---
-# (Assumes you have your ticker-specific strike/gamma data arrays defined elsewhere)
+# (Your generator will replace this dynamically)
 def generate_data_block():
-    # Placeholder – your real data loader writes these
     return """
     if sym == "RR"
         s := array.from(1, 1, 2, 2, 3, 3, 4, 4)
@@ -56,7 +55,7 @@ if barstate.islast and not gex_drawn
         for i = 0 to array.size(gex_vals) - 1
             total_gex += array.get(gex_vals, i)
 
-        // delete any old drawings
+        // cleanup
         for l in gex_lines
             line.delete(l)
         for lb in gex_labels
@@ -64,38 +63,38 @@ if barstate.islast and not gex_drawn
         array.clear(gex_lines)
         array.clear(gex_labels)
 
-        // create persistent, price-locked gamma levels
+        // === Draw GEX Levels (Support/Resistance Style) ===
         for i = 0 to array.size(strikes) - 1
             s_price = array.get(strikes, i)
             g_val = array.get(gex_vals, i)
             color g_col = g_val > 0 ? color.new(color.green, 0) : color.new(color.red, 0)
 
-            // horizontal support/resistance-style line
+            // ✅ Limit to 500 bars in both directions (no runtime error)
             l = line.new(
-                x1=bar_index - 2000,
-                y1=s_price,
-                x2=bar_index + 2000,
-                y2=s_price,
-                xloc=xloc.bar_index,
-                extend=extend.right,
-                color=g_col,
-                width=2)
+                x1 = bar_index - 500,
+                y1 = s_price,
+                x2 = bar_index + 500,
+                y2 = s_price,
+                xloc = xloc.bar_index,
+                extend = extend.right,
+                color = g_col,
+                width = 2)
             array.push(gex_lines, l)
 
-            // label at each strike
+            // Add label at price level
             lb = label.new(
-                x=bar_index,
-                y=s_price,
-                text="Strike " + str.tostring(s_price) + "\\n" + str.tostring(math.round(g_val / 1e6)) + "M",
-                xloc=xloc.bar_index,
-                yloc=yloc.price,
-                style=label.style_label_left,
-                textcolor=color.white,
-                color=color.new(g_col, 60),
-                size=size.small)
+                x = bar_index,
+                y = s_price,
+                text = "Strike " + str.tostring(s_price) + "\\n" + str.tostring(math.round(g_val / 1e6)) + "M",
+                xloc = xloc.bar_index,
+                yloc = yloc.price,
+                style = label.style_label_left,
+                textcolor = color.white,
+                color = color.new(g_col, 60),
+                size = size.small)
             array.push(gex_labels, lb)
 
-        // === Dashboard ===
+        // === Dashboard Summary ===
         if show_dashboard
             string regime = total_gex > 0 ? "Short Vol (Pos GEX)" : "Long Vol (Neg GEX)"
             color reg_col = total_gex > 0 ? color.green : color.red
@@ -103,7 +102,7 @@ if barstate.islast and not gex_drawn
             table.cell(dash, 0, 0,
                 syminfo.ticker + " GEX: " + str.tostring(math.round(total_gex / 1e6)) +
                 "M\\n" + regime + "\\nDate: {today}",
-                text_color=color.white, bgcolor=color.new(reg_col, 80))
+                text_color = color.white, bgcolor = color.new(reg_col, 80))
 
         gex_drawn := true
     else
@@ -112,6 +111,7 @@ if barstate.islast and not gex_drawn
                   text_color=color.white, bgcolor=color.gray)
 """
     return pine
+
 
 # --- WRITE FILE ---
 if __name__ == "__main__":
