@@ -15,7 +15,7 @@ from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # === CONFIGURATION ===
-API_KEY = os.getenv("MARKETDATA_API_KEY")  # stored in environment or GitHub secret
+API_KEY = os.getenv("MARKETDATA_KEY")  # stored in environment or GitHub secret
 API_URL = "https://api.marketdata.app/v1/options/chain"
 MAX_WORKERS = 5
 
@@ -143,3 +143,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
