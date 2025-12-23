@@ -1,10 +1,10 @@
 """
-MarketData GEX Builder – Clean Version (Option A)
--------------------------------------------------
-✅ Pulls live option-chain data from MarketData.app
-✅ Calculates per-strike GEX and cumulative GEX
-✅ Derives Flip Zone & Dealer Regime
-✅ Saves one CSV per ticker + summary CSV
+GEX Builder (CSV-Only Version)
+------------------------------
+✅ Pulls option-chain data from MarketData.app
+✅ Calculates Gamma Exposure (GEX) and Flip Zone
+✅ Exports one CSV per ticker + a master gamma_summary.csv
+❌ Does not create any TradingView Pine file
 """
 
 import os
@@ -15,9 +15,10 @@ from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # === CONFIGURATION ===
-API_KEY = os.getenv("MARKETDATA_API_KEY")  # stored in GitHub secrets
+API_KEY = os.getenv("MARKETDATA_API_KEY")  # stored in environment or GitHub secret
 API_URL = "https://api.marketdata.app/v1/options/chain"
 MAX_WORKERS = 5
+
 
 # === UTILITIES ===
 def load_tickers(filename="tickers.txt"):
@@ -30,27 +31,30 @@ def load_tickers(filename="tickers.txt"):
     print(f"✅ Loaded {len(tickers)} tickers: {', '.join(tickers)}")
     return tickers
 
+
 def fetch_chain(ticker):
-    """Pull option-chain data from MarketData.app"""
+    """Fetch option-chain data from MarketData.app"""
     try:
         resp = requests.get(f"{API_URL}/{ticker}", params={"token": API_KEY}, timeout=20)
         if resp.status_code != 200:
-            print(f"⚠️  {ticker}: HTTP {resp.status_code}.")
+            print(f"⚠️  {ticker}: HTTP {resp.status_code}")
             return None
         data = resp.json()
         if not data or data.get("s") != "ok":
-            print(f"⚠️  {ticker}: invalid response {data}.")
+            print(f"⚠️  {ticker}: invalid response {data}")
             return None
         return data
     except Exception as e:
         print(f"⚠️  {ticker}: fetch failed ({e})")
         return None
 
+
 def compute_gex(df, underlying_price):
-    """Compute Gamma Exposure (GEX) and cumulative GEX"""
+    """Compute Gamma Exposure and cumulative GEX"""
     df["GEX"] = df["gamma"] * df["oi"] * (underlying_price ** 2) * 0.01
     df["cum_gex"] = df["GEX"].cumsum()
     return df
+
 
 def summarize(df, symbol):
     """Compute Flip Zone and Dealer Regime"""
@@ -67,24 +71,21 @@ def summarize(df, symbol):
         "dealer_regime": dealer_regime,
     }
 
+
 def process_ticker(symbol, output_dir):
-    """Process one ticker end-to-end"""
+    """Process one ticker and output CSV"""
     data = fetch_chain(symbol)
     if not data:
         return None
 
-    opts = data.get("optionSymbol", [])
-    if not opts:
-        print(f"⚠️  {symbol}: empty chain.")
-        return None
-
-    rows = []
-    u_price = data.get("underlyingPrice", [None])[0] if isinstance(data.get("underlyingPrice"), list) else data.get("underlyingPrice")
+    u_price = data.get("underlyingPrice")
+    if isinstance(u_price, list):
+        u_price = u_price[0] if u_price else None
     if not u_price:
         print(f"⚠️  {symbol}: missing underlying price.")
         return None
 
-    # Each option quote record
+    rows = []
     for o in data.get("options", []):
         try:
             strike = float(o.get("strike"))
@@ -96,7 +97,7 @@ def process_ticker(symbol, output_dir):
 
     df = pd.DataFrame(rows)
     if df.empty:
-        print(f"⚠️  {symbol}: no valid data.")
+        print(f"⚠️  {symbol}: no valid option data.")
         return None
 
     df = df.sort_values("strike")
@@ -108,16 +109,21 @@ def process_ticker(symbol, output_dir):
     out_path = os.path.join(output_dir, f"{symbol}_GEX_{date_str}.csv")
     df.to_csv(out_path, index=False)
     print(f"📊  {symbol}: {len(df)} rows → {out_path}")
+
     return summary
+
 
 def main():
     tickers = load_tickers()
     if not tickers:
         return
+
     output_dir = "."
     date_str = datetime.now().strftime("%Y%m%d")
-
     results = []
+
+    print("🚀 Starting MarketData GEX Builder")
+
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as ex:
         futures = {ex.submit(process_ticker, t, output_dir): t for t in tickers}
         for f in as_completed(futures):
@@ -133,6 +139,7 @@ def main():
         print("✅ All tickers processed successfully.")
     else:
         print("⚠️ No successful tickers — nothing written.")
+
 
 if __name__ == "__main__":
     main()
