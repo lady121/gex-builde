@@ -1,4 +1,4 @@
-name: Build GEX each night (Full Gamma Suite v7.0)
+name: Build GEX each night (Full Gamma Suite)
 
 on:
   schedule:
@@ -22,18 +22,25 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt
+          pip install -r requirements.txt || echo "No requirements.txt found"
           pip install pandas numpy matplotlib requests
+
+      - name: Verify script exists
+        run: |
+          if [ ! -f "gex_builder.py" ]; then
+            echo "❌ gex_builder.py not found in repo root!"
+            exit 1
+          fi
 
       - name: Run GEX Builder (Full Suite)
         env:
           MARKETDATA_KEY: ${{ secrets.MARKETDATA_KEY }}
-        run: python gex_builder_v7.py
+        run: python gex_builder.py
 
       - name: Commit Outputs
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
           git add *.csv *.txt *.png || echo "No new files to add"
-          git commit -m "Nightly GEX update (v7.0 Full Suite)" || echo "No changes to commit"
+          git commit -m "Nightly GEX update (Full Gamma Suite)" || echo "No changes to commit"
           git push || echo "Push skipped"
