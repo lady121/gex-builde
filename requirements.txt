@@ -1,2 +1,27 @@
-requests
-pandas
+# ===========================================================
+# Requirements for GEX Builder v7.2 — Full Gamma Suite
+# ===========================================================
+
+# Core scientific & data packages
+pandas==2.2.3
+numpy==1.26.4
+
+# Visualization
+matplotlib==3.9.2
+
+# API & requests handling
+requests==2.32.3
+
+# Optional: timezone-aware date handling (used by pandas)
+python-dateutil==2.9.0.post0
+pytz==2024.2
+
+# (Optional) for numerical robustness / interpolation
+scipy==1.14.1
+
+# ===========================================================
+# Notes:
+# - Tested on Python 3.11 (Ubuntu-latest runner)
+# - Compatible with MarketData.app API responses
+# - No interactive libraries (safe for GitHub Actions)
+# ===========================================================
