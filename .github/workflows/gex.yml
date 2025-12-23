@@ -1,8 +1,9 @@
-name: Build GEX each night
+name: Build Daily GEX + Auto Pine Update
 
 on:
   schedule:
-    - cron: "0 1 * * *"  # every night at 1 AM UTC
+    # Run after market close (10:30 PM UTC = 5:30 PM ET)
+    - cron: "30 22 * * 1-5"
   workflow_dispatch:
 
 jobs:
@@ -10,27 +11,48 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
 
-      - name: Set up Python
+    steps:
+      - name: 🧭 Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🐍 Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: 3.11
+          python-version: "3.11"
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
+      - name: 📦 Install dependencies
+        run: |
+          pip install pandas requests
 
-      - name: Run GEX builder
+      - name: ⚙️ Run GEX Builder
         env:
           MARKETDATA_KEY: ${{ secrets.MARKETDATA_KEY }}
-        run: python gex_builder.py
+        run: |
+          echo "=== RUNNING GEX BUILDER ==="
+          mkdir -p logs
+          python gex_builder.py > logs/gex_builder_$(date +'%Y%m%d_%H%M').log 2>&1 || true
+          echo "=== GEX BUILDER COMPLETE ==="
 
-      - name: Commit CSVs
+      - name: ✨ Generate TradingView Pine Script
+        run: |
+          echo "=== GENERATING GEX MASTER INDICATOR ==="
+          python gex_to_tradingview.py > logs/pine_generator_$(date +'%Y%m%d_%H%M').log 2>&1 || true
+          echo "=== PINE SCRIPT GENERATED ==="
+
+      - name: 🧹 Commit & Push Updates
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git add *.csv || echo "No CSVs to add"
-          git commit -m "Update GEX data" || echo "No changes to commit"
-          git push || echo "Push skipped"
+
+          git add *.csv latest.txt GEX_Master_Indicator.pine logs/ || true
+
+          if git diff --cached --quiet; then
+            echo "ℹ️ No new data to commit."
+          else
+            git commit -m "Daily Auto-Update: CSVs + Pine Script $(date)"
+            git push
+            echo "✅ Data & Pine script committed successfully."
+          fi
