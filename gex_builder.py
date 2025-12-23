@@ -1,182 +1,145 @@
-# ==================================================
-# MarketData.app GEX Builder (v8.0)
-# Full Dealer Positioning Engine:
-# GEX + Vanna + Charm + Flip Zone + Summary
-# ==================================================
+"""
+GEX Builder (CSV-Only Version)
+------------------------------
+✅ Pulls option-chain data from MarketData.app
+✅ Calculates Gamma Exposure (GEX) and Flip Zone
+✅ Exports one CSV per ticker + a master gamma_summary.csv
+❌ Does not create any TradingView Pine file
+"""
 
 import os
-import time
+import io
 import requests
 import pandas as pd
 from datetime import datetime
-import numpy as np
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
-API_KEY = os.getenv("MARKETDATA_KEY") or "YOUR_BACKUP_TOKEN"
-BASE_URL = "https://api.marketdata.app/v1/options"
-
-# === Load Tickers ===
-if os.path.exists("tickers.txt"):
-    with open("tickers.txt") as f:
-        TICKERS = [t.strip().upper() for t in f if t.strip()]
-else:
-    TICKERS = ["SPY", "QQQ", "NVDA"]
-
-print("🚀 Starting MarketData GEX Builder (v8.0)")
-print(f"✅ Loaded {len(TICKERS)} tickers: {', '.join(TICKERS)}")
-print(f"🔑 API key present: {'Yes' if API_KEY else 'No'}\n")
+# === CONFIGURATION ===
+API_KEY = os.getenv("MARKETDATA_KEY")  # stored in environment or GitHub secret
+API_URL = "https://api.marketdata.app/v1/options/chain"
+MAX_WORKERS = 5
 
 
-# ==================================================
-# Helper Functions
-# ==================================================
-def get_chain(symbol):
-    """Get the list of option contracts for a symbol."""
-    url = f"{BASE_URL}/chain/{symbol}?token={API_KEY}"
-    r = requests.get(url, timeout=20)
-    if r.status_code not in (200, 203):
-        print(f"❌ Chain fetch failed for {symbol}: {r.status_code}")
+# === UTILITIES ===
+def load_tickers(filename="tickers.txt"):
+    """Load tickers from tickers.txt"""
+    if not os.path.exists(filename):
+        print("❌ No tickers.txt found.")
         return []
-    data = r.json()
-    if data.get("s") != "ok":
-        print(f"⚠️ No valid chain data for {symbol}")
-        return []
-    return data.get("optionSymbol", [])
+    with open(filename) as f:
+        tickers = [t.strip().upper() for t in f if t.strip()]
+    print(f"✅ Loaded {len(tickers)} tickers: {', '.join(tickers)}")
+    return tickers
 
 
-def get_quote(option_symbol):
-    """Get quote and Greeks for an individual option contract."""
-    url = f"{BASE_URL}/quotes/{option_symbol}?token={API_KEY}"
-    r = requests.get(url, timeout=15)
-    if r.status_code not in (200, 203):
-        return None
-    data = r.json()
-    if data.get("s") != "ok":
-        return None
-    return data
-
-
-# ==================================================
-# GEX + Vanna + Charm Builder
-# ==================================================
-def build_dealer_metrics(symbol):
-    print(f"📈 Processing {symbol}")
-    chain = get_chain(symbol)
-    if not chain:
-        print(f"⚠️ No option symbols found for {symbol}")
-        return None
-
-    rows = []
-    for i, opt in enumerate(chain[:400]):
-        q = get_quote(opt)
-        if not q:
-            continue
-
-        try:
-            strike = q.get("strike", [None])[0] if isinstance(q.get("strike"), list) else q.get("strike")
-            gamma = q.get("gamma", [None])[0] if isinstance(q.get("gamma"), list) else q.get("gamma")
-            vanna = q.get("vanna", [None])[0] if isinstance(q.get("vanna"), list) else q.get("vanna")
-            charm = q.get("charm", [None])[0] if isinstance(q.get("charm"), list) else q.get("charm")
-            oi = q.get("openInterest", [None])[0] if isinstance(q.get("openInterest"), list) else q.get("openInterest")
-            underlying = q.get("underlyingPrice", [None])[0] if isinstance(q.get("underlyingPrice"), list) else q.get("underlyingPrice")
-
-            if all(v is not None for v in [strike, gamma, oi, underlying]):
-                gex = gamma * oi * 100 * underlying
-                vanna_exp = (vanna or 0) * oi * 100 * underlying * 0.01
-                charm_exp = (charm or 0) * oi * 100 * underlying * 0.01
-
-                rows.append({
-                    "strike": strike,
-                    "gamma": gamma,
-                    "vanna": vanna or 0,
-                    "charm": charm or 0,
-                    "oi": oi,
-                    "underlying": underlying,
-                    "GEX": gex,
-                    "VannaExp": vanna_exp,
-                    "CharmExp": charm_exp
-                })
-        except Exception:
-            continue
-
-        if i % 25 == 0:
-            time.sleep(0.2)
-
-    df = pd.DataFrame(rows)
-    if df.empty:
-        print(f"⚠️ No valid data for {symbol}")
-        return None
-
-    df = df.sort_values("strike").reset_index(drop=True)
-
-    # === Core Analytics ===
-    total_gex = df["GEX"].sum()
-    total_vanna = df["VannaExp"].sum()
-    total_charm = df["CharmExp"].sum()
-
-    # Flip Zone (Zero-Gamma)
-    df["cum_gex"] = df["GEX"].cumsum()
-    zero_gamma_strike = np.nan
+def fetch_chain(ticker):
+    """Fetch option-chain data from MarketData.app"""
     try:
-        sign_change = np.where(np.sign(df["cum_gex"]).diff().fillna(0) != 0)[0]
-        if len(sign_change) > 0:
-            zero_gamma_strike = df.loc[sign_change[0], "strike"]
-    except Exception:
-        zero_gamma_strike = np.nan
+        resp = requests.get(f"{API_URL}/{ticker}", params={"token": API_KEY}, timeout=20)
+        if resp.status_code != 200:
+            print(f"⚠️  {ticker}: HTTP {resp.status_code}")
+            return None
+        data = resp.json()
+        if not data or data.get("s") != "ok":
+            print(f"⚠️  {ticker}: invalid response {data}")
+            return None
+        return data
+    except Exception as e:
+        print(f"⚠️  {ticker}: fetch failed ({e})")
+        return None
 
-    gamma_max_strike = df.loc[df["GEX"].idxmax(), "strike"]
-    gamma_min_strike = df.loc[df["GEX"].idxmin(), "strike"]
 
+def compute_gex(df, underlying_price):
+    """Compute Gamma Exposure and cumulative GEX"""
+    df["GEX"] = df["gamma"] * df["oi"] * (underlying_price ** 2) * 0.01
+    df["cum_gex"] = df["GEX"].cumsum()
+    return df
+
+
+def summarize(df, symbol):
+    """Compute Flip Zone and Dealer Regime"""
+    total_gex = df["GEX"].sum()
+    flip_idx = (df["cum_gex"] - total_gex / 2).abs().idxmin()
+    flip_zone = df.loc[flip_idx, "strike"]
     dealer_regime = "Short Vol (Pos GEX)" if total_gex > 0 else "Long Vol (Neg GEX)"
-
-    # === Save Per-Ticker CSV ===
-    date_tag = datetime.now().strftime("%Y%m%d")
-    fname = f"{symbol}_GEX_{date_tag}.csv"
-    df.to_csv(fname, index=False)
-
-    # === Print Summary ===
-    print(f"✅ Saved {fname} ({len(df)} rows)")
-    print(f"   ↳ Total GEX: {total_gex:,.0f}")
-    print(f"   ↳ Total Vanna: {total_vanna:,.0f}")
-    print(f"   ↳ Total Charm: {total_charm:,.0f}")
-    print(f"   ↳ Flip Zone: {zero_gamma_strike}")
-    print(f"   ↳ Dealer Regime: {dealer_regime}\n")
-
     return {
         "symbol": symbol,
-        "file": fname,
         "total_gex": total_gex,
-        "total_vanna": total_vanna,
-        "total_charm": total_charm,
-        "flip_zone": zero_gamma_strike,
-        "gamma_max": gamma_max_strike,
-        "gamma_min": gamma_min_strike,
-        "dealer_regime": dealer_regime
+        "flip_zone": flip_zone,
+        "gamma_max": df["GEX"].max(),
+        "gamma_min": df["GEX"].min(),
+        "dealer_regime": dealer_regime,
     }
 
 
-# ==================================================
-# MAIN EXECUTION
-# ==================================================
-generated_files = []
-summaries = []
+def process_ticker(symbol, output_dir):
+    """Process one ticker and output CSV"""
+    data = fetch_chain(symbol)
+    if not data:
+        return None
 
-for ticker in TICKERS:
-    result = build_dealer_metrics(ticker)
-    if result:
-        generated_files.append(result["file"])
-        summaries.append(result)
+    u_price = data.get("underlyingPrice")
+    if isinstance(u_price, list):
+        u_price = u_price[0] if u_price else None
+    if not u_price:
+        print(f"⚠️  {symbol}: missing underlying price.")
+        return None
 
-# === Write latest.txt for other scripts ===
-if generated_files:
-    latest_date = datetime.now().strftime("%Y%m%d")
-    with open("latest.txt", "w") as f:
-        f.write(latest_date)
-    print(f"🕒 Updated latest.txt with {latest_date}")
+    rows = []
+    for o in data.get("options", []):
+        try:
+            strike = float(o.get("strike"))
+            gamma = float(o.get("gamma", 0))
+            oi = int(o.get("openInterest", 0))
+            rows.append({"strike": strike, "gamma": gamma, "oi": oi})
+        except Exception:
+            continue
 
-# === Write gamma_summary.csv ===
-if summaries:
-    df_sum = pd.DataFrame(summaries)
-    df_sum.to_csv("gamma_summary.csv", index=False)
-    print(f"📊 Created gamma_summary.csv with {len(df_sum)} entries.")
+    df = pd.DataFrame(rows)
+    if df.empty:
+        print(f"⚠️  {symbol}: no valid option data.")
+        return None
 
-print("\n🏁 Finished all tickers.")
+    df = df.sort_values("strike")
+    df = compute_gex(df, float(u_price))
+    summary = summarize(df, symbol)
+
+    # Save CSV
+    date_str = datetime.now().strftime("%Y%m%d")
+    out_path = os.path.join(output_dir, f"{symbol}_GEX_{date_str}.csv")
+    df.to_csv(out_path, index=False)
+    print(f"📊  {symbol}: {len(df)} rows → {out_path}")
+
+    return summary
+
+
+def main():
+    tickers = load_tickers()
+    if not tickers:
+        return
+
+    output_dir = "."
+    date_str = datetime.now().strftime("%Y%m%d")
+    results = []
+
+    print("🚀 Starting MarketData GEX Builder")
+
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as ex:
+        futures = {ex.submit(process_ticker, t, output_dir): t for t in tickers}
+        for f in as_completed(futures):
+            res = f.result()
+            if res:
+                results.append(res)
+
+    if results:
+        pd.DataFrame(results).to_csv("gamma_summary.csv", index=False)
+        with open("latest.txt", "w") as f:
+            f.write(date_str)
+        print(f"🕒 Updated latest.txt → {date_str}")
+        print("✅ All tickers processed successfully.")
+    else:
+        print("⚠️ No successful tickers — nothing written.")
+
+
+if __name__ == "__main__":
+    main()
