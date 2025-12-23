@@ -1,47 +1,39 @@
-# ===========================================================
-# MarketData.app GEX Builder Config (v7.0 — Full Gamma Suite)
-# ===========================================================
+name: Build GEX each night (Full Gamma Suite v7.0)
 
-name: GEX_Builder_FullSuite
-version: 7.0
-description: >
-  Builds complete Gamma Exposure analytics from MarketData.app,
-  including flip zones, gamma squeeze index, and pressure zones.
+on:
+  schedule:
+    - cron: '0 1 * * *'   # Run daily at 1:00 AM UTC
+  workflow_dispatch:
 
-environment:
-  python: ">=3.10"
-  dependencies:
-    - pandas
-    - numpy
-    - matplotlib
-    - requests
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
-config:
-  api_key_env: MARKETDATA_KEY
-  enable_plots: true
-  max_options: 400
-  data_source: "https://api.marketdata.app/v1/options"
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
-inputs:
-  - tickers.txt
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.11
 
-outputs:
-  - latest.txt
-  - flip_zones.txt
-  - "*_GEX_full_*.csv"
-  - "*_GEX_plot_*.png"
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pandas numpy matplotlib requests
 
-scripts:
-  - gex_builder_v7.py
+      - name: Run GEX Builder (Full Suite)
+        env:
+          MARKETDATA_KEY: ${{ secrets.MARKETDATA_KEY }}
+        run: python gex_builder_v7.py
 
-schedule:
-  type: daily
-  time: "08:30"  # optional – auto-run before market open
-
-notifications:
-  on_success: true
-  on_failure: true
-
-logging:
-  level: INFO
-  file: logs/gex_builder.log
+      - name: Commit Outputs
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add *.csv *.txt *.png || echo "No new files to add"
+          git commit -m "Nightly GEX update (v7.0 Full Suite)" || echo "No changes to commit"
+          git push || echo "Push skipped"
