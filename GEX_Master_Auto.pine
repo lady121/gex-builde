@@ -1,5 +1,5 @@
 //@version=6
-indicator("GEX Master Auto: 20251222", overlay=true, max_lines_count=500, max_labels_count=500)
+indicator("GEX Master Auto: 20251223", overlay=true, max_lines_count=500, max_labels_count=500)
 
 // === SETTINGS ===
 var float width_scale = input.float(0.5, "Bar Width Scale", minval=0.1, step=0.1)
@@ -79,7 +79,7 @@ if barstate.islast and not gex_drawn
             var table dash = table.new(position.top_right, 1, 1)
             table.cell(dash, 0, 0,
                 syminfo.ticker + " GEX: " + str.tostring(math.round(total_gex / 1e6)) +
-                "M\n" + regime + "\nDate: 20251222",
+                "M\n" + regime + "\nDate: 20251223",
                 text_color=color.white, bgcolor=color.new(reg_col, 80))
 
         gex_drawn := true
