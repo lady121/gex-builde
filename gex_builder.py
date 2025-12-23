@@ -1,15 +1,15 @@
 # ===========================================================
-# MarketData.app GEX Builder v7.1 — Full Gamma Suite (Stable)
-# Author: PulsR | Maintained by Code GPT
+# MarketData.app GEX Builder v7.0 — Full Gamma Suite
+# Author: PulsR | Upgrade by Code GPT
 # ===========================================================
 # Features:
-#  ✅ Flip Zone Detection (net cumulative GEX crosses zero)
+#  ✅ Flip Zone Detection (where net cumulative GEX crosses zero)
 #  ✅ Gamma Squeeze Index (GSI)
 #  ✅ Call/Put/Net GEX analytics
 #  ✅ Pressure Zones & Gamma Neutral Zone
-#  ✅ API-based live MarketData.app data
-#  ✅ Safe handling for partial data (calls or puts missing)
-#  ✅ Auto CSV, TXT, and optional PNG outputs
+#  ✅ API-based live MarketData.app option data
+#  ✅ Auto CSV + TXT Outputs
+#  ✅ Optional Matplotlib visualization
 # ===========================================================
 
 import os
@@ -21,12 +21,12 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 
 # ===============================================
-# Config
+# Configuration
 # ===============================================
 API_KEY = os.getenv("MARKETDATA_KEY") or "YOUR_BACKUP_TOKEN"
 BASE_URL = "https://api.marketdata.app/v1/options"
-ENABLE_PLOTS = True
-MAX_OPTIONS = 400
+ENABLE_PLOTS = True  # Toggle chart creation
+MAX_OPTIONS = 1000  # Increased to 1000 to prevent single-sided chain data on large tickers (SPY/QQQ)
 
 # ===============================================
 # Load tickers
@@ -37,16 +37,16 @@ if os.path.exists("tickers.txt"):
 else:
     TICKERS = ["SPY", "QQQ", "NVDA"]
 
-print("🚀 Starting MarketData GEX Builder (v7.1 — Full Gamma Suite)")
+print("🚀 Starting MarketData GEX Builder (v7.0 — Full Gamma Suite)")
 print(f"Tickers: {', '.join(TICKERS)}")
 print(f"API key present: {'Yes' if API_KEY else 'No'}\n")
 
 
 # ===============================================
-# Helpers
+# Helper Functions
 # ===============================================
 def get_chain(symbol):
-    """Fetch option symbols for a given ticker."""
+    """Get the list of option contract symbols."""
     url = f"{BASE_URL}/chain/{symbol}?token={API_KEY}"
     r = requests.get(url, timeout=20)
     if r.status_code not in (200, 203):
@@ -60,7 +60,7 @@ def get_chain(symbol):
 
 
 def get_quote(option_symbol):
-    """Fetch individual option quote data."""
+    """Get the quote for an individual option contract."""
     url = f"{BASE_URL}/quotes/{option_symbol}?token={API_KEY}"
     r = requests.get(url, timeout=15)
     if r.status_code not in (200, 203):
@@ -72,35 +72,37 @@ def get_quote(option_symbol):
 
 
 def infer_option_type(symbol_str):
-    """Guess if an option is a Call or Put from its symbol."""
+    """Determine if contract is a Call (C) or Put (P) from symbol string."""
     if "C" in symbol_str and "P" not in symbol_str:
         return "C"
     if "P" in symbol_str and "C" not in symbol_str:
         return "P"
+    # fallback: use last character if structured (C/P suffix)
     if symbol_str.endswith("C"):
         return "C"
     elif symbol_str.endswith("P"):
         return "P"
-    return None
+    else:
+        return None
 
 
 def compute_flip_zone(df):
-    """Find the flip zone where cumulative GEX crosses zero."""
+    """Find the flip zone strike where cumulative GEX crosses zero."""
     df_sorted = df.sort_values("strike").reset_index(drop=True)
     df_sorted["cum_gex"] = df_sorted["net_gex"].cumsum()
     signs = np.sign(df_sorted["cum_gex"])
     flips = np.where(np.diff(signs))[0]
     if len(flips) > 0:
+        # interpolate between the two strikes around the flip
         low = df_sorted.loc[flips[0], "strike"]
         high = df_sorted.loc[flips[0] + 1, "strike"]
-        return (low + high) / 2
+        flip_zone = (low + high) / 2
+        return flip_zone
     return None
 
 
-# ===============================================
-# Core Function
-# ===============================================
 def build_gex(symbol):
+    """Main function for GEX processing per ticker."""
     print(f"\n📈 Processing {symbol}")
     chain = get_chain(symbol)
     if not chain:
@@ -108,6 +110,8 @@ def build_gex(symbol):
         return None, None
 
     rows = []
+    # Slicing the chain can result in only Calls or only Puts if data is sorted by type.
+    # Increasing MAX_OPTIONS helps, but we must also handle missing columns below.
     for i, opt in enumerate(chain[:MAX_OPTIONS]):
         q = get_quote(opt)
         if not q:
@@ -142,20 +146,17 @@ def build_gex(symbol):
         return None, None
 
     # ===============================================
-    # Aggregate & Compute GEX Metrics
+    # Aggregation by strike/type
     # ===============================================
     grouped = df.groupby(["strike", "type"])["GEX"].sum().unstack(fill_value=0)
+    
+    # SAFETY CHECK: Ensure both columns exist (fills with 0 if missing)
+    if "C" not in grouped.columns:
+        grouped["C"] = 0.0
+    if "P" not in grouped.columns:
+        grouped["P"] = 0.0
+
     grouped.rename(columns={"C": "call_gex", "P": "put_gex"}, inplace=True)
-
-    # ✅ Handle missing call/put columns
-    if "call_gex" not in grouped.columns:
-        grouped["call_gex"] = 0.0
-    if "put_gex" not in grouped.columns:
-        grouped["put_gex"] = 0.0
-
-    if df["type"].nunique() < 2:
-        print(f"⚠️ Only one option type returned for {symbol} — results may be partial.")
-
     grouped["net_gex"] = grouped["call_gex"] - grouped["put_gex"]
     grouped["abs_net_gex"] = grouped["net_gex"].abs()
 
@@ -169,14 +170,15 @@ def build_gex(symbol):
         np.nan,
     )
 
-    # Pressure Zones
+    # Pressure Zones (top 10%)
     cutoff = grouped["abs_net_gex"].quantile(0.9)
     grouped["pressure_zone"] = grouped["abs_net_gex"] >= cutoff
 
+    # Cumulative GEX for visualization
     grouped["cum_gex"] = grouped["net_gex"].cumsum()
 
     # ===============================================
-    # Save Outputs
+    # Save Output
     # ===============================================
     date_tag = datetime.now().strftime("%Y%m%d")
     fname = f"{symbol}_GEX_full_{date_tag}.csv"
@@ -184,7 +186,7 @@ def build_gex(symbol):
     print(f"✅ Saved {fname} ({len(grouped)} rows)")
 
     # ===============================================
-    # Optional Plot
+    # Visualization
     # ===============================================
     if ENABLE_PLOTS:
         plt.figure(figsize=(10, 5))
@@ -205,23 +207,20 @@ def build_gex(symbol):
 
 
 # ===============================================
-# Main Loop
+# Main Execution Loop
 # ===============================================
 generated_files = []
 flip_summary = {}
 
 for ticker in TICKERS:
-    try:
-        result, flip = build_gex(ticker)
-        if result:
-            generated_files.append(result)
-        if flip:
-            flip_summary[ticker] = flip
-    except Exception as e:
-        print(f"❌ Error while processing {ticker}: {e}")
+    result, flip = build_gex(ticker)
+    if result:
+        generated_files.append(result)
+    if flip:
+        flip_summary[ticker] = flip
 
 # ===============================================
-# Summary Outputs
+# Output Summary Files
 # ===============================================
 if generated_files:
     latest_date = datetime.now().strftime("%Y%m%d")
