@@ -1,5 +1,5 @@
 # ===========================================================
-# MarketData.app GEX Builder v7.3 — Full Gamma Suite (Stable)
+# MarketData.app GEX Builder v7.4 — Full Gamma Suite (Final)
 # Author: PulsR | Maintained by Code GPT
 # ===========================================================
 # Features:
@@ -8,9 +8,9 @@
 #  ✅ Call/Put/Net GEX analytics
 #  ✅ Pressure Zones & Gamma Neutral Zone
 #  ✅ API-based live MarketData.app option data
-#  ✅ Safe handling for missing/variant API fields
-#  ✅ Skips incomplete quotes (no 'strike' errors)
-#  ✅ Produces CSV, TXT, and PNG files (optional)
+#  ✅ Safe recursive key extraction (no more 'strike' errors)
+#  ✅ Skips malformed or partial data safely
+#  ✅ Produces CSV, TXT, and optional PNG visualizations
 # ===========================================================
 
 import os
@@ -38,7 +38,7 @@ if os.path.exists("tickers.txt"):
 else:
     TICKERS = ["SPY", "QQQ", "NVDA"]
 
-print("🚀 Starting MarketData GEX Builder (v7.3 — Full Gamma Suite)")
+print("🚀 Starting MarketData GEX Builder (v7.4 — Full Gamma Suite)")
 print(f"Tickers: {', '.join(TICKERS)}")
 print(f"API key present: {'Yes' if API_KEY else 'No'}\n")
 
@@ -47,7 +47,7 @@ print(f"API key present: {'Yes' if API_KEY else 'No'}\n")
 # Helper Functions
 # ===============================================
 def get_chain(symbol):
-    """Fetch the list of option symbols for a ticker."""
+    """Fetch list of option symbols for a given ticker."""
     url = f"{BASE_URL}/chain/{symbol}?token={API_KEY}"
     try:
         r = requests.get(url, timeout=20)
@@ -93,20 +93,36 @@ def infer_option_type(symbol_str):
 
 
 def safe_extract(d, keys, default=None):
-    """Try multiple keys safely from a dict."""
+    """Recursively search for a key inside nested dictionaries or lists."""
     if not isinstance(d, dict):
         return default
+
+    # Direct lookup
     for k in keys:
-        val = d.get(k)
-        if val is not None:
+        if k in d and d[k] is not None:
+            val = d[k]
             if isinstance(val, list) and len(val) > 0:
                 return val[0]
             return val
+
+    # Nested search through dicts/lists
+    for v in d.values():
+        if isinstance(v, dict):
+            result = safe_extract(v, keys, default)
+            if result is not None:
+                return result
+        elif isinstance(v, list):
+            for item in v:
+                if isinstance(item, dict):
+                    result = safe_extract(item, keys, default)
+                    if result is not None:
+                        return result
+
     return default
 
 
 def compute_flip_zone(df):
-    """Find flip zone strike where cumulative GEX crosses zero."""
+    """Find flip zone where cumulative GEX crosses zero."""
     df_sorted = df.sort_values("strike").reset_index(drop=True)
     df_sorted["cum_gex"] = df_sorted["net_gex"].cumsum()
     signs = np.sign(df_sorted["cum_gex"])
@@ -119,7 +135,7 @@ def compute_flip_zone(df):
 
 
 # ===============================================
-# Main GEX Builder
+# Core Function
 # ===============================================
 def build_gex(symbol):
     print(f"\n📈 Processing {symbol}")
@@ -134,6 +150,7 @@ def build_gex(symbol):
         if not q:
             continue
         try:
+            # Use recursive extractor for robustness
             strike = safe_extract(q, ["strike", "strikePrice", "strike_price"])
             gamma = safe_extract(q, ["gamma"])
             oi = safe_extract(q, ["openInterest", "open_interest", "oi"])
@@ -158,7 +175,7 @@ def build_gex(symbol):
             continue
 
         if i % 25 == 0:
-            time.sleep(0.2)  # throttle to avoid rate limits
+            time.sleep(0.2)
 
     df = pd.DataFrame(rows)
     if df.empty:
@@ -166,7 +183,7 @@ def build_gex(symbol):
         return None, None
 
     # ===============================================
-    # Aggregation and Computation
+    # Aggregation & Metrics
     # ===============================================
     grouped = df.groupby(["strike", "type"])["GEX"].sum().unstack(fill_value=0)
     grouped.rename(columns={"C": "call_gex", "P": "put_gex"}, inplace=True)
