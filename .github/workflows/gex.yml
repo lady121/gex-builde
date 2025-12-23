@@ -1,9 +1,8 @@
-name: Build Daily GEX + Auto Pine Update
+name: Build GEX each night
 
 on:
   schedule:
-    # Run after market close (10:30 PM UTC = 5:30 PM ET)
-    - cron: "30 22 * * 1-5"
+    - cron: "0 1 * * *"  # every night at 1 AM UTC
   workflow_dispatch:
 
 jobs:
@@ -11,48 +10,27 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-
     steps:
-      - name: 🧭 Checkout repository
+      - name: Checkout repo
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: 🐍 Set up Python
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: 3.11
 
-      - name: 📦 Install dependencies
-        run: |
-          pip install pandas requests
+      - name: Install dependencies
+        run: pip install -r requirements.txt
 
-      - name: ⚙️ Run GEX Builder
+      - name: Run GEX builder
         env:
           MARKETDATA_KEY: ${{ secrets.MARKETDATA_KEY }}
-        run: |
-          echo "=== RUNNING GEX BUILDER ==="
-          mkdir -p logs
-          python gex_builder.py > logs/gex_builder_$(date +'%Y%m%d_%H%M').log 2>&1 || true
-          echo "=== GEX BUILDER COMPLETE ==="
+        run: python gex_builder.py
 
-      - name: ✨ Generate TradingView Pine Script
-        run: |
-          echo "=== GENERATING GEX MASTER INDICATOR ==="
-          python gex_to_tradingview.py > logs/pine_generator_$(date +'%Y%m%d_%H%M').log 2>&1 || true
-          echo "=== PINE SCRIPT GENERATED ==="
-
-      - name: 🧹 Commit & Push Updates
+      - name: Commit CSVs
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-
-          git add *.csv latest.txt GEX_Master_Indicator.pine logs/ || true
-
-          if git diff --cached --quiet; then
-            echo "ℹ️ No new data to commit."
-          else
-            git commit -m "Daily Auto-Update: CSVs + Pine Script $(date)"
-            git push
-            echo "✅ Data & Pine script committed successfully."
-          fi
+          git add *.csv || echo "No CSVs to add"
+          git commit -m "Update GEX data" || echo "No changes to commit"
+          git push || echo "Push skipped"
