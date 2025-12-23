@@ -1,58 +1,47 @@
-name: Build Daily GEX + Auto Pine Update
+# ===========================================================
+# MarketData.app GEX Builder Config (v7.0 — Full Gamma Suite)
+# ===========================================================
 
-on:
-  schedule:
-    # Run after market close (10:30 PM UTC = 5:30 PM ET)
-    - cron: "30 22 * * 1-5"
-  workflow_dispatch:
+name: GEX_Builder_FullSuite
+version: 7.0
+description: >
+  Builds complete Gamma Exposure analytics from MarketData.app,
+  including flip zones, gamma squeeze index, and pressure zones.
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
+environment:
+  python: ">=3.10"
+  dependencies:
+    - pandas
+    - numpy
+    - matplotlib
+    - requests
 
-    steps:
-      - name: 🧭 Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+config:
+  api_key_env: MARKETDATA_KEY
+  enable_plots: true
+  max_options: 400
+  data_source: "https://api.marketdata.app/v1/options"
 
-      - name: 🐍 Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
+inputs:
+  - tickers.txt
 
-      - name: 📦 Install dependencies
-        run: |
-          pip install pandas requests
+outputs:
+  - latest.txt
+  - flip_zones.txt
+  - "*_GEX_full_*.csv"
+  - "*_GEX_plot_*.png"
 
-      - name: ⚙️ Run GEX Builder
-        env:
-          MARKETDATA_KEY: ${{ secrets.MARKETDATA_KEY }}
-        run: |
-          echo "=== RUNNING GEX BUILDER ==="
-          mkdir -p logs
-          python gex_builder.py > logs/gex_builder_$(date +'%Y%m%d_%H%M').log 2>&1 || true
-          echo "=== GEX BUILDER COMPLETE ==="
+scripts:
+  - gex_builder_v7.py
 
-      - name: ✨ Generate TradingView Pine Script
-        run: |
-          echo "=== GENERATING GEX MASTER INDICATOR ==="
-          python gex_to_tradingview.py > logs/pine_generator_$(date +'%Y%m%d_%H%M').log 2>&1 || true
-          echo "=== PINE SCRIPT GENERATED ==="
+schedule:
+  type: daily
+  time: "08:30"  # optional – auto-run before market open
 
-      - name: 🧹 Commit & Push Updates
-        run: |
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
+notifications:
+  on_success: true
+  on_failure: true
 
-          git add *.csv latest.txt GEX_Master_Indicator.pine logs/ || true
-
-          if git diff --cached --quiet; then
-            echo "ℹ️ No new data to commit."
-          else
-            git commit -m "Daily Auto-Update: CSVs + Pine Script $(date)"
-            git push
-            echo "✅ Data & Pine script committed successfully."
-          fi
+logging:
+  level: INFO
+  file: logs/gex_builder.log
