@@ -1,58 +1,48 @@
-name: Build Daily GEX + Auto Pine Update
+name: Auto-Build GEX Data and TradingView Script
 
 on:
   schedule:
-    # Run after market close (10:30 PM UTC = 5:30 PM ET)
-    - cron: "30 22 * * 1-5"
-  workflow_dispatch:
+    - cron: "30 13 * * 1-5"    # 13:30 UTC = 9:30 AM ET, Mon–Fri
+  workflow_dispatch:            # manual run button in GitHub UI
 
 jobs:
-  build:
+  build-gex:
     runs-on: ubuntu-latest
     permissions:
       contents: write
 
     steps:
-      - name: 🧭 Checkout repository
+      # --- 1️⃣  Pull your repo ---
+      - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: 🐍 Set up Python
+      # --- 2️⃣  Set up Python ---
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: 📦 Install dependencies
+      # --- 3️⃣  Install dependencies ---
+      - name: Install dependencies
         run: |
-          pip install pandas requests
+          python -m pip install --upgrade pip
+          pip install requests pandas
 
-      - name: ⚙️ Run GEX Builder
+      # --- 4️⃣  Run GEX Builder (CSV generator) ---
+      - name: Run MarketData GEX Builder
         env:
-          MARKETDATA_KEY: ${{ secrets.MARKETDATA_KEY }}
+          MARKETDATA_API_KEY: ${{ secrets.MARKETDATA_API_KEY }}
+        run: python gex_builder.py
+
+      # --- 5️⃣  Run TradingView Pine generator ---
+      - name: Build TradingView Pine Script
+        run: python gex_to_tradingview.py
+
+      # --- 6️⃣  Commit & push results ---
+      - name: Commit and push updated files
         run: |
-          echo "=== RUNNING GEX BUILDER ==="
-          mkdir -p logs
-          python gex_builder.py > logs/gex_builder_$(date +'%Y%m%d_%H%M').log 2>&1 || true
-          echo "=== GEX BUILDER COMPLETE ==="
-
-      - name: ✨ Generate TradingView Pine Script
-        run: |
-          echo "=== GENERATING GEX MASTER INDICATOR ==="
-          python gex_to_tradingview.py > logs/pine_generator_$(date +'%Y%m%d_%H%M').log 2>&1 || true
-          echo "=== PINE SCRIPT GENERATED ==="
-
-      - name: 🧹 Commit & Push Updates
-        run: |
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
-
-          git add *.csv latest.txt GEX_Master_Indicator.pine logs/ || true
-
-          if git diff --cached --quiet; then
-            echo "ℹ️ No new data to commit."
-          else
-            git commit -m "Daily Auto-Update: CSVs + Pine Script $(date)"
-            git push
-            echo "✅ Data & Pine script committed successfully."
-          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add *.csv latest.txt GEX_Master_Indicator.pine gamma_summary.csv || true
+          git commit -m "Auto-update GEX CSVs + TradingView script" || echo "No changes"
+          git push || true
