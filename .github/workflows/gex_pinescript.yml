@@ -1,0 +1,49 @@
+name: Convert GEX to Pine Script
+
+# Trigger: Runs automatically ONLY after "Build GEX each night" finishes successfully
+on:
+  workflow_run:
+    workflows: ["Build GEX each night (Full Gamma Suite)"]
+    types:
+      - completed
+  workflow_dispatch: # Allows you to click "Run" manually if needed
+
+jobs:
+  convert:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.11
+
+      - name: Install dependencies
+        run: pip install pandas numpy
+
+      - name: Run Pine Script Converter
+        run: |
+          # Checks for the script in 'GEX Tools' folder first, then root
+          if [ -f "GEX Tools/gex_to_pinescript_converter.py" ]; then
+            python "GEX Tools/gex_to_pinescript_converter.py"
+          elif [ -f "gex_to_pinescript_converter.py" ]; then
+            python gex_to_pinescript_converter.py
+          else
+            echo "❌ Converter script not found!"
+            exit 1
+          fi
+
+      - name: Commit Pine Scripts
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git pull
+          git add *.pine || echo "No new pine files"
+          git commit -m "Auto-generated Pine Scripts" || echo "No changes to commit"
+          git push
