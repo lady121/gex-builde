@@ -10,6 +10,10 @@
 #     (Discarding low-gamma Deep OTM/ITM junk).
 #  ✅ Result: Captures "Call Walls" further out in time because
 #     we aren't wasting limits on useless strikes.
+#
+# v8.1 Update:
+#  ✅ Improved get_underlying_price to handle nested JSON responses
+#     and missing 'last' keys more gracefully.
 # ===========================================================
 
 import os
@@ -49,18 +53,34 @@ print(f"Tickers: {', '.join(TICKERS)}")
 # Helper Functions
 # ===============================================
 def get_underlying_price(symbol):
-    """Fetches the real-time price of the underlying stock."""
-    url = f"{BASE_URL}/stocks/quotes/{symbol}/?token={API_KEY}"
+    """Fetch the real-time price of the underlying stock."""
+    url = f"{BASE_URL}/stocks/quotes/{symbol}?token={API_KEY}"
     try:
         r = requests.get(url, timeout=5)
         if r.status_code == 200:
             data = r.json()
-            if data.get("s") == "ok":
-                # Check different price keys (last, mid, bid/ask average)
-                if "last" in data:
-                    return float(data["last"][0])
-                if "mid" in data:
-                    return float(data["mid"][0])
+
+            # Direct keys
+            for key in ["last", "mid", "close", "price"]:
+                if key in data and isinstance(data[key], list):
+                    return float(data[key][0])
+                if key in data and isinstance(data[key], (int, float, str)):
+                    return float(data[key])
+
+            # Nested structures: data → quote → last / mid
+            if "data" in data:
+                nested = data["data"]
+                for key in ["last", "mid", "close", "price"]:
+                    val = nested.get(key)
+                    if val is not None:
+                        return float(val[0]) if isinstance(val, list) else float(val)
+
+            if "quote" in data:
+                nested = data["quote"]
+                for key in ["last", "mid", "close", "price"]:
+                    val = nested.get(key)
+                    if val is not None:
+                        return float(val[0]) if isinstance(val, list) else float(val)
     except Exception as e:
         print(f"⚠️ Could not fetch price for {symbol}: {e}")
     return None
