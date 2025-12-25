@@ -2,7 +2,7 @@
 # GEX to Pine Script Converter (Universal Edition)
 # ===========================================================
 # Usage:
-# 1. Scans folder for ALL GEX CSV files.
+# 1. Scans folder for ALL GEX CSV files (e.g., SPY_GEX_....csv).
 # 2. Generates a SINGLE "Universal_GEX_Suite.pine" file.
 # 3. The Pine Script automatically switches data based on
 #    the chart's ticker (syminfo.ticker).
@@ -84,6 +84,7 @@ def process_file_data(filepath):
 # ===============================================
 # Main Execution
 # ===============================================
+# Look for CSVs in the current directory (Root of repo when running in Action)
 files = [f for f in os.listdir('.') if f.endswith('.csv') and "GEX" in f]
 data_map = {} # Key: Symbol, Value: Data Dict
 
@@ -91,7 +92,7 @@ if not files:
     print("⚠️ No GEX CSV files found.")
     exit()
 
-print(f"📂 Found {len(files)} CSV files. aggregating...")
+print(f"📂 Found {len(files)} CSV files. Aggregating...")
 
 for f in files:
     # Extract Symbol from filename (e.g. "SPY_GEX_..." -> "SPY")
@@ -169,4 +170,3 @@ with open(output_filename, "w") as f:
     f.write(pine_code)
 
 print(f"✅ Successfully created: {output_filename}")
-print("📋 Copy the contents of this file into TradingView Pine Editor.")
