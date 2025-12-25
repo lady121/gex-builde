@@ -1,0 +1,43 @@
+//@version=5
+indicator("GEX Profile: MSTU", overlay=true, max_lines_count=100, max_labels_count=100)
+
+// Source: MSTU_GEX_robust_20251225.csv
+// Flip: N/A | Call Wall: 10.0 | Put Wall: 8.5
+
+var line[] gex_lines = array.new_line()
+var label[] gex_labels = array.new_label()
+
+// --- Data Arrays ---
+float[] strikes = array.from(8.5, 10.0, 9.5, 9.0, 10.5, 8.0)
+int[] lengths   = array.from(30, 20, 16, 7, 3, 2)
+int[] signs     = array.from(-1, 1, -1, -1, 1, -1)
+
+if barstate.islast
+    // Cleanup
+    for l in gex_lines
+        line.delete(l)
+    for lb in gex_labels
+        label.delete(lb)
+
+    // 1. Plot Flip Zone
+    float flip = na
+    if not na(flip)
+        line.new(bar_index, flip, bar_index + 10, flip, color=color.blue, width=2, style=line.style_dashed)
+        label.new(bar_index + 10, flip, "Flip: " + str.tostring(flip, "#.##"), style=label.style_label_left, textcolor=color.white, color=color.blue)
+
+    // 2. Plot Walls
+    float c_wall = 10.0
+    float p_wall = 8.5
+    label.new(bar_index + 5, c_wall, "Call Wall: " + str.tostring(c_wall), style=label.style_label_left, textcolor=color.white, color=color.green)
+    label.new(bar_index + 5, p_wall, "Put Wall: " + str.tostring(p_wall), style=label.style_label_left, textcolor=color.white, color=color.red)
+
+    // 3. Plot Histogram Bars
+    if array.size(strikes) > 0
+        for i = 0 to array.size(strikes) - 1
+            float s = array.get(strikes, i)
+            int l   = array.get(lengths, i)
+            int sg  = array.get(signs, i)
+            
+            col = sg > 0 ? color.new(color.green, 40) : color.new(color.red, 40)
+            ln = line.new(bar_index, s, bar_index + l, s, color=col, width=2)
+            array.push(gex_lines, ln)

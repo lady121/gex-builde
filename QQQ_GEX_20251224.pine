@@ -1,0 +1,43 @@
+//@version=5
+indicator("GEX Profile: QQQ", overlay=true, max_lines_count=100, max_labels_count=100)
+
+// Source: QQQ_GEX_precision_20251224.csv
+// Flip: 467.28 | Call Wall: 630.0 | Put Wall: 600.0
+
+var line[] gex_lines = array.new_line()
+var label[] gex_labels = array.new_label()
+
+// --- Data Arrays ---
+float[] strikes = array.from(600.0, 640.0, 630.0, 650.0, 620.0, 590.0, 580.0, 635.0, 625.0, 610.0, 570.0, 655.0, 560.0, 550.0, 645.0, 615.0, 584.78, 574.78, 604.78, 670.0, 660.0, 594.78, 665.0, 675.0, 510.0, 609.78, 589.78, 544.78, 680.0, 540.0, 569.78, 530.0, 579.78, 690.0, 514.78, 520.0, 549.78, 564.78, 480.0, 554.78, 559.78, 685.0, 500.0, 534.78, 524.78, 490.0, 509.78, 504.78, 539.78, 519.78)
+int[] lengths   = array.from(30, 29, 27, 25, 21, 21, 17, 17, 15, 12, 10, 9, 8, 6, 5, 5, 5, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2)
+int[] signs     = array.from(-1, 1, 1, 1, 1, -1, -1, 1, 1, -1, -1, 1, -1, -1, 1, -1, -1, -1, -1, 1, 1, -1, 1, 1, -1, -1, -1, -1, 1, -1, -1, -1, -1, 1, -1, -1, -1, -1, 1, -1, 1, 1, 1, -1, -1, 1, -1, 1, -1, -1)
+
+if barstate.islast
+    // Cleanup
+    for l in gex_lines
+        line.delete(l)
+    for lb in gex_labels
+        label.delete(lb)
+
+    // 1. Plot Flip Zone
+    float flip = 467.28
+    if not na(flip)
+        line.new(bar_index, flip, bar_index + 10, flip, color=color.blue, width=2, style=line.style_dashed)
+        label.new(bar_index + 10, flip, "Flip: " + str.tostring(flip, "#.##"), style=label.style_label_left, textcolor=color.white, color=color.blue)
+
+    // 2. Plot Walls
+    float c_wall = 630.0
+    float p_wall = 600.0
+    label.new(bar_index + 5, c_wall, "Call Wall: " + str.tostring(c_wall), style=label.style_label_left, textcolor=color.white, color=color.green)
+    label.new(bar_index + 5, p_wall, "Put Wall: " + str.tostring(p_wall), style=label.style_label_left, textcolor=color.white, color=color.red)
+
+    // 3. Plot Histogram Bars
+    if array.size(strikes) > 0
+        for i = 0 to array.size(strikes) - 1
+            float s = array.get(strikes, i)
+            int l   = array.get(lengths, i)
+            int sg  = array.get(signs, i)
+            
+            col = sg > 0 ? color.new(color.green, 40) : color.new(color.red, 40)
+            ln = line.new(bar_index, s, bar_index + l, s, color=col, width=2)
+            array.push(gex_lines, ln)
