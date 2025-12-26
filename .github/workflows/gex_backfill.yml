@@ -1,0 +1,52 @@
+name: Manual GEX Backfill
+
+on:
+  workflow_dispatch:
+    inputs:
+      days:
+        description: 'How many days to backfill?'
+        required: true
+        default: '5'
+        type: string
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.11
+
+      - name: Install dependencies
+        run: pip install pandas numpy requests
+
+      - name: Run Backfill Utility
+        env:
+          MARKETDATA_KEY: ${{ secrets.MARKETDATA_KEY }}
+          # This passes the input number to the Python script
+          DAYS_TO_BACKFILL: ${{ inputs.days }}
+        run: |
+          if [ -f "GEX Tools/gex_backfill_utility.py" ]; then
+             python "GEX Tools/gex_backfill_utility.py"
+          elif [ -f "gex_backfill_utility.py" ]; then
+             python gex_backfill_utility.py
+          else
+             echo "❌ Script not found!"
+             exit 1
+          fi
+
+      - name: Commit Historical Data
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git pull
+          git add *.csv
+          git commit -m "Manual Backfill: ${{ inputs.days }} days" || echo "No changes to commit"
+          git push
