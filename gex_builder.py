@@ -1,14 +1,11 @@
 # ===========================================================
-# MarketData.app GEX Builder v8.1 — Robust Precision
+# MarketData.app GEX Builder v8.3 — CSV Summary
 # Author: PulsR | Maintained by Code GPT
 # ===========================================================
-# Fixes from v8.0:
-#  ✅ Self-Healing Price Check: If Stock API fails, it derives
-#     spot price from an option quote (Fallback).
-#  ✅ Local Filtering: Filters strikes in Python to reduce
-#     API dependency and ensure clean data.
-#  ✅ Date Forcing: Explicitly requests +45 days of data to
-#     prevent API from defaulting to single-day chains.
+# Fixes from v8.2:
+#  ✅ Changed Gamma Summary output from .txt to .csv
+#  ✅ Includes Spot, Flip, and Net GEX in the CSV.
+#  ✅ Rounded values to 2 decimals for cleaner viewing.
 # ===========================================================
 
 import os
@@ -40,7 +37,7 @@ if os.path.exists("tickers.txt"):
 else:
     TICKERS = DEFAULT_TICKERS
 
-print("🚀 Starting MarketData GEX Builder (v8.1 — Robust Precision)")
+print("🚀 Starting MarketData GEX Builder (v8.3 — CSV Summary)")
 print(f"Tickers: {', '.join(TICKERS)}")
 
 # ===============================================
@@ -151,7 +148,7 @@ def build_gex(symbol):
     raw_chain = get_chain_symbols(symbol)
     if not raw_chain:
         print("   ❌ No chain found.")
-        return None, None
+        return None, {}
 
     # 2. Get Underlying Price (with Fallback)
     spot_price = get_underlying_price(symbol)
@@ -159,7 +156,6 @@ def build_gex(symbol):
     if spot_price is None:
         print("   ⚠️ Stock API failed. Deriving price from option chain...")
         # Fallback: Get quote for the first option to find underlying price
-        # This fixes the "No spot price" error causing full-chain fetches
         try:
             test_sym = raw_chain[0]
             q = get_quote(test_sym)
@@ -175,7 +171,6 @@ def build_gex(symbol):
         # Proceed with raw chain, but risk hitting limits
         
     # 3. Local Filtering (Python-side)
-    # We filter the raw_chain list locally to save API calls
     filtered_chain_tuples = []
     
     for sym in raw_chain:
@@ -245,7 +240,7 @@ def build_gex(symbol):
     df = pd.DataFrame(rows)
     if df.empty:
         print(f"⚠️ No valid GEX data found for {symbol}")
-        return None, None
+        return None, {}
 
     # 7. Aggregation
     grouped = df.groupby(["strike", "type"])["GEX"].sum().unstack(fill_value=0)
@@ -255,8 +250,17 @@ def build_gex(symbol):
     if "put_gex" not in grouped.columns: grouped["put_gex"] = 0.0
 
     grouped["net_gex"] = grouped["call_gex"] - grouped["put_gex"]
-    flip_zone = compute_flip_zone(grouped)
     
+    # Statistics
+    flip_zone = compute_flip_zone(grouped)
+    total_net_gex = grouped["net_gex"].sum()
+    
+    stats = {
+        "spot": spot_price if spot_price else 0.0,
+        "flip": flip_zone if flip_zone else 0.0,
+        "total_gex": total_net_gex
+    }
+
     # Save
     date_tag = datetime.now().strftime("%Y%m%d")
     fname = f"{symbol}_GEX_robust_{date_tag}.csv"
@@ -278,34 +282,50 @@ def build_gex(symbol):
                 
             plt.title(f"{symbol} Net GEX (Robust)")
             plt.xlabel("Strike")
-            plt.ylabel("Net GEX")
+            plt.ylabel("Net GEX ($)")
             plt.legend()
             plt.tight_layout()
             plt.savefig(f"{symbol}_GEX_robust_{date_tag}.png", dpi=100)
             plt.close()
         except: pass
 
-    return fname, flip_zone
+    return fname, stats
 
 # ===============================================
 # Main Loop
 # ===============================================
 generated_files = []
-flip_summary = {}
+summary_data = []
 
 for ticker in TICKERS:
     try:
-        result, flip = build_gex(ticker)
-        if result: generated_files.append(result)
-        if flip: flip_summary[ticker] = flip
+        result, stats = build_gex(ticker)
+        if result: 
+            generated_files.append(result)
+        
+        # Always append to summary if we attempted processing, even if partial
+        if stats:
+            summary_data.append({
+                "Ticker": ticker,
+                "Spot Price": stats.get('spot', 0.0),
+                "Flip Zone": stats.get('flip', 0.0),
+                "Total Net GEX ($B)": stats.get('total_gex', 0.0) / 1_000_000_000
+            })
+            
     except Exception as e:
         print(f"❌ Error {ticker}: {e}")
 
-if flip_summary:
-    with open("flip_zones_robust.txt", "w") as f:
-        f.write("Robust GEX Flip Zones\n=====================\n")
-        for k, v in flip_summary.items():
-            f.write(f"{k}: {v:.2f}\n")
-    print("\n📘 Saved flip_zones_robust.txt")
+# Save Gamma Summary (CSV)
+print("\n📝 Generating Gamma Summary (CSV)...")
+try:
+    if summary_data:
+        summary_df = pd.DataFrame(summary_data)
+        summary_df = summary_df.round(2) # Clean up floats
+        summary_df.to_csv("gamma_summary.csv", index=False)
+        print("📘 Saved gamma_summary.csv")
+    else:
+        print("⚠️ No data available for summary.")
+except Exception as e:
+    print(f"❌ Failed to save summary: {e}")
 
 print("\n🏁 Robust Build Complete.")
