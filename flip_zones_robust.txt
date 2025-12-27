@@ -1,6 +1,3 @@
 Robust GEX Flip Zones
 =====================
-BITO: 12.75
-BBAI: 6.25
-RR: 3.75
-OPEN: 6.25
+BBAI: 5.25
