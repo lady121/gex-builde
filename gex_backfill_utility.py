@@ -1,13 +1,16 @@
 # ===========================================================
-# MarketData.app GEX Backfill Utility (Debug/Fix Mode)
+# MarketData.app GEX Backfill Utility (v9.1 - Dynamic Tickers)
 # ===========================================================
-# PURPOSE: Generates HISTORICAL data for Bar Replay.
-# UPDATES: Added verbose debugging to identify why rows are skipped.
+# FIXES:
+# 1. Loads tickers from 'tickers.txt' (just like the main builder).
+# 2. Local Gamma Calculation (Self-Healing).
+# 3. Robustness for missing Greeks.
 # ===========================================================
 
 import os
 import time
 import re
+import math
 import requests
 import pandas as pd
 import numpy as np
@@ -19,20 +22,57 @@ from datetime import datetime, timedelta
 API_KEY = os.getenv("MARKETDATA_KEY") or ""
 BASE_URL = "https://api.marketdata.app/v1"
 
-# Default to 30 days unless specified by Workflow
+# Default to 30 days unless specified
 DAYS_TO_BACKFILL = int(os.getenv("DAYS_TO_BACKFILL", 30))
 
-MAX_OPTIONS = 1000   
-STRIKE_RANGE_PCT = 0.15 
-TICKERS = ["SPY", "QQQ", "IWM"] 
-
-print(f"🚀 Starting GEX Backfill (Debug Mode) for last {DAYS_TO_BACKFILL} days...")
+MAX_OPTIONS = 1500   
+STRIKE_RANGE_PCT = 0.20 
 
 # ===============================================
-# Helper Functions
+# Load Tickers (Dynamic)
+# ===============================================
+DEFAULT_TICKERS = ["SPY", "QQQ", "IWM"]
+
+# Check current directory and parent directory for tickers.txt
+ticker_file = "tickers.txt"
+if not os.path.exists(ticker_file) and os.path.exists(f"../{ticker_file}"):
+    ticker_file = f"../{ticker_file}"
+
+if os.path.exists(ticker_file):
+    with open(ticker_file) as f:
+        TICKERS = [t.strip().upper() for t in f if t.strip()]
+    print(f"📂 Loaded tickers from {ticker_file}")
+else:
+    TICKERS = DEFAULT_TICKERS
+    print("⚠️ tickers.txt not found, using defaults.")
+
+print(f"🚀 Starting GEX Backfill for: {', '.join(TICKERS)}")
+print(f"📅 Lookback: {DAYS_TO_BACKFILL} days")
+
+# ===============================================
+# Math Helper: Black-Scholes Gamma
+# ===============================================
+def norm_pdf(x):
+    """Standard normal probability density function"""
+    return (1.0 / math.sqrt(2 * math.pi)) * math.exp(-0.5 * x * x)
+
+def calculate_local_gamma(S, K, T, sigma=0.18, r=0.045):
+    """
+    Approximates Gamma if API is missing it.
+    S=Spot, K=Strike, T=Time(years), sigma=IV (default 18%), r=Rate (4.5%)
+    """
+    try:
+        if T <= 0 or S <= 0 or K <= 0: return 0.0
+        d1 = (math.log(S / K) + (r + 0.5 * sigma ** 2) * T) / (sigma * math.sqrt(T))
+        gamma = norm_pdf(d1) / (S * sigma * math.sqrt(T))
+        return gamma
+    except:
+        return 0.0
+
+# ===============================================
+# API Functions
 # ===============================================
 def get_historical_price(symbol, date_str):
-    # Try candle endpoint first
     url = f"{BASE_URL}/stocks/candles/D/{symbol}?from={date_str}&to={date_str}&token={API_KEY}"
     try:
         r = requests.get(url, timeout=5)
@@ -56,7 +96,6 @@ def get_historical_chain(symbol, date_str):
     return []
 
 def get_historical_quote(option_symbol, date_str):
-    # For historical quotes, we use the quotes endpoint with a date parameter
     url = f"{BASE_URL}/options/quotes/{option_symbol}?date={date_str}&token={API_KEY}"
     try:
         r = requests.get(url, timeout=10)
@@ -83,12 +122,8 @@ def safe_extract(d, keys):
     for k in keys:
         if k in d and d[k] is not None:
             val = d[k]
-            # Handle list returns if API wraps value in list
-            if isinstance(val, list) and len(val) > 0:
-                return val[0]
-            # Return value directly if it's a number/string
-            if not isinstance(val, (list, dict)): 
-                return val
+            if isinstance(val, list) and len(val) > 0: return val[0]
+            if not isinstance(val, (list, dict)): return val
     return None
 
 # ===============================================
@@ -107,7 +142,7 @@ def build_day(symbol, target_date):
 
     spot_price = get_historical_price(symbol, date_str)
     if not spot_price:
-        print(f"      ⚠️ No price data (Holiday/Weekend?).")
+        print(f"      ⚠️ No price data (Market Closed?).")
         return 
 
     raw_chain = get_historical_chain(symbol, date_str)
@@ -128,29 +163,35 @@ def build_day(symbol, target_date):
     print(f"      Processing {len(final_list)} options...")
 
     rows = []
-    missing_greeks_count = 0
+    recalc_count = 0
     
     for i, opt in enumerate(final_list):
         q = get_historical_quote(opt, date_str)
         if not q: continue
         
         try:
-            # Try multiple keys for robustness
-            gamma = safe_extract(q, ["gamma", "gam", "g"])
+            # 1. Extract Basic Data
             oi = safe_extract(q, ["openInterest", "open_interest", "oi"])
             underlying = safe_extract(q, ["underlyingPrice", "underlying"]) or spot_price
+            gamma = safe_extract(q, ["gamma"])
+            
+            # 2. Fallback Logic: Calculate Gamma if missing
+            if gamma is None:
+                dte_raw = safe_extract(q, ["dte"])
+                if dte_raw:
+                    dte_days = float(dte_raw)
+                    T = dte_days / 365.0
+                    _, strike = parse_option_symbol(opt)
+                    
+                    # Calculate Local Gamma
+                    gamma = calculate_local_gamma(S=float(underlying), K=float(strike), T=T)
+                    recalc_count += 1
+                else:
+                    continue
 
-            # DEBUG: Print the first failure to see what the API returns
-            if (gamma is None or oi is None) and missing_greeks_count == 0:
-                print(f"      [DEBUG] Sample Missing Data for {opt}:")
-                print(f"      Response: {q}")
-                print(f"      Extracted -> Gamma: {gamma}, OI: {oi}")
-                missing_greeks_count += 1
+            if oi is None: continue
 
-            if gamma is None or oi is None: 
-                missing_greeks_count += 1
-                continue
-
+            # 3. Compute GEX
             gex = float(gamma) * float(oi) * 100 * float(underlying)
             _, strike = parse_option_symbol(opt)
             
@@ -159,14 +200,12 @@ def build_day(symbol, target_date):
                 "GEX": gex,
                 "type": infer_option_type(opt)
             })
-        except Exception as e:
-            if i == 0: print(f"      [DEBUG] Exception on row: {e}")
-            continue
+        except: continue
         
-        if i % 50 == 0: time.sleep(0.05)
+        if i % 50 == 0: time.sleep(0.02)
 
-    if missing_greeks_count > 0:
-        print(f"      ⚠️ Skipped {missing_greeks_count} options due to missing Gamma/OI.")
+    if recalc_count > 0:
+        print(f"      🔧 Locally calculated Gamma for {recalc_count} options (API was empty).")
 
     if not rows:
         print(f"      ❌ No valid rows generated for {date_str}.")
