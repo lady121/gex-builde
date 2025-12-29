@@ -1,11 +1,10 @@
 # ===========================================================
-# MarketData.app GEX Builder v8.3 — CSV Summary
+# MarketData.app GEX Builder v8.6 — Data Producer
 # Author: PulsR | Maintained by Code GPT
 # ===========================================================
-# Fixes from v8.2:
-#  ✅ Changed Gamma Summary output from .txt to .csv
-#  ✅ Includes Spot, Flip, and Net GEX in the CSV.
-#  ✅ Rounded values to 2 decimals for cleaner viewing.
+# - Generates robust CSV files for the Pine Script Converter.
+# - Includes visual PNG checks.
+# - Saves 'gamma_summary.csv' for spreadsheet use.
 # ===========================================================
 
 import os
@@ -23,12 +22,9 @@ import matplotlib.pyplot as plt
 API_KEY = os.getenv("MARKETDATA_KEY") or ""
 BASE_URL = "https://api.marketdata.app/v1"
 ENABLE_PLOTS = True
-MAX_OPTIONS = 1000  # Increased to capture multi-week flow
-STRIKE_RANGE_PCT = 0.15  # +/- 15% from spot price
+MAX_OPTIONS = 1000
+STRIKE_RANGE_PCT = 0.15
 
-# ===============================================
-# Load tickers
-# ===============================================
 DEFAULT_TICKERS = ["SPY", "QQQ", "IWM", "NVDA", "AMD"]
 
 if os.path.exists("tickers.txt"):
@@ -37,20 +33,17 @@ if os.path.exists("tickers.txt"):
 else:
     TICKERS = DEFAULT_TICKERS
 
-print("🚀 Starting MarketData GEX Builder (v8.3 — CSV Summary)")
+print("🚀 Starting MarketData GEX Builder (v8.6)")
 print(f"Tickers: {', '.join(TICKERS)}")
 
 # ===============================================
 # Helper Functions
 # ===============================================
 def get_underlying_price(symbol):
-    """Fetches the real-time price of the underlying stock."""
-    # Try different endpoints in case one is restricted
     endpoints = [
         f"{BASE_URL}/stocks/quotes/{symbol}/?token={API_KEY}",
         f"{BASE_URL}/stocks/candles/D/{symbol}?from={datetime.now().strftime('%Y-%m-%d')}&to={datetime.now().strftime('%Y-%m-%d')}&token={API_KEY}"
     ]
-    
     for url in endpoints:
         try:
             r = requests.get(url, timeout=5)
@@ -59,56 +52,40 @@ def get_underlying_price(symbol):
                 if data.get("s") == "ok":
                     if "last" in data: return float(data["last"][0])
                     if "mid" in data: return float(data["mid"][0])
-                    if "c" in data: return float(data["c"][0]) # Close from candle
-        except:
-            continue
+                    if "c" in data: return float(data["c"][0])
+        except: continue
     return None
 
 def get_chain_symbols(symbol):
-    """
-    Fetch raw list of option symbols. 
-    Forces a date range to ensure we don't just get 0DTE.
-    """
     d_from = datetime.now().strftime("%Y-%m-%d")
     d_to = (datetime.now() + timedelta(days=45)).strftime("%Y-%m-%d")
-    
     url = f"{BASE_URL}/options/chain/{symbol}?from={d_from}&to={d_to}&token={API_KEY}"
-    
     try:
         r = requests.get(url, timeout=20)
         if r.status_code in (200, 203):
             data = r.json()
-            if data.get("s") == "ok":
-                return data.get("optionSymbol", [])
-    except Exception as e:
-        print(f"❌ Error fetching chain for {symbol}: {e}")
+            if data.get("s") == "ok": return data.get("optionSymbol", [])
+    except: pass
     return []
 
 def get_quote(option_symbol):
     url = f"{BASE_URL}/options/quotes/{option_symbol}?token={API_KEY}"
     try:
         r = requests.get(url, timeout=10)
-        if r.status_code in (200, 203):
-            return r.json()
-    except:
-        pass
+        if r.status_code in (200, 203): return r.json()
+    except: pass
     return None
 
 def parse_option_symbol(symbol):
-    # Extracts Date and Strike from OCC symbol
-    # Example: SPY231223C00450000 -> Date: 231223, Strike: 450.0
     match = re.search(r'([A-Z]+)(\d{6})([CP])(\d+)', symbol)
     if match:
         expiry = match.group(2)
-        strike_raw = match.group(4)
-        strike = int(strike_raw) / 1000.0
+        strike = int(match.group(4)) / 1000.0
         return expiry, strike
     return "999999", 0.0
 
 def infer_option_type(symbol_str):
-    if symbol_str.endswith("C"): return "C"
-    if symbol_str.endswith("P"): return "P"
-    return "C" if "C" in symbol_str else "P"
+    return "P" if "P" in symbol_str or symbol_str.endswith("P") else "C"
 
 def safe_extract(d, keys):
     if not isinstance(d, dict): return None
@@ -134,8 +111,7 @@ def compute_flip_zone(df):
             low = df_sorted.loc[idx, "strike"]
             high = df_sorted.loc[idx + 1, "strike"]
             return (low + high) / 2
-    except:
-        return None
+    except: return None
     return None
 
 # ===============================================
@@ -144,78 +120,54 @@ def compute_flip_zone(df):
 def build_gex(symbol):
     print(f"\n📈 Processing {symbol}")
     
-    # 1. Fetch Full Chain (Raw)
+    # 1. Fetch Chain & Price
     raw_chain = get_chain_symbols(symbol)
     if not raw_chain:
         print("   ❌ No chain found.")
         return None, {}
 
-    # 2. Get Underlying Price (with Fallback)
     spot_price = get_underlying_price(symbol)
-    
     if spot_price is None:
-        print("   ⚠️ Stock API failed. Deriving price from option chain...")
-        # Fallback: Get quote for the first option to find underlying price
         try:
             test_sym = raw_chain[0]
             q = get_quote(test_sym)
             val = safe_extract(q, ["underlyingPrice", "underlying_price", "underlying"])
-            if val:
-                spot_price = float(val)
-                print(f"   ✅ Derived Spot Price: ${spot_price}")
-        except:
-            pass
+            if val: spot_price = float(val)
+        except: pass
             
     if spot_price is None:
-        print("   ❌ Could not determine spot price. Skipping precision filter.")
-        # Proceed with raw chain, but risk hitting limits
-        
-    # 3. Local Filtering (Python-side)
+        print("   ⚠️ No spot price found. Proceeding with caution.")
+
+    # 2. Filter & Sort
     filtered_chain_tuples = []
-    
     for sym in raw_chain:
         expiry, strike = parse_option_symbol(sym)
-        
-        # Strike Filter
         if spot_price:
             low = spot_price * (1 - STRIKE_RANGE_PCT)
             high = spot_price * (1 + STRIKE_RANGE_PCT)
-            if not (low <= strike <= high):
-                continue # Skip strikes outside range
-        
+            if not (low <= strike <= high): continue
         filtered_chain_tuples.append((sym, expiry))
 
-    # 4. Sort by Expiration
     filtered_chain_tuples.sort(key=lambda x: x[1])
-    
     unique_expiries = sorted(list(set(x[1] for x in filtered_chain_tuples)))
-    print(f"   Found {len(unique_expiries)} expirations. Processing nearest...")
-
-    # 5. Select Final List (respecting MAX_OPTIONS)
+    
     final_list = []
     count = 0
-    
     for expiry in unique_expiries:
         expiry_opts = [x[0] for x in filtered_chain_tuples if x[1] == expiry]
-        
         if count + len(expiry_opts) > MAX_OPTIONS:
-            if count == 0:
-                final_list.extend(expiry_opts[:MAX_OPTIONS])
-            else:
-                print(f"   ⚠️ Limit ({MAX_OPTIONS}) reached at expiry {expiry}. Dropping later dates.")
+            if count == 0: final_list.extend(expiry_opts[:MAX_OPTIONS])
             break
-        
         final_list.extend(expiry_opts)
         count += len(expiry_opts)
 
-    print(f"   Processing {len(final_list)} options...")
+    print(f"   Fetching {len(final_list)} options...")
 
-    # 6. Fetch Data
+    # 3. Fetch Data
     rows = []
     for i, opt in enumerate(final_list):
         q = get_quote(opt)
         if not q: continue
-            
         try:
             strike = safe_extract(q, ["strike", "strikePrice"])
             gamma = safe_extract(q, ["gamma"])
@@ -226,48 +178,41 @@ def build_gex(symbol):
 
             gex = float(gamma) * float(oi) * 100 * float(underlying)
             otype = infer_option_type(opt)
-            
-            rows.append({
-                "strike": float(strike),
-                "GEX": gex,
-                "type": otype
-            })
-        except:
-            continue
-        
+            rows.append({"strike": float(strike), "GEX": gex, "type": otype})
+        except: continue
         if i % 50 == 0 and i > 0: time.sleep(0.05)
 
     df = pd.DataFrame(rows)
-    if df.empty:
-        print(f"⚠️ No valid GEX data found for {symbol}")
-        return None, {}
+    if df.empty: return None, {}
 
-    # 7. Aggregation
+    # 4. Aggregation & Walls
     grouped = df.groupby(["strike", "type"])["GEX"].sum().unstack(fill_value=0)
     grouped.rename(columns={"C": "call_gex", "P": "put_gex"}, inplace=True)
-
     if "call_gex" not in grouped.columns: grouped["call_gex"] = 0.0
     if "put_gex" not in grouped.columns: grouped["put_gex"] = 0.0
-
     grouped["net_gex"] = grouped["call_gex"] - grouped["put_gex"]
     
-    # Statistics
+    # Calculate Stats
+    call_wall = grouped["call_gex"].idxmax()
+    put_wall = grouped["put_gex"].idxmax()
     flip_zone = compute_flip_zone(grouped)
     total_net_gex = grouped["net_gex"].sum()
-    
+
     stats = {
         "spot": spot_price if spot_price else 0.0,
-        "flip": flip_zone if flip_zone else 0.0,
-        "total_gex": total_net_gex
+        "flip": flip_zone, 
+        "total_gex": total_net_gex,
+        "call_wall": call_wall,
+        "put_wall": put_wall
     }
 
-    # Save
+    # Save CSV (Required by Converter)
     date_tag = datetime.now().strftime("%Y%m%d")
     fname = f"{symbol}_GEX_robust_{date_tag}.csv"
     grouped.reset_index().to_csv(fname, index=False)
     print(f"   💾 Saved {fname}")
-
-    # Plot
+    
+    # Save Visual Check PNG
     if ENABLE_PLOTS:
         try:
             plt.figure(figsize=(10, 6))
@@ -280,10 +225,7 @@ def build_gex(symbol):
             if flip_zone:
                 plt.axvline(flip_zone, color="blue", ls="--", lw=2, label=f"Flip: {flip_zone:.2f}")
                 
-            plt.title(f"{symbol} Net GEX (Robust)")
-            plt.xlabel("Strike")
-            plt.ylabel("Net GEX ($)")
-            plt.legend()
+            plt.title(f"{symbol} Net GEX ({date_tag})")
             plt.tight_layout()
             plt.savefig(f"{symbol}_GEX_robust_{date_tag}.png", dpi=100)
             plt.close()
@@ -294,38 +236,33 @@ def build_gex(symbol):
 # ===============================================
 # Main Loop
 # ===============================================
-generated_files = []
 summary_data = []
 
 for ticker in TICKERS:
     try:
         result, stats = build_gex(ticker)
-        if result: 
-            generated_files.append(result)
-        
-        # Always append to summary if we attempted processing, even if partial
         if stats:
             summary_data.append({
                 "Ticker": ticker,
-                "Spot Price": stats.get('spot', 0.0),
-                "Flip Zone": stats.get('flip', 0.0),
-                "Total Net GEX ($B)": stats.get('total_gex', 0.0) / 1_000_000_000
+                "Data": stats
             })
-            
     except Exception as e:
         print(f"❌ Error {ticker}: {e}")
 
-# Save Gamma Summary (CSV)
-print("\n📝 Generating Gamma Summary (CSV)...")
-try:
-    if summary_data:
-        summary_df = pd.DataFrame(summary_data)
-        summary_df = summary_df.round(2) # Clean up floats
-        summary_df.to_csv("gamma_summary.csv", index=False)
-        print("📘 Saved gamma_summary.csv")
-    else:
-        print("⚠️ No data available for summary.")
-except Exception as e:
-    print(f"❌ Failed to save summary: {e}")
+# Save CSV Summary
+if summary_data:
+    csv_rows = []
+    for item in summary_data:
+        d = item["Data"]
+        csv_rows.append({
+            "Ticker": item["Ticker"],
+            "Spot": d["spot"],
+            "Flip": d["flip"] if d["flip"] else "N/A",
+            "Call Wall": d["call_wall"],
+            "Put Wall": d["put_wall"],
+            "Net GEX ($B)": round(d["total_gex"] / 1e9, 2)
+        })
+    pd.DataFrame(csv_rows).to_csv("gamma_summary.csv", index=False)
+    print("\n📘 Saved gamma_summary.csv")
 
-print("\n🏁 Robust Build Complete.")
+print("\n🏁 Data Build Complete. Run 'gex_to_pinescript_converter.py' next.")
