@@ -1,10 +1,11 @@
 # ===========================================================
-# MarketData.app GEX Builder v8.6 — Data Producer
+# MarketData.app GEX Builder v8.8 — Data & Visuals
 # Author: PulsR | Maintained by Code GPT
 # ===========================================================
-# - Generates robust CSV files for the Pine Script Converter.
-# - Includes visual PNG checks.
-# - Saves 'gamma_summary.csv' for spreadsheet use.
+# Fixes from v8.7:
+#  ✅ PNG Titles now explicitly state Spot Price & Flip Price.
+#  ✅ Makes it easier to read levels without checking the legend.
+#  ✅ Preserves Regime Detection (ALL CALLS / ALL PUTS).
 # ===========================================================
 
 import os
@@ -33,7 +34,7 @@ if os.path.exists("tickers.txt"):
 else:
     TICKERS = DEFAULT_TICKERS
 
-print("🚀 Starting MarketData GEX Builder (v8.6)")
+print("🚀 Starting MarketData GEX Builder (v8.8)")
 print(f"Tickers: {', '.join(TICKERS)}")
 
 # ===============================================
@@ -197,13 +198,22 @@ def build_gex(symbol):
     put_wall = grouped["put_gex"].idxmax()
     flip_zone = compute_flip_zone(grouped)
     total_net_gex = grouped["net_gex"].sum()
+    
+    # Regime Detection
+    regime = "NEUTRAL"
+    if flip_zone is None:
+        if total_net_gex > 0: regime = "ALL_CALLS"
+        elif total_net_gex < 0: regime = "ALL_PUTS"
+    else:
+        regime = "NORMAL"
 
     stats = {
         "spot": spot_price if spot_price else 0.0,
         "flip": flip_zone, 
         "total_gex": total_net_gex,
         "call_wall": call_wall,
-        "put_wall": put_wall
+        "put_wall": put_wall,
+        "regime": regime
     }
 
     # Save CSV (Required by Converter)
@@ -212,7 +222,7 @@ def build_gex(symbol):
     grouped.reset_index().to_csv(fname, index=False)
     print(f"   💾 Saved {fname}")
     
-    # Save Visual Check PNG
+    # Save Visual Check PNG with Detailed Title
     if ENABLE_PLOTS:
         try:
             plt.figure(figsize=(10, 6))
@@ -224,8 +234,22 @@ def build_gex(symbol):
                 plt.axvline(spot_price, color="orange", ls="-", lw=1.5, label=f"Spot: {spot_price}")
             if flip_zone:
                 plt.axvline(flip_zone, color="blue", ls="--", lw=2, label=f"Flip: {flip_zone:.2f}")
+            
+            # --- Dynamic Title Construction ---
+            title_main = f"{symbol} Net GEX ({date_tag})"
+            
+            # Regime text
+            regime_text = ""
+            if regime == "ALL_CALLS": regime_text = " (ALL CALLS - BULLISH)"
+            elif regime == "ALL_PUTS": regime_text = " (ALL PUTS - BEARISH)"
+            
+            # Price info for Title
+            spot_str = f"Spot: ${spot_price:.2f}" if spot_price else "Spot: N/A"
+            flip_str = f"Flip: ${flip_zone:.2f}" if flip_zone else "Flip: N/A"
+            
+            full_title = f"{title_main}{regime_text}\n{spot_str} | {flip_str}"
                 
-            plt.title(f"{symbol} Net GEX ({date_tag})")
+            plt.title(full_title)
             plt.tight_layout()
             plt.savefig(f"{symbol}_GEX_robust_{date_tag}.png", dpi=100)
             plt.close()
@@ -254,13 +278,24 @@ if summary_data:
     csv_rows = []
     for item in summary_data:
         d = item["Data"]
+        
+        # Format flip for CSV
+        flip_display = "N/A"
+        if d["flip"]: 
+            flip_display = f"{d['flip']:.2f}"
+        elif d["regime"] == "ALL_CALLS":
+            flip_display = "ALL_CALLS"
+        elif d["regime"] == "ALL_PUTS":
+            flip_display = "ALL_PUTS"
+            
         csv_rows.append({
             "Ticker": item["Ticker"],
             "Spot": d["spot"],
-            "Flip": d["flip"] if d["flip"] else "N/A",
+            "Flip": flip_display,
             "Call Wall": d["call_wall"],
             "Put Wall": d["put_wall"],
-            "Net GEX ($B)": round(d["total_gex"] / 1e9, 2)
+            "Net GEX ($B)": round(d["total_gex"] / 1e9, 2),
+            "Regime": d["regime"]
         })
     pd.DataFrame(csv_rows).to_csv("gamma_summary.csv", index=False)
     print("\n📘 Saved gamma_summary.csv")
