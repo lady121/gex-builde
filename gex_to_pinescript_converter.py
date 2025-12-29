@@ -1,11 +1,13 @@
 # ===========================================================
-# GEX to Pine Script Converter (Historical / Bar Replay Edition)
+# GEX to Pine Script Converter v2.0 (Visual Precision)
 # ===========================================================
 # Usage:
 # 1. Scans folder for ALL historical GEX CSV files.
-# 2. Generates "Universal_GEX_History.pine".
-# 3. Enables BAR REPLAY by plotting historical Walls & Flip Zones.
-# 4. Shows the Full Histogram ONLY for the *current* live bar.
+# 2. Generates "Universal_GEX_History.pine" (Version 6).
+# 3. Features:
+#    - COMBINED WALL labels (prevents text overlap).
+#    - Smart Flip Zones (hides line if no flip exists).
+#    - High-Res Histogram (easier to see short vs long lines).
 # ===========================================================
 
 import os
@@ -13,7 +15,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 
-print("🌲 Starting Historical GEX Converter...")
+print("🌲 Starting Historical GEX Converter (v2.0)...")
 
 # ===============================================
 # Helper Functions
@@ -40,13 +42,12 @@ def process_file_data(filepath):
         if not all(col in df.columns for col in required_cols):
             return None
 
-        # 1. Key Metrics (For History Lines)
+        # 1. Key Metrics
         flip_zone = compute_flip_zone(df)
         call_wall = df.loc[df['call_gex'].idxmax(), 'strike']
         put_wall = df.loc[df['put_gex'].idxmax(), 'strike']
 
-        # 2. Histogram Data (For Current Day Only - Compressed)
-        # We only save this full data for the *latest* file to save Pine Script size
+        # 2. Histogram Data (Top 40 Strikes)
         df['abs_net_gex'] = df['net_gex'].abs()
         top_strikes = df.sort_values('abs_net_gex', ascending=False).head(40)
         
@@ -58,7 +59,8 @@ def process_file_data(filepath):
         p_signs = []
         
         for _, row in top_strikes.iterrows():
-            length = int((row['abs_net_gex'] / max_val) * 25) # Max 25 bars
+            # Scale length: Min 2, Max 40 (Increased for better visibility)
+            length = int((row['abs_net_gex'] / max_val) * 40)
             if length < 2: length = 2
             
             p_strikes.append(str(float(row['strike'])))
@@ -66,7 +68,7 @@ def process_file_data(filepath):
             p_signs.append("1" if row['net_gex'] >= 0 else "-1")
 
         return {
-            "flip": float(flip_zone) if flip_zone else 0.0,
+            "flip": float(flip_zone) if flip_zone else None,
             "c_wall": float(call_wall),
             "p_wall": float(put_wall),
             "strikes": ', '.join(p_strikes),
@@ -80,8 +82,8 @@ def process_file_data(filepath):
 # ===============================================
 # Main Execution
 # ===============================================
-files = [f for f in os.listdir('.') if f.endswith('.csv') and "GEX" in f]
-files.sort() # Sort by date usually works if naming is YYYYMMDD
+files = [f for f in os.listdir('.') if f.endswith('.csv') and "GEX" in f and "summary" not in f]
+files.sort() 
 
 if not files:
     print("⚠️ No GEX CSV files found.")
@@ -89,24 +91,21 @@ if not files:
 
 print(f"📂 Found {len(files)} CSV files. Building History...")
 
-# Structure: history_map[symbol] = [ {date: '20251224', data: {...}}, ... ]
 history_map = {} 
 
 for f in files:
+    # Expected format: Ticker_GEX_robust_YYYYMMDD.csv
     parts = f.split('_')
-    if len(parts) < 4: continue # Skip malformed filenames
+    if len(parts) < 4: continue
     
     symbol = parts[0].upper()
-    date_str = parts[-1].replace('.csv', '') # e.g., 20251224
+    date_str = parts[-1].replace('.csv', '')
     
-    # Check date format
     if len(date_str) != 8: continue
     
     data = process_file_data(f)
     if data:
-        if symbol not in history_map:
-            history_map[symbol] = []
-        
+        if symbol not in history_map: history_map[symbol] = []
         history_map[symbol].append({
             "year": int(date_str[:4]),
             "month": int(date_str[4:6]),
@@ -115,18 +114,15 @@ for f in files:
         })
 
 # ===============================================
-# Write Pine Script
+# Write Pine Script (Version 6)
 # ===============================================
-output_filename = f"Universal_GEX_History_{datetime.now().strftime('%Y%m%d')}.pine"
+output_filename = "Universal_GEX_History.pine"
 
-pine_code = f"""//@version=5
+pine_code = f"""//@version=6
 indicator("Universal GEX History (Bar Replay)", overlay=true, max_lines_count=500, max_labels_count=500)
 
-// --- Universal GEX History ---
+// --- Universal GEX History (Auto-Generated) ---
 // Generated: {datetime.now().strftime('%Y-%m-%d')}
-// Features: 
-// 1. Historical Lines for Walls/Flip (Works with Bar Replay)
-// 2. Full Histogram for the LAST BAR only.
 
 var string current_ticker = syminfo.ticker
 
@@ -136,38 +132,32 @@ var float plot_p_wall = na
 var float plot_flip   = na
 
 // --- Arrays for Current Day Histogram ---
-var float[] cur_strikes = array.new_float()
-var int[]   cur_lengths = array.new_int()
-var int[]   cur_signs   = array.new_int()
+var float[] cur_strikes = array.new<float>()
+var int[]   cur_lengths = array.new<int>()
+var int[]   cur_signs   = array.new<int>()
 """
 
-# ---------------------------------------------------------
-# INJECT DATA: Ticker by Ticker
-# ---------------------------------------------------------
+# INJECT DATA
 for symbol, records in history_map.items():
-    # Only keep the last record for the histogram (Profile)
     last_record = records[-1]
     
     pine_code += f"""
 // ===== {symbol} DATA =====
 if current_ticker == "{symbol}"
 """
-    # 1. Historical Data Injection (Series of If statements is most efficient for Pine Limits)
-    # We check the bar's date to assign the correct historical levels
     for rec in records:
         y, m, d = rec['year'], rec['month'], rec['day']
         d_dat = rec['data']
         
-        # Logic: If current bar is on or after this date, update the "Wall" variables.
-        # This creates a "Step" line effect.
+        # Pine Script: use 'na' literal for missing flips
+        flip_val = d_dat['flip'] if d_dat['flip'] is not None else "na"
+        
         pine_code += f"""    if year == {y} and month == {m} and dayofmonth == {d}
         plot_c_wall := {d_dat['c_wall']}
         plot_p_wall := {d_dat['p_wall']}
-        plot_flip   := {d_dat['flip'] > 0 and d_dat['flip'] or 'na'}
+        plot_flip   := {flip_val}
 """
 
-    # 2. Current Day Histogram Data (Only load if it's the very last bar to save memory)
-    # Note: We use the MOST RECENT file for the histogram
     ld = last_record['data']
     pine_code += f"""
     if barstate.islast
@@ -176,33 +166,46 @@ if current_ticker == "{symbol}"
         cur_signs   := array.from({ld['signs']})
 """
 
+# PLOTTING LOGIC (The Visual Fixes)
 pine_code += """
 // --- Plotting History (Lines) ---
-plot(plot_c_wall, "Call Wall", color=color.green, linewidth=2, style=plot.style_stepline)
-plot(plot_p_wall, "Put Wall",  color=color.red,   linewidth=2, style=plot.style_stepline)
+// We use 'na' logic to prevent drawing lines when data is missing
+
+plot(plot_c_wall, "Call Wall", color=color.new(color.green, 20), linewidth=2, style=plot.style_stepline)
+plot(plot_p_wall, "Put Wall",  color=color.new(color.red, 20),   linewidth=2, style=plot.style_stepline)
 plot(plot_flip,   "Flip Zone", color=color.blue,  linewidth=1, style=plot.style_circles)
 
 // --- Plotting Profile (Histogram - Last Bar Only) ---
-if barstate.islast and array.size(cur_strikes) > 0
-    // Draw Flip Label
+if barstate.islast
+    // 1. Draw Smart Labels (Fix Overlap)
+    if not na(plot_c_wall) and not na(plot_p_wall)
+        if plot_c_wall == plot_p_wall
+            // COMBINED WALL
+            label.new(bar_index + 5, plot_c_wall, "COMBINED WALL: " + str.tostring(plot_c_wall), style=label.style_label_left, textcolor=color.white, color=color.purple)
+        else
+            // SEPARATE WALLS
+            label.new(bar_index + 5, plot_c_wall, "Call Wall: " + str.tostring(plot_c_wall), style=label.style_label_left, textcolor=color.white, color=color.green)
+            label.new(bar_index + 5, plot_p_wall, "Put Wall: " + str.tostring(plot_p_wall),  style=label.style_label_left, textcolor=color.white, color=color.red)
+
+    // 2. Draw Flip Label (Only if exists)
     if not na(plot_flip)
         label.new(bar_index + 10, plot_flip, "Flip: " + str.tostring(plot_flip, "#.##"), style=label.style_label_left, textcolor=color.white, color=color.blue)
-    
-    // Draw Wall Labels
-    label.new(bar_index + 5, plot_c_wall, "Call Wall", style=label.style_label_left, textcolor=color.white, color=color.green)
-    label.new(bar_index + 5, plot_p_wall, "Put Wall",  style=label.style_label_left, textcolor=color.white, color=color.red)
 
-    // Draw Histogram Bars
-    for i = 0 to array.size(cur_strikes) - 1
-        float s = array.get(cur_strikes, i)
-        int l   = array.get(cur_lengths, i)
-        int sg  = array.get(cur_signs, i)
-        
-        col = sg > 0 ? color.new(color.green, 50) : color.new(color.red, 50)
-        line.new(bar_index, s, bar_index + l, s, color=col, width=2)
+    // 3. Draw Histogram Bars
+    if array.size(cur_strikes) > 0
+        for i = 0 to array.size(cur_strikes) - 1
+            float s = array.get(cur_strikes, i)
+            int l   = array.get(cur_lengths, i)
+            int sg  = array.get(cur_signs, i)
+            
+            // Greener/Redder based on sign
+            col = sg > 0 ? color.new(color.green, 40) : color.new(color.red, 40)
+            
+            // Draw the line
+            line.new(bar_index, s, bar_index + l, s, color=col, width=2)
 """
 
 with open(output_filename, "w") as f:
     f.write(pine_code)
 
-print(f"✅ Created Historical Script: {output_filename}")
+print(f"✅ Created Universal_GEX_History.pine (Version 6)")
