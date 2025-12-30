@@ -1,12 +1,12 @@
 name: Convert GEX to Pine Script
 
-# Trigger: Runs automatically ONLY after "Build GEX each night" finishes successfully
+# Trigger: Runs automatically ONLY after "Build GEX Twice Daily" finishes
 on:
   workflow_run:
-    workflows: ["Build GEX each night (Full Gamma Suite)"]
+    workflows: ["Build GEX Twice Daily (Full Gamma Suite)"]
     types:
       - completed
-  workflow_dispatch: # Allows you to click "Run" manually if needed
+  workflow_dispatch: # Allows manual run
 
 jobs:
   convert:
@@ -29,13 +29,13 @@ jobs:
 
       - name: Run Pine Script Converter
         run: |
-          # Checks for the script in 'GEX Tools' folder first, then root
-          if [ -f "GEX Tools/gex_to_pinescript_converter.py" ]; then
-            python "GEX Tools/gex_to_pinescript_converter.py"
-          elif [ -f "gex_to_pinescript_converter.py" ]; then
+          # Priority: Check root first (standard), then 'GEX Tools' folder
+          if [ -f "gex_to_pinescript_converter.py" ]; then
             python gex_to_pinescript_converter.py
+          elif [ -f "GEX Tools/gex_to_pinescript_converter.py" ]; then
+            python "GEX Tools/gex_to_pinescript_converter.py"
           else
-            echo "❌ Converter script not found!"
+            echo "❌ Converter script not found in root or GEX Tools!"
             exit 1
           fi
 
@@ -45,5 +45,5 @@ jobs:
           git config user.email "actions@github.com"
           git pull
           git add *.pine || echo "No new pine files"
-          git commit -m "Auto-generated Pine Scripts" || echo "No changes to commit"
+          git commit -m "Auto-generated Pine Scripts (v6)" || echo "No changes to commit"
           git push
