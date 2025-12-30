@@ -1,8 +1,9 @@
-name: Build GEX each night (Full Gamma Suite)
+name: Build GEX Twice Daily (Full Gamma Suite)
 
 on:
   schedule:
-    - cron: '0 1 * * *'   # Run daily at 1:00 AM UTC
+    # Runs at 1:00 AM UTC (Nightly) and 1:00 PM UTC (Pre-Market)
+    - cron: '0 1,13 * * *'
   workflow_dispatch:
 
 jobs:
@@ -41,6 +42,6 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git add *.csv *.txt *.png || echo "No new files to add"
-          git commit -m "Nightly GEX update (Full Gamma Suite)" || echo "No changes to commit"
+          git add *.csv *.txt *.png *.pine || echo "No new files to add"
+          git commit -m "Twice-daily GEX update" || echo "No changes to commit"
           git push || echo "Push skipped"
