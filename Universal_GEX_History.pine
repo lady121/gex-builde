@@ -217,12 +217,12 @@ if current_ticker == "MSTU"
     if year == 2025 and month == 12 and dayofmonth == 31
         plot_c_wall := 10.0
         plot_p_wall := 9.0
-        plot_flip   := 9.75
+        plot_flip   := 7.75
 
     if barstate.islast
-        cur_strikes := array.from(10.0, 9.0, 8.0, 8.5, 9.5)
-        cur_lengths := array.from(40, 17, 11, 11, 4)
-        cur_signs   := array.from(1, 1, -1, -1, 1)
+        cur_strikes := array.from(10.0, 9.0, 8.0, 8.5, 9.5, 7.5)
+        cur_lengths := array.from(40, 17, 11, 11, 4, 2)
+        cur_signs   := array.from(1, 1, -1, -1, 1, 1)
 
 // ===== NOK DATA =====
 if current_ticker == "NOK"
@@ -240,9 +240,9 @@ if current_ticker == "NOK"
         plot_flip   := na
 
     if barstate.islast
-        cur_strikes := array.from(7.0, 6.5, 6.0, 7.5)
-        cur_lengths := array.from(40, 18, 2, 2)
-        cur_signs   := array.from(1, 1, 1, 1)
+        cur_strikes := array.from(7.0, 6.5, 6.0)
+        cur_lengths := array.from(40, 18, 2)
+        cur_signs   := array.from(1, 1, 1)
 
 // ===== OPEN DATA =====
 if current_ticker == "OPEN"
