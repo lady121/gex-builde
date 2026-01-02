@@ -2,8 +2,7 @@ name: Build GEX Twice Daily (Full Gamma Suite)
 
 on:
   schedule:
-    # Runs at 1:00 AM UTC (Nightly) and 1:00 PM UTC (Pre-Market)
-    - cron: '0 1,13 * * *'
+    - cron: '0 1,13 * * *' # Runs at 1 AM and 1 PM UTC
   workflow_dispatch:
 
 jobs:
@@ -23,25 +22,22 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt || echo "No requirements.txt found"
           pip install pandas numpy matplotlib requests
 
-      - name: Verify script exists
-        run: |
-          if [ ! -f "gex_builder.py" ]; then
-            echo "❌ gex_builder.py not found in repo root!"
-            exit 1
-          fi
-
-      - name: Run GEX Builder (Full Suite)
+      - name: Run GEX Builder
         env:
           MARKETDATA_KEY: ${{ secrets.MARKETDATA_KEY }}
         run: python gex_builder.py
 
-      - name: Commit Outputs
+      - name: Commit and Push Results
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git add *.csv *.txt *.png *.pine || echo "No new files to add"
-          git commit -m "Twice-daily GEX update" || echo "No changes to commit"
-          git push || echo "Push skipped"
+          # Pull latest changes to avoid conflicts
+          git pull --rebase || echo "Already up to date"
+          # Force add all generated files (even if previously ignored)
+          git add --force *.csv *.png *.txt
+          # Commit
+          git commit -m "Auto-update GEX Data [skip ci]" || echo "No changes to commit"
+          # Push
+          git push
