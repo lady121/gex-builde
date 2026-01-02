@@ -16,6 +16,18 @@ var float[] cur_strikes = array.new<float>()
 var int[]   cur_lengths = array.new<int>()
 var int[]   cur_signs   = array.new<int>()
 
+// ===== AMZU DATA =====
+if current_ticker == "AMZU"
+    if year == 2026 and month == 1 and dayofmonth == 2
+        plot_c_wall := 38.8
+        plot_p_wall := 33.8
+        plot_flip   := 29.9
+
+    if barstate.islast
+        cur_strikes := array.from(38.8, 36.8, 40.0, 39.8, 35.0, 37.8, 31.8, 32.8, 34.8, 38.0, 36.0, 35.8, 37.0, 33.8, 30.8, 30.0, 29.8, 32.0, 39.0, 34.0, 33.0, 31.0)
+        cur_lengths := array.from(40, 32, 28, 21, 10, 6, 6, 4, 4, 4, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2)
+        cur_signs   := array.from(1, 1, 1, 1, -1, 1, -1, -1, 1, 1, 1, 1, -1, -1, -1, 1, -1, -1, 1, -1, -1, -1)
+
 // ===== BBAI DATA =====
 if current_ticker == "BBAI"
     if year == 2025 and month == 12 and dayofmonth == 23
@@ -249,12 +261,12 @@ if current_ticker == "MSTU"
     if year == 2026 and month == 1 and dayofmonth == 2
         plot_c_wall := 9.0
         plot_p_wall := 8.5
-        plot_flip   := 1.5
+        plot_flip   := na
 
     if barstate.islast
-        cur_strikes := array.from(8.5, 8.0, 10.0, 9.0, 9.5, 11.0, 15.0, 7.0, 12.0, 5.0, 10.5, 13.0, 25.0, 14.5, 11.5, 20.0, 13.5, 14.0, 19.0, 16.0, 12.5, 16.5, 6.0, 15.5, 7.5, 18.0, 17.0, 4.0, 3.0, 17.5, 22.0, 2.0, 1.0)
-        cur_lengths := array.from(40, 34, 21, 18, 11, 8, 4, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2)
-        cur_signs   := array.from(-1, -1, 1, 1, 1, 1, 1, -1, 1, -1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, -1, 1, -1, 1, 1, -1, -1, 1, 1, -1, 1)
+        cur_strikes := array.from(8.5, 8.0, 9.0, 9.5, 7.5)
+        cur_lengths := array.from(40, 34, 18, 11, 2)
+        cur_signs   := array.from(-1, -1, 1, 1, -1)
 
 // ===== NOK DATA =====
 if current_ticker == "NOK"
@@ -436,6 +448,18 @@ if current_ticker == "SOFI"
         cur_lengths := array.from(40, 22, 17, 17, 15, 10, 9, 8, 8, 7, 6, 2, 2, 2, 2)
         cur_signs   := array.from(-1, -1, -1, 1, 1, -1, 1, 1, -1, -1, 1, -1, 1, -1, -1)
 
+// ===== SOXL DATA =====
+if current_ticker == "SOXL"
+    if year == 2026 and month == 1 and dayofmonth == 2
+        plot_c_wall := 40.0
+        plot_p_wall := 42.0
+        plot_flip   := 37.75
+
+    if barstate.islast
+        cur_strikes := array.from(42.0, 45.0, 42.5, 44.0, 46.0, 44.5, 41.0, 38.0, 47.0, 40.5, 41.5, 40.0, 39.0, 43.5, 43.0, 48.0, 39.5, 45.5, 46.5, 36.5, 36.0, 47.5, 37.5, 38.5, 37.0)
+        cur_lengths := array.from(40, 34, 19, 18, 16, 14, 11, 11, 10, 10, 10, 8, 8, 7, 6, 5, 4, 3, 2, 2, 2, 2, 2, 2, 2)
+        cur_signs   := array.from(-1, 1, -1, 1, 1, 1, -1, 1, 1, -1, -1, -1, -1, 1, -1, 1, -1, 1, 1, -1, -1, 1, -1, -1, -1)
+
 // ===== SPY DATA =====
 if current_ticker == "SPY"
     if year == 2025 and month == 12 and dayofmonth == 23
@@ -495,6 +519,18 @@ if current_ticker == "TEMT"
         cur_strikes := array.from(12.0, 13.0, 11.0, 10.0)
         cur_lengths := array.from(40, 20, 6, 2)
         cur_signs   := array.from(-1, -1, -1, 1)
+
+// ===== TSLL DATA =====
+if current_ticker == "TSLL"
+    if year == 2026 and month == 1 and dayofmonth == 2
+        plot_c_wall := 20.5
+        plot_p_wall := 19.0
+        plot_flip   := na
+
+    if barstate.islast
+        cur_strikes := array.from(19.0, 19.5, 20.0, 18.5, 18.0, 20.43, 21.5, 21.43, 17.0, 19.43, 21.0, 17.5, 18.43, 16.5, 20.5, 17.43, 16.43)
+        cur_lengths := array.from(40, 35, 25, 17, 17, 5, 4, 4, 3, 3, 2, 2, 2, 2, 2, 2, 2)
+        cur_signs   := array.from(-1, -1, -1, -1, -1, 1, -1, 1, -1, 1, 1, -1, 1, -1, 1, -1, -1)
 
 // --- Plotting History (Lines) ---
 // We use 'na' logic to prevent drawing lines when data is missing
