@@ -1,13 +1,13 @@
 # ===========================================================
-# GEX to Pine Script Converter v2.0 (Visual Precision)
+# GEX to Pine Script Converter v2.1 (GEX Values Added)
 # ===========================================================
 # Usage:
 # 1. Scans folder for ALL historical GEX CSV files.
 # 2. Generates "Universal_GEX_History.pine" (Version 6).
 # 3. Features:
-#    - COMBINED WALL labels (prevents text overlap).
-#    - Smart Flip Zones (hides line if no flip exists).
-#    - High-Res Histogram (easier to see short vs long lines).
+#    - Shows GEX $ Amount on Labels (in Billions).
+#    - COMBINED WALL labels.
+#    - Smart Flip Zones.
 # ===========================================================
 
 import os
@@ -15,7 +15,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 
-print("🌲 Starting Historical GEX Converter (v2.0)...")
+print("🌲 Starting Historical GEX Converter (v2.1)...")
 
 # ===============================================
 # Helper Functions
@@ -42,10 +42,21 @@ def process_file_data(filepath):
         if not all(col in df.columns for col in required_cols):
             return None
 
-        # 1. Key Metrics
+        # 1. Key Metrics & Wall Strength
         flip_zone = compute_flip_zone(df)
-        call_wall = df.loc[df['call_gex'].idxmax(), 'strike']
-        put_wall = df.loc[df['put_gex'].idxmax(), 'strike']
+        
+        # Find Call Wall (Max Call GEX)
+        cw_idx = df['call_gex'].idxmax()
+        call_wall = df.loc[cw_idx, 'strike']
+        call_wall_gex = df.loc[cw_idx, 'call_gex'] / 1_000_000_000 # Convert to Billions
+
+        # Find Put Wall (Max Put GEX) - usually Put GEX is negative in raw data, but usually stored as positive in call_gex/put_gex columns?
+        # In builder: grouped["P"] becomes "put_gex". It's usually positive magnitude. 
+        # But net_gex = call - put.
+        # We want the magnitude.
+        pw_idx = df['put_gex'].abs().idxmax()
+        put_wall = df.loc[pw_idx, 'strike']
+        put_wall_gex = df.loc[pw_idx, 'put_gex'] / 1_000_000_000 # Convert to Billions (Magnitude)
 
         # 2. Histogram Data (Top 40 Strikes)
         df['abs_net_gex'] = df['net_gex'].abs()
@@ -59,7 +70,7 @@ def process_file_data(filepath):
         p_signs = []
         
         for _, row in top_strikes.iterrows():
-            # Scale length: Min 2, Max 40 (Increased for better visibility)
+            # Scale length: Min 2, Max 40
             length = int((row['abs_net_gex'] / max_val) * 40)
             if length < 2: length = 2
             
@@ -71,6 +82,8 @@ def process_file_data(filepath):
             "flip": float(flip_zone) if flip_zone else None,
             "c_wall": float(call_wall),
             "p_wall": float(put_wall),
+            "c_gex": float(call_wall_gex),
+            "p_gex": float(put_wall_gex),
             "strikes": ', '.join(p_strikes),
             "lengths": ', '.join(p_lengths),
             "signs": ', '.join(p_signs)
@@ -130,6 +143,8 @@ var string current_ticker = syminfo.ticker
 var float plot_c_wall = na
 var float plot_p_wall = na
 var float plot_flip   = na
+var float plot_c_gex  = na
+var float plot_p_gex  = na
 
 // --- Arrays for Current Day Histogram ---
 var float[] cur_strikes = array.new<float>()
@@ -156,6 +171,8 @@ if current_ticker == "{symbol}"
         plot_c_wall := {d_dat['c_wall']}
         plot_p_wall := {d_dat['p_wall']}
         plot_flip   := {flip_val}
+        plot_c_gex  := {d_dat['c_gex']:.4f}
+        plot_p_gex  := {d_dat['p_gex']:.4f}
 """
 
     ld = last_record['data']
@@ -166,11 +183,9 @@ if current_ticker == "{symbol}"
         cur_signs   := array.from({ld['signs']})
 """
 
-# PLOTTING LOGIC (The Visual Fixes)
+# PLOTTING LOGIC
 pine_code += """
 // --- Plotting History (Lines) ---
-// We use 'na' logic to prevent drawing lines when data is missing
-
 plot(plot_c_wall, "Call Wall", color=color.new(color.green, 20), linewidth=2, style=plot.style_stepline)
 plot(plot_p_wall, "Put Wall",  color=color.new(color.red, 20),   linewidth=2, style=plot.style_stepline)
 plot(plot_flip,   "Flip Zone", color=color.blue,  linewidth=1, style=plot.style_circles)
@@ -181,11 +196,12 @@ if barstate.islast
     if not na(plot_c_wall) and not na(plot_p_wall)
         if plot_c_wall == plot_p_wall
             // COMBINED WALL
-            label.new(bar_index + 5, plot_c_wall, "COMBINED WALL: " + str.tostring(plot_c_wall), style=label.style_label_left, textcolor=color.white, color=color.purple)
+            string gex_str = "C: $" + str.tostring(plot_c_gex, "#.##") + "B / P: $" + str.tostring(plot_p_gex, "#.##") + "B"
+            label.new(bar_index + 5, plot_c_wall, "COMBINED WALL\\n" + gex_str, style=label.style_label_left, textcolor=color.white, color=color.purple)
         else
             // SEPARATE WALLS
-            label.new(bar_index + 5, plot_c_wall, "Call Wall: " + str.tostring(plot_c_wall), style=label.style_label_left, textcolor=color.white, color=color.green)
-            label.new(bar_index + 5, plot_p_wall, "Put Wall: " + str.tostring(plot_p_wall),  style=label.style_label_left, textcolor=color.white, color=color.red)
+            label.new(bar_index + 5, plot_c_wall, "Call Wall ($" + str.tostring(plot_c_wall) + ")\\nGEX: $" + str.tostring(plot_c_gex, "#.##") + "B", style=label.style_label_left, textcolor=color.white, color=color.green)
+            label.new(bar_index + 5, plot_p_wall, "Put Wall ($" + str.tostring(plot_p_wall) + ")\\nGEX: $" + str.tostring(plot_p_gex, "#.##") + "B",  style=label.style_label_left, textcolor=color.white, color=color.red)
 
     // 2. Draw Flip Label (Only if exists)
     if not na(plot_flip)
@@ -208,4 +224,4 @@ if barstate.islast
 with open(output_filename, "w") as f:
     f.write(pine_code)
 
-print(f"✅ Created Universal_GEX_History.pine (Version 6)")
+print(f"✅ Created Universal_GEX_History.pine (Version 6) with GEX values")
