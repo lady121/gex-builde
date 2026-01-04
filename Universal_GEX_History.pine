@@ -2,7 +2,7 @@
 indicator("Universal GEX History (Bar Replay)", overlay=true, max_lines_count=500, max_labels_count=500)
 
 // --- Universal GEX History (Auto-Generated) ---
-// Generated: 2026-01-03
+// Generated: 2026-01-04
 
 var string current_ticker = syminfo.ticker
 
@@ -23,6 +23,10 @@ if current_ticker == "AMZU"
         plot_p_wall := 33.8
         plot_flip   := 29.9
     if year == 2026 and month == 1 and dayofmonth == 3
+        plot_c_wall := 36.8
+        plot_p_wall := 33.8
+        plot_flip   := 36.4
+    if year == 2026 and month == 1 and dayofmonth == 4
         plot_c_wall := 36.8
         plot_p_wall := 33.8
         plot_flip   := 36.4
@@ -90,6 +94,10 @@ if current_ticker == "BBAI"
         plot_c_wall := 6.0
         plot_p_wall := 5.5
         plot_flip   := na
+    if year == 2026 and month == 1 and dayofmonth == 4
+        plot_c_wall := 6.0
+        plot_p_wall := 5.5
+        plot_flip   := na
 
     if barstate.islast
         cur_strikes := array.from(6.0, 5.0, 6.5, 5.5)
@@ -154,6 +162,10 @@ if current_ticker == "BITO"
         plot_c_wall := 13.0
         plot_p_wall := 12.0
         plot_flip   := na
+    if year == 2026 and month == 1 and dayofmonth == 4
+        plot_c_wall := 13.0
+        plot_p_wall := 12.0
+        plot_flip   := na
 
     if barstate.islast
         cur_strikes := array.from(12.0, 13.0, 14.0, 13.5, 11.5, 11.0, 12.5)
@@ -207,6 +219,10 @@ if current_ticker == "BMNU"
         plot_p_wall := 5.0
         plot_flip   := na
     if year == 2026 and month == 1 and dayofmonth == 3
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := na
+    if year == 2026 and month == 1 and dayofmonth == 4
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := na
@@ -282,6 +298,10 @@ if current_ticker == "MSTU"
         plot_c_wall := 9.0
         plot_p_wall := 9.0
         plot_flip   := 8.75
+    if year == 2026 and month == 1 and dayofmonth == 4
+        plot_c_wall := 9.0
+        plot_p_wall := 9.0
+        plot_flip   := 8.75
 
     if barstate.islast
         cur_strikes := array.from(10.0, 9.0, 8.0, 8.5, 9.5)
@@ -311,6 +331,10 @@ if current_ticker == "NOK"
         plot_p_wall := 6.0
         plot_flip   := na
     if year == 2026 and month == 1 and dayofmonth == 3
+        plot_c_wall := 7.0
+        plot_p_wall := 6.0
+        plot_flip   := na
+    if year == 2026 and month == 1 and dayofmonth == 4
         plot_c_wall := 7.0
         plot_p_wall := 6.0
         plot_flip   := na
@@ -426,6 +450,10 @@ if current_ticker == "RR"
         plot_c_wall := 3.5
         plot_p_wall := 3.0
         plot_flip   := na
+    if year == 2026 and month == 1 and dayofmonth == 4
+        plot_c_wall := 3.5
+        plot_p_wall := 3.0
+        plot_flip   := na
 
     if barstate.islast
         cur_strikes := array.from(3.0, 3.5)
@@ -474,6 +502,10 @@ if current_ticker == "SOFI"
         plot_c_wall := 25.0
         plot_p_wall := 25.0
         plot_flip   := na
+    if year == 2026 and month == 1 and dayofmonth == 4
+        plot_c_wall := 25.0
+        plot_p_wall := 25.0
+        plot_flip   := na
 
     if barstate.islast
         cur_strikes := array.from(30.0, 25.0, 26.0, 24.0, 28.0, 29.0, 25.5, 26.5, 31.0, 28.5, 27.0, 24.5, 29.5, 27.5, 30.5, 23.5)
@@ -487,6 +519,10 @@ if current_ticker == "SOXL"
         plot_p_wall := 42.0
         plot_flip   := 37.75
     if year == 2026 and month == 1 and dayofmonth == 3
+        plot_c_wall := 45.0
+        plot_p_wall := 42.0
+        plot_flip   := 44.75
+    if year == 2026 and month == 1 and dayofmonth == 4
         plot_c_wall := 45.0
         plot_p_wall := 42.0
         plot_flip   := 44.75
@@ -554,6 +590,10 @@ if current_ticker == "TEMT"
         plot_c_wall := 14.0
         plot_p_wall := 12.0
         plot_flip   := na
+    if year == 2026 and month == 1 and dayofmonth == 4
+        plot_c_wall := 14.0
+        plot_p_wall := 12.0
+        plot_flip   := na
 
     if barstate.islast
         cur_strikes := array.from(12.0, 13.0, 14.0, 11.0)
@@ -567,6 +607,10 @@ if current_ticker == "TSLL"
         plot_p_wall := 19.0
         plot_flip   := na
     if year == 2026 and month == 1 and dayofmonth == 3
+        plot_c_wall := 20.43
+        plot_p_wall := 20.0
+        plot_flip   := na
+    if year == 2026 and month == 1 and dayofmonth == 4
         plot_c_wall := 20.43
         plot_p_wall := 20.0
         plot_flip   := na
