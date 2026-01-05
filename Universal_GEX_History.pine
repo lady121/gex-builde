@@ -2,7 +2,7 @@
 indicator("Universal GEX History (Bar Replay)", overlay=true, max_lines_count=500, max_labels_count=500)
 
 // --- Universal GEX History (Auto-Generated) ---
-// Generated: 2026-01-04
+// Generated: 2026-01-05
 
 var string current_ticker = syminfo.ticker
 
@@ -38,11 +38,17 @@ if current_ticker == "AMZU"
         plot_flip   := na
         plot_c_gex  := 0.0004
         plot_p_gex  := 0.0005
+    if year == 2026 and month == 1 and dayofmonth == 5
+        plot_c_wall := 36.8
+        plot_p_wall := 33.8
+        plot_flip   := 36.4
+        plot_c_gex  := 0.0004
+        plot_p_gex  := 0.0004
 
     if barstate.islast
-        cur_strikes := array.from(35.0, 36.8, 33.8, 31.8, 32.8, 34.8, 30.8, 38.0, 34.0, 37.8, 37.0, 32.0, 29.8, 36.0, 28.8, 33.0, 35.8, 30.0, 31.0, 29.0)
-        cur_lengths := array.from(40, 35, 16, 13, 8, 7, 7, 6, 6, 6, 5, 4, 4, 2, 2, 2, 2, 2, 2, 2)
-        cur_signs   := array.from(-1, 1, -1, -1, -1, 1, -1, 1, -1, 1, -1, -1, -1, 1, -1, -1, 1, 1, -1, -1)
+        cur_strikes := array.from(36.8, 35.0, 37.8, 31.8, 32.8, 34.8, 38.0, 36.0, 35.8, 37.0, 33.8, 30.8, 30.0, 29.8, 32.0, 28.8, 34.0, 33.0, 31.0, 29.0)
+        cur_lengths := array.from(40, 13, 8, 7, 5, 5, 5, 4, 4, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2)
+        cur_signs   := array.from(1, -1, 1, -1, -1, 1, 1, 1, 1, -1, -1, -1, 1, -1, -1, -1, -1, -1, -1, -1)
 
 // ===== BBAI DATA =====
 if current_ticker == "BBAI"
@@ -136,11 +142,17 @@ if current_ticker == "BBAI"
         plot_flip   := 5.75
         plot_c_gex  := 0.0021
         plot_p_gex  := 0.0013
+    if year == 2026 and month == 1 and dayofmonth == 5
+        plot_c_wall := 6.0
+        plot_p_wall := 5.5
+        plot_flip   := na
+        plot_c_gex  := 0.0068
+        plot_p_gex  := 0.0035
 
     if barstate.islast
-        cur_strikes := array.from(6.0, 6.5, 5.5, 5.0)
-        cur_lengths := array.from(40, 35, 17, 10)
-        cur_signs   := array.from(1, 1, -1, -1)
+        cur_strikes := array.from(6.0, 5.0, 6.5, 5.5)
+        cur_lengths := array.from(40, 18, 11, 2)
+        cur_signs   := array.from(1, 1, 1, -1)
 
 // ===== BITO DATA =====
 if current_ticker == "BITO"
@@ -234,10 +246,16 @@ if current_ticker == "BITO"
         plot_flip   := 13.25
         plot_c_gex  := 0.0024
         plot_p_gex  := 0.0036
+    if year == 2026 and month == 1 and dayofmonth == 5
+        plot_c_wall := 13.0
+        plot_p_wall := 12.0
+        plot_flip   := na
+        plot_c_gex  := 0.0018
+        plot_p_gex  := 0.0042
 
     if barstate.islast
         cur_strikes := array.from(12.0, 13.0, 14.0, 13.5, 11.5, 11.0, 12.5)
-        cur_lengths := array.from(40, 33, 17, 15, 5, 3, 2)
+        cur_lengths := array.from(40, 20, 11, 7, 5, 3, 3)
         cur_signs   := array.from(-1, 1, 1, 1, -1, -1, 1)
 
 // ===== BMNU DATA =====
@@ -320,6 +338,12 @@ if current_ticker == "BMNU"
         plot_flip   := na
         plot_c_gex  := 0.0005
         plot_p_gex  := 0.0002
+    if year == 2026 and month == 1 and dayofmonth == 5
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := na
+        plot_c_gex  := 0.0005
+        plot_p_gex  := 0.0003
 
     if barstate.islast
         cur_strikes := array.from(6.0)
@@ -426,11 +450,17 @@ if current_ticker == "MSTU"
         plot_flip   := na
         plot_c_gex  := 0.0001
         plot_p_gex  := 0.0001
+    if year == 2026 and month == 1 and dayofmonth == 5
+        plot_c_wall := 9.0
+        plot_p_wall := 9.0
+        plot_flip   := 8.75
+        plot_c_gex  := 0.0003
+        plot_p_gex  := 0.0001
 
     if barstate.islast
-        cur_strikes := array.from(10.0, 8.0, 8.5, 9.5, 9.0)
-        cur_lengths := array.from(40, 32, 12, 6, 3)
-        cur_signs   := array.from(1, -1, -1, -1, -1)
+        cur_strikes := array.from(10.0, 9.0, 8.0, 8.5, 9.5)
+        cur_lengths := array.from(40, 33, 7, 3, 2)
+        cur_signs   := array.from(1, 1, -1, -1, 1)
 
 // ===== NOK DATA =====
 if current_ticker == "NOK"
@@ -476,11 +506,17 @@ if current_ticker == "NOK"
         plot_flip   := 6.25
         plot_c_gex  := 0.0202
         plot_p_gex  := 0.0019
+    if year == 2026 and month == 1 and dayofmonth == 5
+        plot_c_wall := 7.0
+        plot_p_wall := 6.0
+        plot_flip   := na
+        plot_c_gex  := 0.0186
+        plot_p_gex  := 0.0018
 
     if barstate.islast
         cur_strikes := array.from(7.0, 6.5, 6.0)
-        cur_lengths := array.from(40, 19, 3)
-        cur_signs   := array.from(1, 1, -1)
+        cur_lengths := array.from(40, 16, 2)
+        cur_signs   := array.from(1, 1, 1)
 
 // ===== OPEN DATA =====
 if current_ticker == "OPEN"
@@ -638,11 +674,17 @@ if current_ticker == "RR"
         plot_flip   := 3.25
         plot_c_gex  := 0.0029
         plot_p_gex  := 0.0007
+    if year == 2026 and month == 1 and dayofmonth == 5
+        plot_c_wall := 3.5
+        plot_p_wall := 3.0
+        plot_flip   := na
+        plot_c_gex  := 0.0004
+        plot_p_gex  := 0.0009
 
     if barstate.islast
-        cur_strikes := array.from(3.5, 3.0)
-        cur_lengths := array.from(40, 6)
-        cur_signs   := array.from(1, -1)
+        cur_strikes := array.from(3.0, 3.5)
+        cur_lengths := array.from(40, 5)
+        cur_signs   := array.from(-1, 1)
 
 // ===== SOFI DATA =====
 if current_ticker == "SOFI"
@@ -712,11 +754,17 @@ if current_ticker == "SOFI"
         plot_flip   := 29.75
         plot_c_gex  := 0.0210
         plot_p_gex  := 0.0202
+    if year == 2026 and month == 1 and dayofmonth == 5
+        plot_c_wall := 25.0
+        plot_p_wall := 25.0
+        plot_flip   := na
+        plot_c_gex  := 0.0181
+        plot_p_gex  := 0.0297
 
     if barstate.islast
-        cur_strikes := array.from(30.0, 26.0, 28.0, 29.0, 25.0, 24.0, 31.0, 28.5, 26.5, 25.5, 27.0, 29.5, 27.5, 24.5, 30.5, 23.5)
-        cur_lengths := array.from(40, 20, 19, 18, 18, 8, 8, 7, 6, 5, 4, 2, 2, 2, 2, 2)
-        cur_signs   := array.from(1, -1, 1, 1, -1, -1, 1, 1, -1, -1, -1, 1, 1, -1, 1, -1)
+        cur_strikes := array.from(30.0, 25.0, 26.0, 24.0, 28.0, 29.0, 25.5, 26.5, 31.0, 28.5, 27.0, 24.5, 29.5, 27.5, 30.5, 23.5)
+        cur_lengths := array.from(40, 37, 35, 19, 19, 16, 11, 9, 9, 6, 3, 2, 2, 2, 2, 2)
+        cur_signs   := array.from(1, -1, -1, -1, 1, 1, -1, -1, 1, 1, -1, -1, 1, 1, 1, -1)
 
 // ===== SOXL DATA =====
 if current_ticker == "SOXL"
@@ -738,11 +786,17 @@ if current_ticker == "SOXL"
         plot_flip   := 43.75
         plot_c_gex  := 0.0047
         plot_p_gex  := 0.0010
+    if year == 2026 and month == 1 and dayofmonth == 5
+        plot_c_wall := 45.0
+        plot_p_wall := 42.0
+        plot_flip   := 44.75
+        plot_c_gex  := 0.0033
+        plot_p_gex  := 0.0019
 
     if barstate.islast
-        cur_strikes := array.from(50.0, 45.0, 49.0, 47.0, 52.0, 48.0, 46.0, 44.0, 51.0, 54.0, 53.0, 44.5, 47.5, 42.5, 45.5, 46.5, 40.5, 51.5, 43.5, 42.0, 41.5, 52.5, 49.5, 41.0, 50.5, 48.5, 43.0)
-        cur_lengths := array.from(40, 20, 12, 11, 10, 8, 8, 7, 4, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2)
-        cur_signs   := array.from(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, -1, 1, 1, -1, 1, 1, -1, -1, 1, -1, 1, 1, 1, -1)
+        cur_strikes := array.from(50.0, 45.0, 49.0, 46.0, 47.0, 44.0, 42.5, 48.0, 42.0, 52.0, 51.0, 40.5, 54.0, 53.0, 44.5, 41.0, 45.5, 43.0, 46.5, 47.5, 51.5, 49.5, 52.5, 50.5, 48.5, 43.5, 41.5)
+        cur_lengths := array.from(40, 37, 16, 13, 10, 9, 6, 6, 5, 5, 4, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2)
+        cur_signs   := array.from(1, 1, 1, 1, 1, 1, -1, 1, -1, 1, 1, -1, 1, 1, 1, 1, 1, 1, 1, 1, 1, -1, 1, 1, 1, 1, 1)
 
 // ===== SPY DATA =====
 if current_ticker == "SPY"
@@ -832,10 +886,16 @@ if current_ticker == "TEMT"
         plot_flip   := na
         plot_c_gex  := 0.0000
         plot_p_gex  := 0.0000
+    if year == 2026 and month == 1 and dayofmonth == 5
+        plot_c_wall := 14.0
+        plot_p_wall := 12.0
+        plot_flip   := na
+        plot_c_gex  := 0.0000
+        plot_p_gex  := 0.0000
 
     if barstate.islast
         cur_strikes := array.from(12.0, 13.0, 14.0, 11.0)
-        cur_lengths := array.from(40, 18, 18, 8)
+        cur_lengths := array.from(40, 20, 8, 6)
         cur_signs   := array.from(-1, -1, 1, -1)
 
 // ===== TSLL DATA =====
@@ -858,11 +918,17 @@ if current_ticker == "TSLL"
         plot_flip   := na
         plot_c_gex  := 0.0006
         plot_p_gex  := 0.0011
+    if year == 2026 and month == 1 and dayofmonth == 5
+        plot_c_wall := 20.43
+        plot_p_wall := 20.0
+        plot_flip   := na
+        plot_c_gex  := 0.0010
+        plot_p_gex  := 0.0017
 
     if barstate.islast
-        cur_strikes := array.from(19.5, 20.0, 18.0, 19.0, 18.5, 17.0, 17.5, 20.5, 21.0, 16.5, 16.0)
-        cur_lengths := array.from(40, 30, 30, 27, 17, 12, 8, 7, 4, 2, 2)
-        cur_signs   := array.from(-1, -1, -1, -1, -1, -1, -1, -1, 1, -1, -1)
+        cur_strikes := array.from(18.0, 19.0, 20.0, 19.5, 20.43, 18.5, 19.43, 17.0, 21.0, 17.5, 18.43, 16.0, 20.5, 16.5, 17.43, 16.43)
+        cur_lengths := array.from(40, 39, 32, 26, 23, 18, 17, 14, 13, 9, 8, 6, 3, 2, 2, 2)
+        cur_signs   := array.from(-1, -1, -1, -1, 1, -1, 1, -1, -1, -1, 1, -1, -1, -1, -1, -1)
 
 // --- Plotting History (Lines) ---
 plot(plot_c_wall, "Call Wall", color=color.new(color.green, 20), linewidth=2, style=plot.style_stepline)
