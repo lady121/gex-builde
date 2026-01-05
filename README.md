@@ -88,7 +88,7 @@ Blue Line: Flip Zone (Hidden automatically if the regime is "ALL CALLS" or "ALL 
 
 Open the file Universal_GEX_History.pine in this repository.
 
-Copy all the code (Ctrl+A, Ctrl+C).
+Copy all the code (Ctrl+A, Ctrl+C).In between the RAW and DOWNLOAD buttons is the Copy raw file. Click the copy symbol
 
 Open TradingView.
 
