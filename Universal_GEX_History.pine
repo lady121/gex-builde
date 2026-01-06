@@ -159,12 +159,12 @@ if current_ticker == "BBAI"
         plot_p_wall := 6.0
         plot_flip   := na
         plot_c_gex  := 0.0074
-        plot_p_gex  := 0.0068
+        plot_p_gex  := 0.0067
 
     if barstate.islast
-        cur_strikes := array.from(5.5, 6.5, 6.0)
-        cur_lengths := array.from(40, 22, 9)
-        cur_signs   := array.from(-1, 1, 1)
+        cur_strikes := array.from(5.5, 6.5, 5.0, 6.0)
+        cur_lengths := array.from(40, 22, 21, 9)
+        cur_signs   := array.from(-1, 1, -1, 1)
 
 // ===== BITO DATA =====
 if current_ticker == "BITO"
@@ -364,15 +364,15 @@ if current_ticker == "BMNU"
         plot_p_gex  := 0.0002
     if year == 2026 and month == 1 and dayofmonth == 6
         plot_c_wall := 7.0
-        plot_p_wall := 6.0
+        plot_p_wall := 8.0
         plot_flip   := na
         plot_c_gex  := 0.0005
         plot_p_gex  := 0.0003
 
     if barstate.islast
-        cur_strikes := array.from(7.0, 6.0)
-        cur_lengths := array.from(40, 31)
-        cur_signs   := array.from(1, 1)
+        cur_strikes := array.from(7.0, 6.0, 8.0)
+        cur_lengths := array.from(40, 31, 2)
+        cur_signs   := array.from(1, 1, 1)
 
 // ===== CLF DATA =====
 if current_ticker == "CLF"
@@ -720,7 +720,7 @@ if current_ticker == "RR"
         plot_c_wall := 4.0
         plot_p_wall := 3.5
         plot_flip   := na
-        plot_c_gex  := 0.0053
+        plot_c_gex  := 0.0052
         plot_p_gex  := 0.0004
 
     if barstate.islast
@@ -804,15 +804,15 @@ if current_ticker == "SOFI"
         plot_p_gex  := 0.0203
     if year == 2026 and month == 1 and dayofmonth == 6
         plot_c_wall := 30.0
-        plot_p_wall := 27.0
-        plot_flip   := 28.75
-        plot_c_gex  := 0.0301
-        plot_p_gex  := 0.0223
+        plot_p_wall := 25.0
+        plot_flip   := 29.75
+        plot_c_gex  := 0.0299
+        plot_p_gex  := 0.0251
 
     if barstate.islast
-        cur_strikes := array.from(30.0, 26.0, 28.0, 29.0, 32.0, 31.0, 28.5, 26.5, 25.5, 33.0, 27.0, 29.5, 27.5, 30.5, 31.5)
-        cur_lengths := array.from(40, 16, 15, 14, 12, 9, 5, 5, 4, 2, 2, 2, 2, 2, 2)
-        cur_signs   := array.from(1, -1, 1, 1, 1, 1, 1, -1, -1, 1, -1, 1, 1, 1, 1)
+        cur_strikes := array.from(30.0, 25.0, 26.0, 28.0, 29.0, 32.0, 31.0, 28.5, 26.5, 25.5, 33.0, 27.0, 29.5, 27.5, 30.5, 31.5)
+        cur_lengths := array.from(40, 17, 16, 15, 14, 12, 9, 5, 5, 4, 2, 2, 2, 2, 2, 2)
+        cur_signs   := array.from(1, -1, -1, 1, 1, 1, 1, 1, -1, -1, 1, -1, 1, 1, 1, 1)
 
 // ===== SOXL DATA =====
 if current_ticker == "SOXL"
