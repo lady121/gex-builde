@@ -2,7 +2,7 @@
 indicator("Universal GEX History (Bar Replay)", overlay=true, max_lines_count=500, max_labels_count=500)
 
 // --- Universal GEX History (Auto-Generated) ---
-// Generated: 2026-01-08
+// Generated: 2026-01-09
 
 var string current_ticker = syminfo.ticker
 
