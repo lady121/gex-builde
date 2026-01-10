@@ -1,50 +1,51 @@
-name: Convert GEX to Pine Script
+name: GEX to PineScript Converter 🧩
 
-# Trigger: Runs automatically ONLY after the "Twice Daily" build finishes
 on:
-  workflow_run:
-    workflows: ["Build GEX Twice Daily (Full Gamma Suite)"]
-    types:
-      - completed
-  workflow_dispatch: # Allows you to click "Run" manually if needed
+  # Allow manual trigger from GitHub UI
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Force rebuild PineScript output (ignore cache)"
+        required: false
+        default: "false"
+
+  # (Optional) automatic run when pushing new CSV data
+  push:
+    paths:
+      - '**.csv'
+      - 'gex_to_pinescript_converter.py'
 
 jobs:
-  convert:
+  build:
     runs-on: ubuntu-latest
-    # Only run if the Builder succeeded. If Builder failed, this skips.
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
-    permissions:
-      contents: write
 
     steps:
-      - name: Checkout repo
+      - name: 🧾 Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: 🐍 Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: 3.11
+          python-version: '3.10'
 
-      - name: Install dependencies
-        run: pip install pandas numpy
-
-      - name: Run Pine Script Converter
+      - name: 📦 Install dependencies
         run: |
-          # Priority: Check root first (standard), then 'GEX Tools' folder
-          if [ -f "gex_to_pinescript_converter.py" ]; then
-            python gex_to_pinescript_converter.py
-          elif [ -f "GEX Tools/gex_to_pinescript_converter.py" ]; then
-            python "GEX Tools/gex_to_pinescript_converter.py"
+          python -m pip install --upgrade pip
+          pip install pandas numpy
+
+      - name: 🧠 Run GEX to PineScript Converter
+        run: |
+          if [ "${{ github.event.inputs.force }}" = "true" ]; then
+            echo "⚙️ Force rebuild triggered via workflow dispatch."
+            python gex_to_pinescript_converter.py --force
           else
-            echo "❌ Converter script not found in root or GEX Tools!"
-            exit 1
+            echo "🌲 Smart rebuild mode (using cache)."
+            python gex_to_pinescript_converter.py
           fi
 
-      - name: Commit Pine Scripts
-        run: |
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
-          git pull
-          git add *.pine || echo "No new pine files"
-          git commit -m "Auto-generated Pine Scripts (v6)" || echo "No changes to commit"
-          git push
+      - name: 📤 Upload PineScript Output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Universal_GEX_History_Pine
+          path: Universal_GEX_History_*.pine
