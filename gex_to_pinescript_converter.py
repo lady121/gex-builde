@@ -11,8 +11,10 @@ on:
 jobs:
   convert:
     runs-on: ubuntu-latest
-    # FIX: Run if manual trigger OR if the automatic trigger was successful
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    # FIX: Safer condition. 
+    # 1. If manually triggered (workflow_dispatch), ALWAYS run.
+    # 2. If triggered by workflow_run, ONLY run if the previous workflow succeeded.
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
     permissions:
       contents: write
 
