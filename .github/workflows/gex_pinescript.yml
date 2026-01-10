@@ -1,7 +1,6 @@
 name: GEX to PineScript Converter 🧩
 
 on:
-  # Allow manual trigger from GitHub UI
   workflow_dispatch:
     inputs:
       force:
@@ -9,7 +8,6 @@ on:
         required: false
         default: "false"
 
-  # (Optional) automatic run when pushing new CSV data
   push:
     paths:
       - '**.csv'
@@ -22,6 +20,8 @@ jobs:
     steps:
       - name: 🧾 Checkout repository
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 🐍 Set up Python
         uses: actions/setup-python@v5
@@ -43,9 +43,19 @@ jobs:
             python gex_to_pinescript_converter.py
           fi
 
-      - name: 📤 Upload PineScript Output
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: Universal_GEX_History_Pine
-          path: Universal_GEX_History_*.pine
+      - name: 📝 Rename & Replace Universal PineScript
+        run: |
+          LATEST_FILE=$(ls -t Universal_GEX_History_*.pine | head -n 1)
+          echo "Found latest: $LATEST_FILE"
+          mv "$LATEST_FILE" Universal_GEX_History.pine
+          echo "✅ Universal_GEX_History.pine updated."
+
+      - name: 🚀 Commit and Push Changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Universal_GEX_History.pine
+          git commit -m "🔁 Auto-update Universal_GEX_History.pine [$(date +'%Y-%m-%d %H:%M:%S')]"
+          git push origin HEAD:${{ github.ref }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
