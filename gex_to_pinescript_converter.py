@@ -1,10 +1,10 @@
 # ===========================================================
-# GEX to Pine Script Converter v3.0 (Smart Rebuild + Visuals)
+# GEX to Pine Script Converter v3.3 (Histogram Labels Added)
 # ===========================================================
 # Features:
 #  ✅ Smart Rebuild: Caches results to run faster.
 #  ✅ Visual Precision: Version 6, Combined Walls, GEX+Delta Labels.
-#  ✅ Force Rebuild: Use --force flag to ignore cache.
+#  ✅ Histogram Data: Now includes text labels for Net GEX on bars.
 # ===========================================================
 
 import os
@@ -14,7 +14,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 
-print("🌲 Starting Historical GEX Converter (v3.0 - Smart Mode)...")
+print("🌲 Starting Historical GEX Converter (v3.3 - Histogram Labels)...")
 
 # ===============================================
 # Command-line flags
@@ -44,7 +44,6 @@ def compute_flip_zone(df):
 def process_file_data(filepath):
     try:
         df = pd.read_csv(filepath)
-        # Check for new Delta columns
         has_dex = 'call_dex' in df.columns and 'put_dex' in df.columns
         
         required_cols = ['strike', 'call_gex', 'put_gex', 'net_gex']
@@ -75,13 +74,20 @@ def process_file_data(filepath):
         p_strikes = []
         p_lengths = []
         p_signs = []
+        p_labels = [] # New list for GEX values
         
         for _, row in top_strikes.iterrows():
             length = int((row['abs_net_gex'] / max_val) * 40)
             if length < 2: length = 2
+            
+            # Format the label (e.g., "$2.5B")
+            gex_val = row['net_gex'] / 1_000_000_000
+            label_txt = f"${abs(gex_val):.2f}B"
+            
             p_strikes.append(str(float(row['strike'])))
             p_lengths.append(str(length))
             p_signs.append("1" if row['net_gex'] >= 0 else "-1")
+            p_labels.append(f"'{label_txt}'") # Wrap in quotes for Pine string array
 
         return {
             "flip": float(flip_zone) if flip_zone else None,
@@ -93,7 +99,8 @@ def process_file_data(filepath):
             "p_dex": float(put_wall_dex),
             "strikes": ', '.join(p_strikes),
             "lengths": ', '.join(p_lengths),
-            "signs": ', '.join(p_signs)
+            "signs": ', '.join(p_signs),
+            "labels": ', '.join(p_labels)
         }
     except Exception as e:
         print(f"   ⚠️ Error processing {filepath}: {e}")
@@ -117,7 +124,6 @@ if not files:
     print("⚠️ No GEX CSV files found.")
     exit()
 
-# Build current file map
 current_state = {}
 for f in files:
     parts = f.split('_')
@@ -127,13 +133,11 @@ for f in files:
 
 for sym in current_state: current_state[sym].sort()
 
-# Check for changes
 changed_symbols = []
 if not force_rebuild:
     for sym, file_list in current_state.items():
         if sym not in cache or cache[sym] != file_list:
             changed_symbols.append(sym)
-            print(f"🔁 Change detected for {sym}")
     if not changed_symbols:
         print("✅ No new data detected. Skipping rebuild.")
         exit()
@@ -149,10 +153,6 @@ for f in files:
     parts = f.split('_')
     if len(parts) < 4: continue
     symbol = parts[0].upper()
-    
-    # In smart mode, we might want to load cached data for unchanged symbols
-    # But for simplicity in this merged script, we process everything to ensure the V6 format is applied everywhere
-    # Future optimization: Load pre-processed JSON for unchanged symbols
     
     date_str = parts[-1].replace('.csv', '')
     if len(date_str) != 8: continue
@@ -188,6 +188,7 @@ var float plot_p_dex  = na
 var float[] cur_strikes = array.new<float>()
 var int[]   cur_lengths = array.new<int>()
 var int[]   cur_signs   = array.new<int>()
+var string[] cur_labels = array.new<string>() // New array for GEX text
 """
 
 for symbol, records in history_map.items():
@@ -217,9 +218,10 @@ if current_ticker == "{symbol}"
         cur_strikes := array.from({ld['strikes']})
         cur_lengths := array.from({ld['lengths']})
         cur_signs   := array.from({ld['signs']})
+        cur_labels  := array.from({ld['labels']})
 """
 
-# PLOTTING LOGIC (Combined Walls + Labels)
+# PLOTTING LOGIC
 pine_code += """
 plot(plot_c_wall, "Call Wall", color=color.new(color.green, 20), linewidth=2, style=plot.style_stepline)
 plot(plot_p_wall, "Put Wall",  color=color.new(color.red, 20),   linewidth=2, style=plot.style_stepline)
@@ -245,22 +247,29 @@ if barstate.islast
     if not na(plot_flip)
         label.new(bar_index + 10, plot_flip, "Flip: " + str.tostring(plot_flip, "#.##"), style=label.style_label_left, textcolor=color.white, color=color.blue)
 
-    // 3. Draw Histogram Bars
+    // 3. Draw Histogram Bars with GEX Labels
     if array.size(cur_strikes) > 0
         for i = 0 to array.size(cur_strikes) - 1
             float s = array.get(cur_strikes, i)
             int l   = array.get(cur_lengths, i)
             int sg  = array.get(cur_signs, i)
+            string txt = array.get(cur_labels, i)
+            
             col = sg > 0 ? color.new(color.green, 40) : color.new(color.red, 40)
+            txt_col = sg > 0 ? color.green : color.red
+            
+            // Draw Line
             line.new(bar_index, s, bar_index + l, s, color=col, width=2)
+            
+            // Draw Label at end of line
+            label.new(bar_index + l, s, txt, style=label.style_label_left, textcolor=txt_col, color=color.new(color.white, 100), size=size.small)
 """
 
 with open(output_filename, "w") as f:
     f.write(pine_code)
 
-# Update cache only if successful
 with open(cache_file, "w") as f:
     json.dump(current_state, f, indent=2)
 
-print(f"✅ Created Universal_GEX_History.pine (Version 6) with Visuals")
+print(f"✅ Created Universal_GEX_History.pine (Version 6) with Histogram Labels")
 print("🧠 Smart cache updated.")
