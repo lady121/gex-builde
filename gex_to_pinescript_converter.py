@@ -1,15 +1,23 @@
 # ===========================================================
 # GEX to Pine Script Converter (Historical / Bar Replay Edition)
-# with Smart Rebuild System 🧠
+# with Smart Rebuild System 🧠 + Force Flag
 # ===========================================================
 
 import os
 import json
+import sys
 import pandas as pd
 import numpy as np
 from datetime import datetime
 
 print("🌲 Starting Historical GEX Converter (Smart Mode)...")
+
+# ===============================================
+# Command-line flags
+# ===============================================
+force_rebuild = "--force" in sys.argv
+if force_rebuild:
+    print("⚙️ Force rebuild enabled — ignoring cache and rebuilding everything.")
 
 # ===============================================
 # Helper Functions
@@ -44,13 +52,15 @@ def process_file_data(filepath):
         top_strikes = df.sort_values('abs_net_gex', ascending=False).head(40)
 
         max_val = top_strikes['abs_net_gex'].max()
-        if max_val == 0: max_val = 1
+        if max_val == 0:
+            max_val = 1
 
         p_strikes, p_lengths, p_signs = [], [], []
 
         for _, row in top_strikes.iterrows():
             length = int((row['abs_net_gex'] / max_val) * 25)
-            if length < 2: length = 2
+            if length < 2:
+                length = 2
             p_strikes.append(str(float(row['strike'])))
             p_lengths.append(str(length))
             p_signs.append("1" if row['net_gex'] >= 0 else "-1")
@@ -84,7 +94,7 @@ if not files:
     print("⚠️ No GEX CSV files found.")
     exit()
 
-# Build current state of CSVs per symbol
+# Build current state
 current_state = {}
 for f in files:
     parts = f.split('_')
@@ -98,40 +108,38 @@ for sym in current_state:
 
 # Detect changes
 changed_symbols = []
-for sym, file_list in current_state.items():
-    if sym not in cache or cache[sym] != file_list:
-        changed_symbols.append(sym)
-        print(f"🔁 Change detected for {sym}: {len(file_list)} files")
-
-if not changed_symbols:
-    print("✅ No new data detected. Skipping rebuild.")
-    exit()
+if not force_rebuild:
+    for sym, file_list in current_state.items():
+        if sym not in cache or cache[sym] != file_list:
+            changed_symbols.append(sym)
+            print(f"🔁 Change detected for {sym}: {len(file_list)} files")
+    if not changed_symbols:
+        print("✅ No new data detected. Skipping rebuild.")
+        exit()
+else:
+    changed_symbols = list(current_state.keys())
 
 print(f"📂 Found {len(files)} CSV files across {len(current_state)} symbols. Building History...")
 
 # ===============================================
-# Build Data Only for Changed Symbols
+# Process Changed Symbols
 # ===============================================
 history_map = {}
 
 for f in files:
     parts = f.split('_')
-    if len(parts) < 4: 
+    if len(parts) < 4:
         continue
-
     symbol = parts[0].upper()
     if symbol not in changed_symbols:
-        continue  # skip unchanged symbols
-
+        continue
     date_str = parts[-1].replace('.csv', '')
-    if len(date_str) != 8: 
+    if len(date_str) != 8:
         continue
 
     data = process_file_data(f)
     if data:
-        if symbol not in history_map:
-            history_map[symbol] = []
-        history_map[symbol].append({
+        history_map.setdefault(symbol, []).append({
             "year": int(date_str[:4]),
             "month": int(date_str[4:6]),
             "day": int(date_str[6:8]),
@@ -147,7 +155,7 @@ pine_code = f"""//@version=5
 indicator("Universal GEX History (Bar Replay)", overlay=true, max_lines_count=500, max_labels_count=500)
 
 // --- Generated {datetime.now().strftime('%Y-%m-%d')} ---
-// Smart rebuild enabled. Only changed symbols reprocessed.
+// Smart rebuild enabled. {'(Force rebuild active)' if force_rebuild else ''}
 
 var string current_ticker = syminfo.ticker
 var float plot_c_wall = na
@@ -170,9 +178,8 @@ if current_ticker == "{symbol}"
         pine_code += f"""    if year == {y} and month == {m} and dayofmonth == {d}
         plot_c_wall := {d_dat['c_wall']}
         plot_p_wall := {d_dat['p_wall']}
-        plot_flip   := {d_dat['flip'] > 0 and d_dat['flip'] or 'na'}
+        plot_flip   := {d_dat['flip'] if d_dat['flip'] > 0 else 'na'}
 """
-
     ld = last_record['data']
     pine_code += f"""
     if barstate.islast
@@ -202,9 +209,8 @@ if barstate.islast and array.size(cur_strikes) > 0
 with open(output_filename, "w") as f:
     f.write(pine_code)
 
-# Save cache for next run
 with open(cache_file, "w") as f:
     json.dump(current_state, f, indent=2)
 
 print(f"✅ Created Historical Script: {output_filename}")
-print("🧠 Smart cache updated — next run will skip unchanged symbols.")
+print("🧠 Smart cache updated — next run will skip unchanged symbols unless --force is used.")
