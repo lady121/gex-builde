@@ -1,61 +1,69 @@
-name: GEX to PineScript Converter 🧩
+name: Convert GEX to Pine Script
 
+# Trigger: Runs automatically ONLY after "Build GEX Twice Daily" finishes
 on:
+  workflow_run:
+    workflows: ["Build GEX Twice Daily (Full Gamma Suite)"]
+    types:
+      - completed
   workflow_dispatch:
     inputs:
       force:
-        description: "Force rebuild PineScript output (ignore cache)"
+        description: "Force rebuild PineScript (ignore cache)"
         required: false
         default: "false"
 
-  push:
-    paths:
-      - '**.csv'
-      - 'gex_to_pinescript_converter.py'
-
 jobs:
-  build:
+  convert:
     runs-on: ubuntu-latest
+    # Run logic:
+    # 1. Manual run (workflow_dispatch) -> Always run
+    # 2. Auto run (workflow_run) -> Only if builder succeeded
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
+    permissions:
+      contents: write
 
     steps:
-      - name: 🧾 Checkout repository
+      - name: Checkout repo
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 🐍 Set up Python
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: 3.11
 
-      - name: 📦 Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install pandas numpy
+      - name: Install dependencies
+        run: pip install pandas numpy
 
-      - name: 🧠 Run GEX to PineScript Converter
+      - name: Run Converter
         run: |
-          if [ "${{ github.event.inputs.force }}" = "true" ]; then
-            echo "⚙️ Force rebuild triggered via workflow dispatch."
-            python gex_to_pinescript_converter.py --force
-          else
-            echo "🌲 Smart rebuild mode (using cache)."
-            python gex_to_pinescript_converter.py
+          # Priority check for script location
+          SCRIPT_PATH="gex_to_pinescript_converter.py"
+          if [ -f "GEX Tools/gex_to_pinescript_converter.py" ]; then
+            SCRIPT_PATH="GEX Tools/gex_to_pinescript_converter.py"
+          elif [ ! -f "$SCRIPT_PATH" ]; then
+            echo "❌ Converter script not found!"
+            exit 1
           fi
 
-      - name: 📝 Rename & Replace Universal PineScript
-        run: |
-          LATEST_FILE=$(ls -t Universal_GEX_History_*.pine | head -n 1)
-          echo "Found latest: $LATEST_FILE"
-          mv "$LATEST_FILE" Universal_GEX_History.pine
-          echo "✅ Universal_GEX_History.pine updated."
+          # Handle Force Flag
+          if [ "${{ github.event.inputs.force }}" = "true" ]; then
+            echo "⚙️ Force rebuild triggered."
+            python "$SCRIPT_PATH" --force
+          else
+            echo "🌲 Standard run."
+            python "$SCRIPT_PATH"
+          fi
 
-      - name: 🚀 Commit and Push Changes
+      - name: 🚀 Commit and Push Updated PineScript
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Universal_GEX_History.pine
-          git commit -m "🔁 Auto-update Universal_GEX_History.pine [$(date +'%Y-%m-%d %H:%M:%S')]"
+          git pull --rebase
+          git add Universal_GEX_History.pine .gex_cache.json
+          git commit -m "🔁 Auto-update Universal_GEX_History.pine [$(date +'%Y-%m-%d %H:%M:%S')]" || echo "No changes to commit"
           git push origin HEAD:${{ github.ref }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
