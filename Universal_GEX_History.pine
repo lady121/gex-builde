@@ -3239,36 +3239,23 @@ f_symbol_TSLL() =>
     [plot_c_wall, plot_p_wall, plot_flip, cur_strikes, cur_lengths, cur_signs, cur_labels]
 
 // ===== MAIN CALLS =====
-if current_ticker == "AMZU"
-    [plot_c_wall, plot_p_wall, plot_flip, cur_strikes, cur_lengths, cur_signs, cur_labels] := f_symbol_AMZU()
-if current_ticker == "BBAI"
-    [plot_c_wall, plot_p_wall, plot_flip, cur_strikes, cur_lengths, cur_signs, cur_labels] := f_symbol_BBAI()
-if current_ticker == "BITO"
-    [plot_c_wall, plot_p_wall, plot_flip, cur_strikes, cur_lengths, cur_signs, cur_labels] := f_symbol_BITO()
-if current_ticker == "BMNU"
-    [plot_c_wall, plot_p_wall, plot_flip, cur_strikes, cur_lengths, cur_signs, cur_labels] := f_symbol_BMNU()
-if current_ticker == "CLF"
-    [plot_c_wall, plot_p_wall, plot_flip, cur_strikes, cur_lengths, cur_signs, cur_labels] := f_symbol_CLF()
-if current_ticker == "MSTU"
-    [plot_c_wall, plot_p_wall, plot_flip, cur_strikes, cur_lengths, cur_signs, cur_labels] := f_symbol_MSTU()
-if current_ticker == "NOK"
-    [plot_c_wall, plot_p_wall, plot_flip, cur_strikes, cur_lengths, cur_signs, cur_labels] := f_symbol_NOK()
-if current_ticker == "OPEN"
-    [plot_c_wall, plot_p_wall, plot_flip, cur_strikes, cur_lengths, cur_signs, cur_labels] := f_symbol_OPEN()
-if current_ticker == "QQQ"
-    [plot_c_wall, plot_p_wall, plot_flip, cur_strikes, cur_lengths, cur_signs, cur_labels] := f_symbol_QQQ()
-if current_ticker == "RR"
-    [plot_c_wall, plot_p_wall, plot_flip, cur_strikes, cur_lengths, cur_signs, cur_labels] := f_symbol_RR()
-if current_ticker == "SOFI"
-    [plot_c_wall, plot_p_wall, plot_flip, cur_strikes, cur_lengths, cur_signs, cur_labels] := f_symbol_SOFI()
-if current_ticker == "SOXL"
-    [plot_c_wall, plot_p_wall, plot_flip, cur_strikes, cur_lengths, cur_signs, cur_labels] := f_symbol_SOXL()
-if current_ticker == "SPY"
-    [plot_c_wall, plot_p_wall, plot_flip, cur_strikes, cur_lengths, cur_signs, cur_labels] := f_symbol_SPY()
-if current_ticker == "TEMT"
-    [plot_c_wall, plot_p_wall, plot_flip, cur_strikes, cur_lengths, cur_signs, cur_labels] := f_symbol_TEMT()
-if current_ticker == "TSLL"
-    [plot_c_wall, plot_p_wall, plot_flip, cur_strikes, cur_lengths, cur_signs, cur_labels] := f_symbol_TSLL()
+[plot_c_wall, plot_p_wall, plot_flip, cur_strikes, cur_lengths, cur_signs, cur_labels] := switch current_ticker
+    "AMZU" => f_symbol_AMZU()
+    "BBAI" => f_symbol_BBAI()
+    "BITO" => f_symbol_BITO()
+    "BMNU" => f_symbol_BMNU()
+    "CLF" => f_symbol_CLF()
+    "MSTU" => f_symbol_MSTU()
+    "NOK" => f_symbol_NOK()
+    "OPEN" => f_symbol_OPEN()
+    "QQQ" => f_symbol_QQQ()
+    "RR" => f_symbol_RR()
+    "SOFI" => f_symbol_SOFI()
+    "SOXL" => f_symbol_SOXL()
+    "SPY" => f_symbol_SPY()
+    "TEMT" => f_symbol_TEMT()
+    "TSLL" => f_symbol_TSLL()
+    => [float(na), float(na), float(na), array.new_float(), array.new_int(), array.new_int(), array.new_string()]
 
 plot(plot_c_wall, "Call Wall", color=color.new(color.green, 20), linewidth=2, style=plot.style_stepline)
 plot(plot_p_wall, "Put Wall",  color=color.new(color.red, 20),   linewidth=2, style=plot.style_stepline)
