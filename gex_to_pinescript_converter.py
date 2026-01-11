@@ -1,12 +1,13 @@
 # ===========================================================
-# GEX to Pine Script Converter v3.5 (Function-Based Compression)
+# GEX to Pine Script Converter v3.6 (Fixed Main Calls)
 # ===========================================================
 # Features:
-#  ✅ Smart Rebuild System with Force Flag (--force)
-#  ✅ DEX (Delta Exposure) Support
-#  ✅ Intelligent Net GEX Label Scaling ($K/$M/$B)
-#  ✅ Per-Date Replay Support
-#  ✅ Function Wrapping for Each Symbol (fixes “main body too long” error)
+#   ✅ FIX: Replaces 'if' chains with 'switch' to fix tuple reassignment errors
+#   ✅ Smart Rebuild System with Force Flag (--force)
+#   ✅ DEX (Delta Exposure) Support
+#   ✅ Intelligent Net GEX Label Scaling ($K/$M/$B)
+#   ✅ Per-Date Replay Support
+#   ✅ Function Wrapping for Each Symbol
 # ===========================================================
 
 import os
@@ -16,7 +17,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 
-print("🌲 Starting Historical GEX Converter (v3.5 - Function Wrapped Output)...")
+print("🌲 Starting Historical GEX Converter (v3.6 - Switch Statement Fix)...")
 
 # ===============================================
 # Command-line flags
@@ -232,13 +233,17 @@ for symbol, records in history_map.items():
 """
     pine_code += f"    [plot_c_wall, plot_p_wall, plot_flip, cur_strikes, cur_lengths, cur_signs, cur_labels]\n"
 
-# --- Main Calls ---
+# --- Main Calls (Switch Statement Implementation) ---
+# FIX: Using 'switch' instead of repetitive 'if' blocks prevents syntax errors on tuple reassignment.
 pine_code += "\n// ===== MAIN CALLS =====\n"
+pine_code += "[plot_c_wall, plot_p_wall, plot_flip, cur_strikes, cur_lengths, cur_signs, cur_labels] := switch current_ticker\n"
+
 for symbol in history_map.keys():
     func_name = f"f_symbol_{symbol}"
-    pine_code += f"""if current_ticker == "{symbol}"
-    [plot_c_wall, plot_p_wall, plot_flip, cur_strikes, cur_lengths, cur_signs, cur_labels] := {func_name}()
-"""
+    pine_code += f'    "{symbol}" => {func_name}()\n'
+
+# Default case needed for switch assignment
+pine_code += "    => [float(na), float(na), float(na), array.new_float(), array.new_int(), array.new_int(), array.new_string()]\n"
 
 # --- Plot Logic ---
 pine_code += """
@@ -269,5 +274,5 @@ with open(output_filename, "w") as f:
 with open(cache_file, "w") as f:
     json.dump(current_state, f, indent=2)
 
-print(f"✅ Created {output_filename} (v3.5 - Function Wrapped)")
+print(f"✅ Created {output_filename} (v3.6 - Switch Statement Fix)")
 print("🧠 Smart cache updated.")
