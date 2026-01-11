@@ -1,10 +1,10 @@
 # ===========================================================
-# MarketData.app GEX Backfill Utility (v9.1 - Dynamic Tickers)
+# MarketData.app GEX Backfill Utility (v9.2 - DEX Integrated)
 # ===========================================================
-# FIXES:
-# 1. Loads tickers from 'tickers.txt' (just like the main builder).
-# 2. Local Gamma Calculation (Self-Healing).
-# 3. Robustness for missing Greeks.
+# FIXES / UPDATES:
+#  ✅ Adds DEX (Delta Exposure) alongside GEX in historical backfill.
+#  ✅ Maintains full backwards compatibility with v9.1.
+#  ✅ Keeps same print messages, filenames, and error handling.
 # ===========================================================
 
 import os
@@ -25,8 +25,8 @@ BASE_URL = "https://api.marketdata.app/v1"
 # Default to 30 days unless specified
 DAYS_TO_BACKFILL = int(os.getenv("DAYS_TO_BACKFILL", 30))
 
-MAX_OPTIONS = 1500   
-STRIKE_RANGE_PCT = 0.20 
+MAX_OPTIONS = 1500
+STRIKE_RANGE_PCT = 0.20
 
 # ===============================================
 # Load Tickers (Dynamic)
@@ -62,7 +62,8 @@ def calculate_local_gamma(S, K, T, sigma=0.18, r=0.045):
     S=Spot, K=Strike, T=Time(years), sigma=IV (default 18%), r=Rate (4.5%)
     """
     try:
-        if T <= 0 or S <= 0 or K <= 0: return 0.0
+        if T <= 0 or S <= 0 or K <= 0:
+            return 0.0
         d1 = (math.log(S / K) + (r + 0.5 * sigma ** 2) * T) / (sigma * math.sqrt(T))
         gamma = norm_pdf(d1) / (S * sigma * math.sqrt(T))
         return gamma
@@ -80,7 +81,8 @@ def get_historical_price(symbol, date_str):
             data = r.json()
             if data.get("s") == "ok" and "c" in data:
                 return float(data["c"][0])
-    except: pass
+    except:
+        pass
     return None
 
 def get_historical_chain(symbol, date_str):
@@ -101,11 +103,12 @@ def get_historical_quote(option_symbol, date_str):
         r = requests.get(url, timeout=10)
         if r.status_code in (200, 203):
             return r.json()
-    except: pass
+    except:
+        pass
     return None
 
 def parse_option_symbol(symbol):
-    match = re.search(r'([A-Z]+)(\d{6})([CP])(\d+)', symbol)
+    match = re.search(r"([A-Z]+)(\d{6})([CP])(\d+)", symbol)
     if match:
         expiry = match.group(2)
         strike = int(match.group(4)) / 1000.0
@@ -113,17 +116,22 @@ def parse_option_symbol(symbol):
     return "999999", 0.0
 
 def infer_option_type(symbol_str):
-    if symbol_str.endswith("C"): return "C"
-    if symbol_str.endswith("P"): return "P"
+    if symbol_str.endswith("C"):
+        return "C"
+    if symbol_str.endswith("P"):
+        return "P"
     return "C" if "C" in symbol_str else "P"
 
 def safe_extract(d, keys):
-    if not isinstance(d, dict): return None
+    if not isinstance(d, dict):
+        return None
     for k in keys:
         if k in d and d[k] is not None:
             val = d[k]
-            if isinstance(val, list) and len(val) > 0: return val[0]
-            if not isinstance(val, (list, dict)): return val
+            if isinstance(val, list) and len(val) > 0:
+                return val[0]
+            if not isinstance(val, (list, dict)):
+                return val
     return None
 
 # ===============================================
@@ -143,7 +151,7 @@ def build_day(symbol, target_date):
     spot_price = get_historical_price(symbol, date_str)
     if not spot_price:
         print(f"      ⚠️ No price data (Market Closed?).")
-        return 
+        return
 
     raw_chain = get_historical_chain(symbol, date_str)
     if not raw_chain:
@@ -158,23 +166,25 @@ def build_day(symbol, target_date):
         high = spot_price * (1 + STRIKE_RANGE_PCT)
         if low <= strike <= high:
             filtered_opts.append(sym)
-    
+
     final_list = filtered_opts[:MAX_OPTIONS]
     print(f"      Processing {len(final_list)} options...")
 
     rows = []
     recalc_count = 0
-    
+
     for i, opt in enumerate(final_list):
         q = get_historical_quote(opt, date_str)
-        if not q: continue
-        
+        if not q:
+            continue
+
         try:
             # 1. Extract Basic Data
             oi = safe_extract(q, ["openInterest", "open_interest", "oi"])
             underlying = safe_extract(q, ["underlyingPrice", "underlying"]) or spot_price
             gamma = safe_extract(q, ["gamma"])
-            
+            delta = safe_extract(q, ["delta"])  # NEW: Extract Delta
+
             # 2. Fallback Logic: Calculate Gamma if missing
             if gamma is None:
                 dte_raw = safe_extract(q, ["dte"])
@@ -182,27 +192,34 @@ def build_day(symbol, target_date):
                     dte_days = float(dte_raw)
                     T = dte_days / 365.0
                     _, strike = parse_option_symbol(opt)
-                    
-                    # Calculate Local Gamma
                     gamma = calculate_local_gamma(S=float(underlying), K=float(strike), T=T)
                     recalc_count += 1
                 else:
                     continue
 
-            if oi is None: continue
+            if oi is None:
+                continue
+            if delta is None:
+                delta = 0.0
 
-            # 3. Compute GEX
+            # 3. Compute GEX & DEX
             gex = float(gamma) * float(oi) * 100 * float(underlying)
+            dex = float(delta) * float(oi) * 100 * float(underlying)
             _, strike = parse_option_symbol(opt)
-            
-            rows.append({
-                "strike": float(strike),
-                "GEX": gex,
-                "type": infer_option_type(opt)
-            })
-        except: continue
-        
-        if i % 50 == 0: time.sleep(0.02)
+
+            rows.append(
+                {
+                    "strike": float(strike),
+                    "GEX": gex,
+                    "DEX": dex,
+                    "type": infer_option_type(opt),
+                }
+            )
+        except:
+            continue
+
+        if i % 50 == 0:
+            time.sleep(0.02)
 
     if recalc_count > 0:
         print(f"      🔧 Locally calculated Gamma for {recalc_count} options (API was empty).")
@@ -213,14 +230,25 @@ def build_day(symbol, target_date):
 
     # Save CSV
     df = pd.DataFrame(rows)
-    grouped = df.groupby(["strike", "type"])["GEX"].sum().unstack(fill_value=0)
-    grouped.rename(columns={"C": "call_gex", "P": "put_gex"}, inplace=True)
-    
-    if "call_gex" not in grouped.columns: grouped["call_gex"] = 0.0
-    if "put_gex" not in grouped.columns: grouped["put_gex"] = 0.0
+    grouped = df.groupby(["strike", "type"])[["GEX", "DEX"]].sum().unstack(fill_value=0)
+    grouped.columns = ["_".join(col).strip() for col in grouped.columns.values]
+
+    rename_map = {
+        "GEX_C": "call_gex",
+        "GEX_P": "put_gex",
+        "DEX_C": "call_dex",
+        "DEX_P": "put_dex",
+    }
+    grouped.rename(columns=rename_map, inplace=True)
+
+    # Ensure all expected columns exist
+    for col in ["call_gex", "put_gex", "call_dex", "put_dex"]:
+        if col not in grouped.columns:
+            grouped[col] = 0.0
 
     grouped["net_gex"] = grouped["call_gex"] - grouped["put_gex"]
-    
+    grouped["net_dex"] = grouped["call_dex"] - grouped["put_dex"]
+
     grouped.reset_index().to_csv(fname, index=False)
     print(f"      ✅ Saved {fname} ({len(grouped)} strikes)")
 
@@ -231,9 +259,9 @@ today = datetime.now()
 
 for i in range(1, DAYS_TO_BACKFILL + 1):
     past_date = today - timedelta(days=i)
-    if past_date.weekday() >= 5: 
+    if past_date.weekday() >= 5:
         continue
-        
+
     print(f"\nProcessing Backfill Day {i}/{DAYS_TO_BACKFILL} ({past_date.strftime('%Y-%m-%d')})")
     for ticker in TICKERS:
         try:
