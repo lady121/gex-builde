@@ -1,2 +1,3 @@
 Ticker,Spot,Flip,Call Wall,Put Wall,Net GEX ($B),Regime
 BMNU,5.695,5.50,6.0,6.0,0.0,NORMAL
+RR,3.805,ALL_CALLS,4.0,3.5,0.0,ALL_CALLS
