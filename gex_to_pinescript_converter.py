@@ -1,13 +1,14 @@
 # ===========================================================
-# GEX to Pine Script Converter v3.6 (Final — Function Wrapped + PineScript Fix)
+# GEX to Pine Script Converter v3.7 (Tuple Declaration Fix)
 # ===========================================================
 # Features:
-#  ✅ Smart Rebuild + Force Flag (--force)
-#  ✅ DEX (Delta Exposure) Support
-#  ✅ Intelligent $K/M/B Label Scaling
-#  ✅ Per-Date Data Rendering (Bar Replay Ready)
-#  ✅ Function Wrapping (Prevents “main body too long” errors)
-#  ✅ PineScript Initialization Fix (pre-declares vars to stop := error)
+#   ✅ FIX: Uses declaration '=' instead of reassignment ':=' for Main Calls
+#   ✅ FIX: Removes redundant global 'var' initializations to prevent scope conflicts
+#   ✅ Smart Rebuild System with Force Flag (--force)
+#   ✅ DEX (Delta Exposure) Support
+#   ✅ Intelligent Net GEX Label Scaling ($K/$M/$B)
+#   ✅ Per-Date Replay Support
+#   ✅ Function Wrapping for Each Symbol
 # ===========================================================
 
 import os
@@ -17,7 +18,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 
-print("🌲 Starting Historical GEX Converter (v3.6 - PineScript Fix)...")
+print("🌲 Starting Historical GEX Converter (v3.7 - Declaration Fix)...")
 
 # ===============================================
 # Command-line flags
@@ -53,7 +54,7 @@ def process_file_data(filepath):
         if not all(col in df.columns for col in required_cols):
             return None
 
-        # --- Key Metrics ---
+        # 1️⃣ Compute metrics
         flip_zone = compute_flip_zone(df)
         cw_idx = df['call_gex'].idxmax()
         call_wall = df.loc[cw_idx, 'strike']
@@ -65,10 +66,12 @@ def process_file_data(filepath):
         put_wall_gex = df.loc[pw_idx, 'put_gex'] / 1_000_000_000
         put_wall_dex = (df.loc[pw_idx, 'put_dex'] / 1_000_000_000) if has_dex else 0.0
 
-        # --- Histogram Data ---
+        # 2️⃣ Build histogram arrays with dynamic label formatting
         df['abs_net_gex'] = df['net_gex'].abs()
         top_strikes = df.sort_values('abs_net_gex', ascending=False).head(40)
-        max_val = top_strikes['abs_net_gex'].max() or 1
+        max_val = top_strikes['abs_net_gex'].max()
+        if max_val == 0:
+            max_val = 1
 
         p_strikes, p_lengths, p_signs, p_labels = [], [], [], []
         for _, row in top_strikes.iterrows():
@@ -79,7 +82,7 @@ def process_file_data(filepath):
             raw_val = float(row['net_gex'])
             abs_val = abs(raw_val)
 
-            # Smart label formatting
+            # Intelligent number scaling
             if abs_val >= 1_000_000_000:
                 label_txt = f"${raw_val / 1_000_000_000:.2f}B"
             elif abs_val >= 1_000_000:
@@ -133,7 +136,7 @@ if not files:
     print("⚠️ No GEX CSV files found.")
     exit()
 
-# Map: Symbol → List of CSVs
+# Build current state map
 current_state = {}
 for f in files:
     parts = f.split('_')
@@ -144,7 +147,6 @@ for f in files:
 for sym in current_state:
     current_state[sym].sort()
 
-# Detect changes
 changed_symbols = []
 if not force_rebuild:
     for sym, file_list in current_state.items():
@@ -179,10 +181,11 @@ for f in files:
         })
 
 # ===============================================
-# Write PineScript Output (v6, Function-Based)
+# Generate PineScript Output (Function Wrapped)
 # ===============================================
 output_filename = "Universal_GEX_History.pine"
 
+# FIX 1: Removed global 'var' declarations for plot variables to avoid reassignment errors
 pine_code = f"""//@version=6
 indicator("Universal GEX History (Bar Replay)", overlay=true, max_lines_count=500, max_labels_count=500)
 
@@ -192,7 +195,7 @@ indicator("Universal GEX History (Bar Replay)", overlay=true, max_lines_count=50
 var string current_ticker = syminfo.ticker
 """
 
-# --- Function Definitions ---
+# --- Function Blocks ---
 for symbol, records in history_map.items():
     func_name = f"f_symbol_{symbol}"
     pine_code += f"""
@@ -219,29 +222,21 @@ for symbol, records in history_map.items():
         cur_signs   := array.from({d_dat['signs']})
         cur_labels  := array.from({d_dat['labels']})
 """
-    pine_code += "    [plot_c_wall, plot_p_wall, plot_flip, cur_strikes, cur_lengths, cur_signs, cur_labels]\n"
+    pine_code += f"    [plot_c_wall, plot_p_wall, plot_flip, cur_strikes, cur_lengths, cur_signs, cur_labels]\n"
 
-# --- Main Call Section ---
-pine_code += """
-// ===== MAIN CALLS =====
-
-// Initialize variables before assigning from functions
-var float plot_c_wall = na
-var float plot_p_wall = na
-var float plot_flip   = na
-var float[] cur_strikes = array.new_float()
-var int[]   cur_lengths = array.new_int()
-var int[]   cur_signs   = array.new_int()
-var string[] cur_labels = array.new_string()
-"""
+# --- Main Calls (Switch Statement Implementation) ---
+# FIX 2: Used '=' for declaration instead of ':=' for reassignment
+pine_code += "\n// ===== MAIN CALLS =====\n"
+pine_code += "[plot_c_wall, plot_p_wall, plot_flip, cur_strikes, cur_lengths, cur_signs, cur_labels] = switch current_ticker\n"
 
 for symbol in history_map.keys():
     func_name = f"f_symbol_{symbol}"
-    pine_code += f"""if current_ticker == "{symbol}"
-    [plot_c_wall, plot_p_wall, plot_flip, cur_strikes, cur_lengths, cur_signs, cur_labels] := {func_name}()
-"""
+    pine_code += f'    "{symbol}" => {func_name}()\n'
 
-# --- Plotting ---
+# Default case needed for switch assignment
+pine_code += "    => [float(na), float(na), float(na), array.new_float(), array.new_int(), array.new_int(), array.new_string()]\n"
+
+# --- Plot Logic ---
 pine_code += """
 plot(plot_c_wall, "Call Wall", color=color.new(color.green, 20), linewidth=2, style=plot.style_stepline)
 plot(plot_p_wall, "Put Wall",  color=color.new(color.red, 20),   linewidth=2, style=plot.style_stepline)
@@ -270,5 +265,5 @@ with open(output_filename, "w") as f:
 with open(cache_file, "w") as f:
     json.dump(current_state, f, indent=2)
 
-print(f"✅ Created {output_filename} (v3.6 - PineScript Fix)")
+print(f"✅ Created {output_filename} (v3.7 - Declaration Fix)")
 print("🧠 Smart cache updated.")
