@@ -1,10 +1,11 @@
 # ===========================================================
-# GEX to Pine Script Converter v3.3 (Histogram Labels Added)
+# GEX to Pine Script Converter v3.4 (Dynamic Net GEX Labels)
 # ===========================================================
 # Features:
-#  ✅ Smart Rebuild: Caches results to run faster.
-#  ✅ Visual Precision: Version 6, Combined Walls, GEX+Delta Labels.
-#  ✅ Histogram Data: Now includes text labels for Net GEX on bars.
+#  ✅ Smart Rebuild: Cache system to skip unchanged symbols.
+#  ✅ Force Rebuild: '--force' flag rebuilds everything.
+#  ✅ Intelligent Label Scaling: K / M / B auto-formatting.
+#  ✅ Per-Day Histogram Data: Each CSV's GEX data loads per bar date.
 # ===========================================================
 
 import os
@@ -14,7 +15,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 
-print("🌲 Starting Historical GEX Converter (v3.3 - Histogram Labels)...")
+print("🌲 Starting Historical GEX Converter (v3.4 - Dynamic Net GEX Labels)...")
 
 # ===============================================
 # Command-line flags
@@ -53,41 +54,46 @@ def process_file_data(filepath):
         # 1. Key Metrics
         flip_zone = compute_flip_zone(df)
         
-        # Call Wall
+        # Call/Put Wall calculations
         cw_idx = df['call_gex'].idxmax()
         call_wall = df.loc[cw_idx, 'strike']
         call_wall_gex = df.loc[cw_idx, 'call_gex'] / 1_000_000_000
         call_wall_dex = (df.loc[cw_idx, 'call_dex'] / 1_000_000_000) if has_dex else 0.0
 
-        # Put Wall
         pw_idx = df['put_gex'].abs().idxmax()
         put_wall = df.loc[pw_idx, 'strike']
         put_wall_gex = df.loc[pw_idx, 'put_gex'] / 1_000_000_000
         put_wall_dex = (df.loc[pw_idx, 'put_dex'] / 1_000_000_000) if has_dex else 0.0
 
-        # 2. Histogram Data
+        # 2. Histogram Data — Intelligent Label Scaling
         df['abs_net_gex'] = df['net_gex'].abs()
         top_strikes = df.sort_values('abs_net_gex', ascending=False).head(40)
         max_val = top_strikes['abs_net_gex'].max()
         if max_val == 0: max_val = 1
         
-        p_strikes = []
-        p_lengths = []
-        p_signs = []
-        p_labels = [] # New list for GEX values
-        
+        p_strikes, p_lengths, p_signs, p_labels = [], [], [], []
+
         for _, row in top_strikes.iterrows():
             length = int((row['abs_net_gex'] / max_val) * 40)
             if length < 2: length = 2
             
-            # Format the label (e.g., "$2.5B")
-            gex_val = row['net_gex'] / 1_000_000_000
-            label_txt = f"${abs(gex_val):.2f}B"
-            
+            raw_val = float(row['net_gex'])
+            abs_val = abs(raw_val)
+
+            # Intelligent number scaling
+            if abs_val >= 1_000_000_000:
+                label_txt = f"${raw_val / 1_000_000_000:.2f}B"
+            elif abs_val >= 1_000_000:
+                label_txt = f"${raw_val / 1_000_000:.2f}M"
+            elif abs_val >= 1_000:
+                label_txt = f"${raw_val / 1_000:.0f}K"
+            else:
+                label_txt = f"${raw_val:.0f}"
+
             p_strikes.append(str(float(row['strike'])))
             p_lengths.append(str(length))
-            p_signs.append("1" if row['net_gex'] >= 0 else "-1")
-            p_labels.append(f"'{label_txt}'") # Wrap in quotes for Pine string array
+            p_signs.append("1" if raw_val >= 0 else "-1")
+            p_labels.append(f"'{label_txt}'")
 
         return {
             "flip": float(flip_zone) if flip_zone else None,
@@ -107,13 +113,15 @@ def process_file_data(filepath):
         return None
 
 # ===============================================
-# Smart Rebuild Logic
+# Smart Rebuild System
 # ===============================================
 cache_file = ".gex_cache.json"
 if os.path.exists(cache_file):
     try:
-        with open(cache_file, "r") as f: cache = json.load(f)
-    except: cache = {}
+        with open(cache_file, "r") as f:
+            cache = json.load(f)
+    except:
+        cache = {}
 else:
     cache = {}
 
@@ -124,14 +132,16 @@ if not files:
     print("⚠️ No GEX CSV files found.")
     exit()
 
+# Build symbol → list of CSVs mapping
 current_state = {}
 for f in files:
     parts = f.split('_')
-    if len(parts) < 4: continue
+    if len(parts) < 4:
+        continue
     symbol = parts[0].upper()
     current_state.setdefault(symbol, []).append(f)
-
-for sym in current_state: current_state[sym].sort()
+for sym in current_state:
+    current_state[sym].sort()
 
 changed_symbols = []
 if not force_rebuild:
@@ -147,16 +157,17 @@ else:
 # ===============================================
 # Process Files
 # ===============================================
-history_map = {} 
+history_map = {}
 
 for f in files:
     parts = f.split('_')
-    if len(parts) < 4: continue
+    if len(parts) < 4:
+        continue
     symbol = parts[0].upper()
-    
     date_str = parts[-1].replace('.csv', '')
-    if len(date_str) != 8: continue
-    
+    if len(date_str) != 8:
+        continue
+
     data = process_file_data(f)
     if data:
         history_map.setdefault(symbol, []).append({
@@ -167,7 +178,7 @@ for f in files:
         })
 
 # ===============================================
-# Write Pine Script (Version 6 + Visuals)
+# Write Pine Script (v6 + Dynamic Labels)
 # ===============================================
 output_filename = "Universal_GEX_History.pine"
 
@@ -175,7 +186,7 @@ pine_code = f"""//@version=6
 indicator("Universal GEX History (Bar Replay)", overlay=true, max_lines_count=500, max_labels_count=500)
 
 // --- Generated {datetime.now().strftime('%Y-%m-%d')} ---
-// Smart Rebuild: {'Active' if not force_rebuild else 'Forced'}
+// Smart Rebuild: {'Forced' if force_rebuild else 'Active'}
 
 var string current_ticker = syminfo.ticker
 var float plot_c_wall = na
@@ -188,11 +199,10 @@ var float plot_p_dex  = na
 var float[] cur_strikes = array.new<float>()
 var int[]   cur_lengths = array.new<int>()
 var int[]   cur_signs   = array.new<int>()
-var string[] cur_labels = array.new<string>() // New array for GEX text
+var string[] cur_labels = array.new<string>()
 """
 
 for symbol, records in history_map.items():
-    last_record = records[-1]
     pine_code += f"""
 // ===== {symbol} DATA =====
 if current_ticker == "{symbol}"
@@ -210,59 +220,29 @@ if current_ticker == "{symbol}"
         plot_p_gex  := {d_dat['p_gex']:.4f}
         plot_c_dex  := {d_dat['c_dex']:.4f}
         plot_p_dex  := {d_dat['p_dex']:.4f}
+        cur_strikes := array.from({d_dat['strikes']})
+        cur_lengths := array.from({d_dat['lengths']})
+        cur_signs   := array.from({d_dat['signs']})
+        cur_labels  := array.from({d_dat['labels']})
 """
 
-    ld = last_record['data']
-    pine_code += f"""
-    if barstate.islast
-        cur_strikes := array.from({ld['strikes']})
-        cur_lengths := array.from({ld['lengths']})
-        cur_signs   := array.from({ld['signs']})
-        cur_labels  := array.from({ld['labels']})
-"""
-
-# PLOTTING LOGIC
 pine_code += """
 plot(plot_c_wall, "Call Wall", color=color.new(color.green, 20), linewidth=2, style=plot.style_stepline)
 plot(plot_p_wall, "Put Wall",  color=color.new(color.red, 20),   linewidth=2, style=plot.style_stepline)
-plot(plot_flip,   "Flip Zone", color=color.blue,  linewidth=1, style=plot.style_circles)
+plot(plot_flip,   "Flip Zone", color=color.blue, linewidth=1, style=plot.style_circles)
 
-if barstate.islast
-    // 1. Draw Smart Labels (Fix Overlap)
-    if not na(plot_c_wall) and not na(plot_p_wall)
-        if plot_c_wall == plot_p_wall
-            // COMBINED WALL
-            string gex_str = "C: $" + str.tostring(plot_c_gex, "#.##") + "B | Delta: $" + str.tostring(plot_c_dex, "#.##") + "B"
-            string pex_str = "P: $" + str.tostring(plot_p_gex, "#.##") + "B | Delta: $" + str.tostring(plot_p_dex, "#.##") + "B"
-            label.new(bar_index + 5, plot_c_wall, "COMBINED WALL\\n" + gex_str + "\\n" + pex_str, style=label.style_label_left, textcolor=color.white, color=color.purple)
-        else
-            // SEPARATE WALLS
-            string c_txt = "Call Wall ($" + str.tostring(plot_c_wall) + ")\\nGEX: $" + str.tostring(plot_c_gex, "#.##") + "B\\nDelta: $" + str.tostring(plot_c_dex, "#.##") + "B"
-            label.new(bar_index + 5, plot_c_wall, c_txt, style=label.style_label_left, textcolor=color.white, color=color.green)
-            
-            string p_txt = "Put Wall ($" + str.tostring(plot_p_wall) + ")\\nGEX: $" + str.tostring(plot_p_gex, "#.##") + "B\\nDelta: $" + str.tostring(plot_p_dex, "#.##") + "B"
-            label.new(bar_index + 5, plot_p_wall, p_txt, style=label.style_label_left, textcolor=color.white, color=color.red)
+if array.size(cur_strikes) > 0
+    for i = 0 to array.size(cur_strikes) - 1
+        float s = array.get(cur_strikes, i)
+        int l   = array.get(cur_lengths, i)
+        int sg  = array.get(cur_signs, i)
+        string txt = array.get(cur_labels, i)
 
-    // 2. Draw Flip Label
-    if not na(plot_flip)
-        label.new(bar_index + 10, plot_flip, "Flip: " + str.tostring(plot_flip, "#.##"), style=label.style_label_left, textcolor=color.white, color=color.blue)
+        col = sg > 0 ? color.new(color.green, 40) : color.new(color.red, 40)
+        txt_col = sg > 0 ? color.green : color.red
 
-    // 3. Draw Histogram Bars with GEX Labels
-    if array.size(cur_strikes) > 0
-        for i = 0 to array.size(cur_strikes) - 1
-            float s = array.get(cur_strikes, i)
-            int l   = array.get(cur_lengths, i)
-            int sg  = array.get(cur_signs, i)
-            string txt = array.get(cur_labels, i)
-            
-            col = sg > 0 ? color.new(color.green, 40) : color.new(color.red, 40)
-            txt_col = sg > 0 ? color.green : color.red
-            
-            // Draw Line
-            line.new(bar_index, s, bar_index + l, s, color=col, width=2)
-            
-            // Draw Label at end of line
-            label.new(bar_index + l, s, txt, style=label.style_label_left, textcolor=txt_col, color=color.new(color.white, 100), size=size.small)
+        line.new(bar_index, s, bar_index + l, s, color=col, width=2)
+        label.new(bar_index + l, s, txt, style=label.style_label_left, textcolor=txt_col, color=color.new(color.white, 100), size=size.small)
 """
 
 with open(output_filename, "w") as f:
@@ -271,5 +251,5 @@ with open(output_filename, "w") as f:
 with open(cache_file, "w") as f:
     json.dump(current_state, f, indent=2)
 
-print(f"✅ Created Universal_GEX_History.pine (Version 6) with Histogram Labels")
+print(f"✅ Created Universal_GEX_History.pine (v3.4 - Dynamic Net GEX Labels)")
 print("🧠 Smart cache updated.")
