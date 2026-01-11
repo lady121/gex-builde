@@ -1,11 +1,12 @@
 # ===========================================================
-# GEX to Pine Script Converter v3.4 (Dynamic Net GEX Labels)
+# GEX to Pine Script Converter v3.5 (Function-Based Compression)
 # ===========================================================
 # Features:
-#  ✅ Smart Rebuild: Cache system to skip unchanged symbols.
-#  ✅ Force Rebuild: '--force' flag rebuilds everything.
-#  ✅ Intelligent Label Scaling: K / M / B auto-formatting.
-#  ✅ Per-Day Histogram Data: Each CSV's GEX data loads per bar date.
+#  ✅ Smart Rebuild System with Force Flag (--force)
+#  ✅ DEX (Delta Exposure) Support
+#  ✅ Intelligent Net GEX Label Scaling ($K/$M/$B)
+#  ✅ Per-Date Replay Support
+#  ✅ Function Wrapping for Each Symbol (fixes “main body too long” error)
 # ===========================================================
 
 import os
@@ -15,7 +16,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 
-print("🌲 Starting Historical GEX Converter (v3.4 - Dynamic Net GEX Labels)...")
+print("🌲 Starting Historical GEX Converter (v3.5 - Function Wrapped Output)...")
 
 # ===============================================
 # Command-line flags
@@ -42,19 +43,17 @@ def compute_flip_zone(df):
         return None
     return None
 
+
 def process_file_data(filepath):
     try:
         df = pd.read_csv(filepath)
         has_dex = 'call_dex' in df.columns and 'put_dex' in df.columns
-        
         required_cols = ['strike', 'call_gex', 'put_gex', 'net_gex']
         if not all(col in df.columns for col in required_cols):
             return None
 
-        # 1. Key Metrics
+        # 1️⃣ Compute metrics
         flip_zone = compute_flip_zone(df)
-        
-        # Call/Put Wall calculations
         cw_idx = df['call_gex'].idxmax()
         call_wall = df.loc[cw_idx, 'strike']
         call_wall_gex = df.loc[cw_idx, 'call_gex'] / 1_000_000_000
@@ -65,18 +64,19 @@ def process_file_data(filepath):
         put_wall_gex = df.loc[pw_idx, 'put_gex'] / 1_000_000_000
         put_wall_dex = (df.loc[pw_idx, 'put_dex'] / 1_000_000_000) if has_dex else 0.0
 
-        # 2. Histogram Data — Intelligent Label Scaling
+        # 2️⃣ Build histogram arrays with dynamic label formatting
         df['abs_net_gex'] = df['net_gex'].abs()
         top_strikes = df.sort_values('abs_net_gex', ascending=False).head(40)
         max_val = top_strikes['abs_net_gex'].max()
-        if max_val == 0: max_val = 1
-        
-        p_strikes, p_lengths, p_signs, p_labels = [], [], [], []
+        if max_val == 0:
+            max_val = 1
 
+        p_strikes, p_lengths, p_signs, p_labels = [], [], [], []
         for _, row in top_strikes.iterrows():
             length = int((row['abs_net_gex'] / max_val) * 40)
-            if length < 2: length = 2
-            
+            if length < 2:
+                length = 2
+
             raw_val = float(row['net_gex'])
             abs_val = abs(raw_val)
 
@@ -108,9 +108,11 @@ def process_file_data(filepath):
             "signs": ', '.join(p_signs),
             "labels": ', '.join(p_labels)
         }
+
     except Exception as e:
         print(f"   ⚠️ Error processing {filepath}: {e}")
         return None
+
 
 # ===============================================
 # Smart Rebuild System
@@ -125,14 +127,14 @@ if os.path.exists(cache_file):
 else:
     cache = {}
 
-files = [f for f in os.listdir('.') if f.endswith('.csv') and "GEX" in f and "summary" not in f]
+files = [f for f in os.listdir('.') if f.endswith('.csv') and "GEX" in f]
 files.sort()
 
 if not files:
     print("⚠️ No GEX CSV files found.")
     exit()
 
-# Build symbol → list of CSVs mapping
+# Build current state map
 current_state = {}
 for f in files:
     parts = f.split('_')
@@ -155,7 +157,7 @@ else:
     changed_symbols = list(current_state.keys())
 
 # ===============================================
-# Process Files
+# Process Data
 # ===============================================
 history_map = {}
 
@@ -167,7 +169,6 @@ for f in files:
     date_str = parts[-1].replace('.csv', '')
     if len(date_str) != 8:
         continue
-
     data = process_file_data(f)
     if data:
         history_map.setdefault(symbol, []).append({
@@ -178,7 +179,7 @@ for f in files:
         })
 
 # ===============================================
-# Write Pine Script (v6 + Dynamic Labels)
+# Generate PineScript Output (Function Wrapped)
 # ===============================================
 output_filename = "Universal_GEX_History.pine"
 
@@ -196,36 +197,50 @@ var float plot_c_gex  = na
 var float plot_p_gex  = na
 var float plot_c_dex  = na
 var float plot_p_dex  = na
-var float[] cur_strikes = array.new<float>()
-var int[]   cur_lengths = array.new<int>()
-var int[]   cur_signs   = array.new<int>()
-var string[] cur_labels = array.new<string>()
+var float[] cur_strikes = array.new_float()
+var int[]   cur_lengths = array.new_int()
+var int[]   cur_signs   = array.new_int()
+var string[] cur_labels = array.new_string()
 """
 
+# --- Function Blocks ---
 for symbol, records in history_map.items():
+    func_name = f"f_symbol_{symbol}"
     pine_code += f"""
-// ===== {symbol} DATA =====
-if current_ticker == "{symbol}"
+// ===== {symbol} FUNCTION =====
+{func_name}() =>
+    var float plot_c_wall = na
+    var float plot_p_wall = na
+    var float plot_flip   = na
+    var float[] cur_strikes = array.new_float()
+    var int[]   cur_lengths = array.new_int()
+    var int[]   cur_signs   = array.new_int()
+    var string[] cur_labels = array.new_string()
 """
     for rec in records:
         y, m, d = rec['year'], rec['month'], rec['day']
         d_dat = rec['data']
         flip_val = d_dat['flip'] if d_dat['flip'] is not None else "na"
-        
         pine_code += f"""    if year == {y} and month == {m} and dayofmonth == {d}
         plot_c_wall := {d_dat['c_wall']}
         plot_p_wall := {d_dat['p_wall']}
         plot_flip   := {flip_val}
-        plot_c_gex  := {d_dat['c_gex']:.4f}
-        plot_p_gex  := {d_dat['p_gex']:.4f}
-        plot_c_dex  := {d_dat['c_dex']:.4f}
-        plot_p_dex  := {d_dat['p_dex']:.4f}
         cur_strikes := array.from({d_dat['strikes']})
         cur_lengths := array.from({d_dat['lengths']})
         cur_signs   := array.from({d_dat['signs']})
         cur_labels  := array.from({d_dat['labels']})
 """
+    pine_code += f"    [plot_c_wall, plot_p_wall, plot_flip, cur_strikes, cur_lengths, cur_signs, cur_labels]\n"
 
+# --- Main Calls ---
+pine_code += "\n// ===== MAIN CALLS =====\n"
+for symbol in history_map.keys():
+    func_name = f"f_symbol_{symbol}"
+    pine_code += f"""if current_ticker == "{symbol}"
+    [plot_c_wall, plot_p_wall, plot_flip, cur_strikes, cur_lengths, cur_signs, cur_labels] := {func_name}()
+"""
+
+# --- Plot Logic ---
 pine_code += """
 plot(plot_c_wall, "Call Wall", color=color.new(color.green, 20), linewidth=2, style=plot.style_stepline)
 plot(plot_p_wall, "Put Wall",  color=color.new(color.red, 20),   linewidth=2, style=plot.style_stepline)
@@ -245,11 +260,14 @@ if array.size(cur_strikes) > 0
         label.new(bar_index + l, s, txt, style=label.style_label_left, textcolor=txt_col, color=color.new(color.white, 100), size=size.small)
 """
 
+# ===============================================
+# Write Files
+# ===============================================
 with open(output_filename, "w") as f:
     f.write(pine_code)
 
 with open(cache_file, "w") as f:
     json.dump(current_state, f, indent=2)
 
-print(f"✅ Created Universal_GEX_History.pine (v3.4 - Dynamic Net GEX Labels)")
+print(f"✅ Created {output_filename} (v3.5 - Function Wrapped)")
 print("🧠 Smart cache updated.")
