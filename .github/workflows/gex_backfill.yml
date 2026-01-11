@@ -1,52 +1,51 @@
-name: Manual GEX Backfill
+name: GEX + DEX Backfill 🧠
 
 on:
   workflow_dispatch:
     inputs:
       days:
-        description: 'How many days to backfill?'
-        required: true
-        default: '5'
-        type: string
+        description: "Days to backfill (default 30)"
+        required: false
+        default: "30"
 
 jobs:
   backfill:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
 
     steps:
-      - name: Checkout repo
+      - name: 🧾 Checkout repository
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set up Python
+      - name: 🐍 Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: 3.11
+          python-version: '3.10'
 
-      - name: Install dependencies
-        run: pip install pandas numpy requests
+      - name: 📦 Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas numpy requests matplotlib
 
-      - name: Run Backfill Utility
+      - name: 🧠 Run GEX Backfill Utility (includes DEX)
         env:
           MARKETDATA_KEY: ${{ secrets.MARKETDATA_KEY }}
-          # This passes the input number to the Python script
-          DAYS_TO_BACKFILL: ${{ inputs.days }}
+          DAYS_TO_BACKFILL: ${{ github.event.inputs.days }}
         run: |
-          if [ -f "GEX Tools/gex_backfill_utility.py" ]; then
-             python "GEX Tools/gex_backfill_utility.py"
-          elif [ -f "gex_backfill_utility.py" ]; then
-             python gex_backfill_utility.py
-          else
-             echo "❌ Script not found!"
-             exit 1
-          fi
+          echo "🔄 Running backfill with DEX support..."
+          python gex_backfill_utility.py
 
-      - name: Commit Historical Data
+      - name: 🚀 Commit and Push Updated CSVs
         run: |
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
-          git pull
-          git add *.csv
-          git commit -m "Manual Backfill: ${{ inputs.days }} days" || echo "No changes to commit"
-          git push
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin ${{ github.ref_name }}
+          git checkout ${{ github.ref_name }}
+
+          git add *.csv || true
+          git commit -m "📈 Auto-backfill GEX+DEX data [$(date +'%Y-%m-%d %H:%M:%S')]" || echo "No changes to commit"
+          git pull --no-rebase --autostash origin ${{ github.ref_name }} || true
+          git push origin HEAD:${{ github.ref_name }} || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
