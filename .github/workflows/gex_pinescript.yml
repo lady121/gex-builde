@@ -1,7 +1,6 @@
 name: GEX to PineScript Converter 🧩
 
 on:
-  # Manual trigger from GitHub UI
   workflow_dispatch:
     inputs:
       force:
@@ -9,7 +8,6 @@ on:
         required: false
         default: "false"
 
-  # Optional automatic run when pushing new CSVs or the converter itself
   push:
     paths:
       - '**.csv'
@@ -18,7 +16,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: 🧾 Checkout repository
         uses: actions/checkout@v4
@@ -45,33 +42,15 @@ jobs:
             python gex_to_pinescript_converter.py
           fi
 
-      - name: 📝 Verify PineScript Output
-        run: |
-          if [ ! -f "Universal_GEX_History.pine" ]; then
-            echo "❌ No output file generated. Check script logs."
-            exit 1
-          fi
-          echo "✅ Verified: Universal_GEX_History.pine exists."
-
       - name: 🚀 Commit and Push Updated PineScript
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Ensure we're on the right branch (avoid detached HEAD)
           git fetch origin ${{ github.ref_name }}
           git checkout ${{ github.ref_name }}
-
-          # Stage updated files (including cache if desired)
           git add Universal_GEX_History.pine .gex_cache.json || true
-
-          # Only commit if there are actual changes
           git diff --cached --quiet || git commit -m "🔁 Auto-update Universal_GEX_History.pine [$(date +'%Y-%m-%d %H:%M:%S')]"
-
-          # Safe pull (disable rebase to prevent merge errors)
           git pull --no-rebase --autostash origin ${{ github.ref_name }} || true
-
-          # Push updates back to the repo
           git push origin HEAD:${{ github.ref_name }} || true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
