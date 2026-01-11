@@ -1,11 +1,11 @@
 # ===========================================================
-# MarketData.app GEX Builder v8.8 — Data & Visuals
+# MarketData.app GEX Builder v9.0 — Delta Added
 # Author: PulsR | Maintained by Code GPT
 # ===========================================================
-# Fixes from v8.7:
-#  ✅ PNG Titles now explicitly state Spot Price & Flip Price.
-#  ✅ Makes it easier to read levels without checking the legend.
-#  ✅ Preserves Regime Detection (ALL CALLS / ALL PUTS).
+# Fixes from v8.9:
+#  ✅ Calculates Net Delta Exposure (DEX) for every strike.
+#  ✅ Saves 'call_dex' and 'put_dex' to the robust CSV files.
+#  ✅ Maintains Cumulative Summary functionality.
 # ===========================================================
 
 import os
@@ -26,15 +26,15 @@ ENABLE_PLOTS = True
 MAX_OPTIONS = 1000
 STRIKE_RANGE_PCT = 0.15
 
+# Load tickers
 DEFAULT_TICKERS = ["SPY", "QQQ", "IWM", "NVDA", "AMD"]
-
 if os.path.exists("tickers.txt"):
     with open("tickers.txt") as f:
         TICKERS = [t.strip().upper() for t in f if t.strip()]
 else:
     TICKERS = DEFAULT_TICKERS
 
-print("🚀 Starting MarketData GEX Builder (v8.8)")
+print("🚀 Starting MarketData GEX Builder (v9.0)")
 print(f"Tickers: {', '.join(TICKERS)}")
 
 # ===============================================
@@ -164,7 +164,7 @@ def build_gex(symbol):
 
     print(f"   Fetching {len(final_list)} options...")
 
-    # 3. Fetch Data
+    # 3. Fetch Data (Includes Delta now)
     rows = []
     for i, opt in enumerate(final_list):
         q = get_quote(opt)
@@ -172,25 +172,47 @@ def build_gex(symbol):
         try:
             strike = safe_extract(q, ["strike", "strikePrice"])
             gamma = safe_extract(q, ["gamma"])
+            delta = safe_extract(q, ["delta"]) # Extract Delta
             oi = safe_extract(q, ["openInterest", "open_interest", "oi"])
             underlying = safe_extract(q, ["underlyingPrice", "underlying"])
 
-            if any(v is None for v in [strike, gamma, oi, underlying]): continue 
+            if any(v is None for v in [strike, gamma, delta, oi, underlying]): continue 
 
+            # Calculate GEX ($ Gamma) and DEX ($ Delta)
             gex = float(gamma) * float(oi) * 100 * float(underlying)
+            dex = float(delta) * float(oi) * 100 * float(underlying)
+            
             otype = infer_option_type(opt)
-            rows.append({"strike": float(strike), "GEX": gex, "type": otype})
+            rows.append({
+                "strike": float(strike), 
+                "GEX": gex, 
+                "DEX": dex,
+                "type": otype
+            })
         except: continue
         if i % 50 == 0 and i > 0: time.sleep(0.05)
 
     df = pd.DataFrame(rows)
     if df.empty: return None, {}
 
-    # 4. Aggregation & Walls
-    grouped = df.groupby(["strike", "type"])["GEX"].sum().unstack(fill_value=0)
-    grouped.rename(columns={"C": "call_gex", "P": "put_gex"}, inplace=True)
-    if "call_gex" not in grouped.columns: grouped["call_gex"] = 0.0
-    if "put_gex" not in grouped.columns: grouped["put_gex"] = 0.0
+    # 4. Aggregation (GEX & DEX)
+    # Group by Strike/Type and sum both metrics
+    grouped = df.groupby(["strike", "type"])[["GEX", "DEX"]].sum().unstack(fill_value=0)
+    
+    # Flatten MultiIndex columns (e.g., GEX_C, DEX_P)
+    grouped.columns = ['_'.join(col).strip() for col in grouped.columns.values]
+    
+    # Rename to standard friendly names
+    rename_map = {
+        "GEX_C": "call_gex", "GEX_P": "put_gex",
+        "DEX_C": "call_dex", "DEX_P": "put_dex"
+    }
+    grouped.rename(columns=rename_map, inplace=True)
+    
+    # Ensure all columns exist
+    for col in ["call_gex", "put_gex", "call_dex", "put_dex"]:
+        if col not in grouped.columns: grouped[col] = 0.0
+
     grouped["net_gex"] = grouped["call_gex"] - grouped["put_gex"]
     
     # Calculate Stats
@@ -216,13 +238,13 @@ def build_gex(symbol):
         "regime": regime
     }
 
-    # Save CSV (Required by Converter)
+    # Save CSV (Now includes DEX columns)
     date_tag = datetime.now().strftime("%Y%m%d")
     fname = f"{symbol}_GEX_robust_{date_tag}.csv"
     grouped.reset_index().to_csv(fname, index=False)
     print(f"   💾 Saved {fname}")
     
-    # Save Visual Check PNG with Detailed Title
+    # Save Visual Check PNG
     if ENABLE_PLOTS:
         try:
             plt.figure(figsize=(10, 6))
@@ -235,15 +257,11 @@ def build_gex(symbol):
             if flip_zone:
                 plt.axvline(flip_zone, color="blue", ls="--", lw=2, label=f"Flip: {flip_zone:.2f}")
             
-            # --- Dynamic Title Construction ---
             title_main = f"{symbol} Net GEX ({date_tag})"
-            
-            # Regime text
             regime_text = ""
             if regime == "ALL_CALLS": regime_text = " (ALL CALLS - BULLISH)"
             elif regime == "ALL_PUTS": regime_text = " (ALL PUTS - BEARISH)"
             
-            # Price info for Title
             spot_str = f"Spot: ${spot_price:.2f}" if spot_price else "Spot: N/A"
             flip_str = f"Flip: ${flip_zone:.2f}" if flip_zone else "Flip: N/A"
             
@@ -258,7 +276,7 @@ def build_gex(symbol):
     return fname, stats
 
 # ===============================================
-# Main Loop
+# Main Loop (Cumulative Summary Update)
 # ===============================================
 summary_data = []
 
@@ -273,31 +291,51 @@ for ticker in TICKERS:
     except Exception as e:
         print(f"❌ Error {ticker}: {e}")
 
-# Save CSV Summary
-if summary_data:
-    csv_rows = []
-    for item in summary_data:
-        d = item["Data"]
+# Save Cumulative Summary
+print("\n📝 Updating Gamma Summary (Cumulative)...")
+
+new_rows = []
+for item in summary_data:
+    d = item["Data"]
+    
+    flip_display = "N/A"
+    if d["flip"]: 
+        flip_display = f"{d['flip']:.2f}"
+    elif d["regime"] == "ALL_CALLS":
+        flip_display = "ALL_CALLS"
+    elif d["regime"] == "ALL_PUTS":
+        flip_display = "ALL_PUTS"
         
-        # Format flip for CSV
-        flip_display = "N/A"
-        if d["flip"]: 
-            flip_display = f"{d['flip']:.2f}"
-        elif d["regime"] == "ALL_CALLS":
-            flip_display = "ALL_CALLS"
-        elif d["regime"] == "ALL_PUTS":
-            flip_display = "ALL_PUTS"
-            
-        csv_rows.append({
-            "Ticker": item["Ticker"],
-            "Spot": d["spot"],
-            "Flip": flip_display,
-            "Call Wall": d["call_wall"],
-            "Put Wall": d["put_wall"],
-            "Net GEX ($B)": round(d["total_gex"] / 1e9, 2),
-            "Regime": d["regime"]
-        })
-    pd.DataFrame(csv_rows).to_csv("gamma_summary.csv", index=False)
-    print("\n📘 Saved gamma_summary.csv")
+    new_rows.append({
+        "Ticker": item["Ticker"],
+        "Spot": d["spot"],
+        "Flip": flip_display,
+        "Call Wall": d["call_wall"],
+        "Put Wall": d["put_wall"],
+        "Net GEX ($B)": round(d["total_gex"] / 1e9, 2),
+        "Regime": d["regime"]
+    })
+    
+new_df = pd.DataFrame(new_rows)
+master_df = pd.DataFrame()
+if os.path.exists("gamma_summary.csv"):
+    try:
+        master_df = pd.read_csv("gamma_summary.csv")
+    except: pass
+
+if not master_df.empty and not new_df.empty:
+    master_df = master_df[~master_df['Ticker'].isin(new_df['Ticker'])]
+    final_df = pd.concat([master_df, new_df], ignore_index=True)
+elif not new_df.empty:
+    final_df = new_df
+else:
+    final_df = master_df
+
+if not final_df.empty:
+    final_df = final_df.sort_values("Ticker")
+    final_df.to_csv("gamma_summary.csv", index=False)
+    print("📘 Saved updated gamma_summary.csv")
+else:
+    print("⚠️ No data to save.")
 
 print("\n🏁 Data Build Complete. Run 'gex_to_pinescript_converter.py' next.")
