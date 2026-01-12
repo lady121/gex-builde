@@ -1,11 +1,11 @@
 # ===========================================================
-# GEX to Pine Script Converter v4.2 (Ultra-Compression)
+# GEX to Pine Script Converter v4.3 (Scope Fix)
 # ===========================================================
 # Features:
-#   ✅ ULTRA-COMPRESSION: Groups data by month (1 line per month instead of 20)
-#   ✅ ADAPTIVE HISTORY: Automatically calculates safe history depth based on symbol count
-#   ✅ VISUALS: Keeps v4.1's clean labels, right-aligned text, and flip crosses
-#   ✅ PERFORMANCE: Massive token reduction allowing for more symbols/history
+#   ✅ FIX: "Cannot use plot in local scope" error resolved
+#   ✅ ULTRA-COMPRESSION: Monthly blobs for massive token savings
+#   ✅ VISUALS: Clean labels, flip crosses, right-aligned text
+#   ✅ ADAPTIVE: Auto-limits history to prevent overflow
 # ===========================================================
 
 import os
@@ -15,7 +15,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 
-print("🌲 Starting Historical GEX Converter (v4.2 - Ultra-Compressed)...")
+print("🌲 Starting Historical GEX Converter (v4.3 - Scope Fix)...")
 
 # ===============================================
 # Configuration
@@ -135,18 +135,13 @@ else:
 # ===============================================
 # Adaptive Limits
 # ===============================================
-# Simple heuristic: The more symbols, the less history per symbol to save tokens.
 num_symbols = len(current_state)
-# Base logic: 2000 total "monthly blocks" allowed roughly across all symbols
-# but since months compress well, we can be generous.
-# Let's target ~1.5 years (approx 400 trading days) if 1 symbol, scaling down.
 max_history_days = int(max(100, 5000 / max(1, num_symbols))) 
 print(f"⚖️  Adaptive Logic: Found {num_symbols} symbols. Limiting to {max_history_days} days history per symbol.")
 
 # ===============================================
 # Process Data (Monthly Grouping)
 # ===============================================
-# Structure: history_map[symbol][year_month_int] = "day=blob|day=blob..."
 history_map = {}
 
 print("⏳ Processing CSV files (Ultra-Compression Mode)...")
@@ -163,7 +158,6 @@ for f in files:
         ym_int = int(date_str[:6]) # 202501
         day_part = int(date_str[6:8]) # 02
         
-        # Structure: history_map[symbol] = list of {date_int, blob} first
         history_map.setdefault(symbol, []).append({
             "date_int": d_int,
             "ym_int": ym_int,
@@ -187,14 +181,12 @@ for sym, records in history_map.items():
         ym = rec['ym_int']
         d = rec['day']
         blob = rec['blob']
-        # Format: "Day=Blob"
         entry = f"{d}={blob}"
         monthly_data.setdefault(ym, []).append(entry)
     
     # Join months
     final_map[sym] = {}
     for ym, entries in monthly_data.items():
-        # Pipe separated days
         final_map[sym][ym] = "|".join(entries)
 
 # ===============================================
@@ -206,7 +198,7 @@ pine_code = f"""//@version=6
 indicator("Universal GEX History (Bar Replay)", overlay=true, max_lines_count=500, max_labels_count=500)
 
 // --- Generated {datetime.now().strftime('%Y-%m-%d')} ---
-// Mode: V4.2 (Ultra-Compressed Monthly Blobs)
+// Mode: V4.3 (Scope Fix)
 
 // --- Settings ---
 show_labels = input.bool(true, "Show Histogram Values", group="Visuals")
@@ -229,26 +221,18 @@ f_fmt(float v) =>
     s
 
 // --- Helper: Parse Monthly Blob for Specific Day ---
-// Blob format: "1=CW~PW~Flip~Max~Data|2=..."
 f_parse_day_data(string m_blob, int d_target) =>
     float cw = na, float pw = na, float fl = na, float mv = na, string d_str = ""
     
     if m_blob != ""
-        // Split month into days
         string[] days = str.split(m_blob, "|")
         int cnt = array.size(days)
-        
-        // Find today
         string target_prefix = str.tostring(d_target) + "="
         
-        // We iterate to find the day (max 22 days per month, fast enough)
         for i = 0 to cnt - 1
             string day_entry = array.get(days, i)
             if str.startswith(day_entry, target_prefix)
-                // Remove "Day=" prefix
                 string content = str.replace(day_entry, target_prefix, "")
-                
-                // Split components: CW~PW~Flip~Max~Data
                 string[] comps = str.split(content, "~")
                 if array.size(comps) >= 5
                     cw := str.tonumber(array.get(comps, 0))
@@ -287,20 +271,18 @@ f_draw_gex(string d_str, float max_v) =>
 
 """
 
-# --- Symbol Functions (Monthly Switching) ---
+# --- Symbol Functions ---
 for symbol, month_map in final_map.items():
     func_name = f"f_symbol_{symbol}"
     pine_code += f"""
-// {symbol} - Monthly Lookup
+// {symbol}
 {func_name}(int ym) =>
     string b = switch ym
 """
-    # Sort months for cleaner code
     sorted_months = sorted(month_map.keys())
     for ym in sorted_months:
         blob = month_map[ym]
         pine_code += f'        {ym} => "{blob}"\n'
-    
     pine_code += f'        => ""\n'
 
 # --- Main Logic ---
@@ -320,35 +302,39 @@ for symbol in final_map.keys():
 pine_code += '    => ""\n'
 
 pine_code += """
-// 2. Parse Daily Data from Blob
+// 2. Parse Daily Data
 [plot_c_wall, plot_p_wall, plot_flip, max_val, data_str] = f_parse_day_data(month_blob, d)
 
-// 3. Draw Lines & Labels
+// 3. Draw Lines (FIX: plot must be global, handle na automatically)
+plot(plot_c_wall, "Call Wall", color=color.new(color.green, 20), linewidth=2, style=plot.style_stepline)
+plot(plot_p_wall, "Put Wall",  color=color.new(color.red, 20),   linewidth=2, style=plot.style_stepline)
+plot(plot_flip,   "Flip Zone", color=color.new(color.purple, 0), linewidth=2, style=plot.style_cross)
+
+// 4. Draw Labels (Updated safely)
+var label l_cw = label.new(na, na, "CW", style=label.style_label_left, textcolor=color.green, color=color.new(color.white, 100), size=size.small)
+var label l_pw = label.new(na, na, "PW", style=label.style_label_left, textcolor=color.red, color=color.new(color.white, 100), size=size.small)
+var label l_fp = label.new(na, na, "Flip", style=label.style_label_left, textcolor=color.purple, color=color.new(color.white, 100), size=size.small)
+
 if not na(plot_c_wall)
-    // Draw Lines
-    plot(plot_c_wall, "Call Wall", color=color.new(color.green, 20), linewidth=2, style=plot.style_stepline)
-    plot(plot_p_wall, "Put Wall",  color=color.new(color.red, 20),   linewidth=2, style=plot.style_stepline)
-    plot(plot_flip,   "Flip Zone", color=color.new(color.purple, 0), linewidth=2, style=plot.style_cross)
-
-    // Draw Labels (Right Aligned)
-    var label l_cw = label.new(na, na, "CW", style=label.style_label_left, textcolor=color.green, color=color.new(color.white, 100), size=size.small)
-    var label l_pw = label.new(na, na, "PW", style=label.style_label_left, textcolor=color.red, color=color.new(color.white, 100), size=size.small)
-    var label l_fp = label.new(na, na, "Flip", style=label.style_label_left, textcolor=color.purple, color=color.new(color.white, 100), size=size.small)
-
     label.set_xy(l_cw, bar_index + 3, plot_c_wall)
     label.set_text(l_cw, "CW: " + str.tostring(plot_c_wall))
+else
+    label.set_xy(l_cw, na, na)
 
+if not na(plot_p_wall)
     label.set_xy(l_pw, bar_index + 3, plot_p_wall)
     label.set_text(l_pw, "PW: " + str.tostring(plot_p_wall))
+else
+    label.set_xy(l_pw, na, na)
 
-    if not na(plot_flip)
-        label.set_xy(l_fp, bar_index + 3, plot_flip)
-        label.set_text(l_fp, "Flip: " + str.tostring(plot_flip))
-    else
-        label.set_xy(l_fp, na, na)
+if not na(plot_flip)
+    label.set_xy(l_fp, bar_index + 3, plot_flip)
+    label.set_text(l_fp, "Flip: " + str.tostring(plot_flip))
+else
+    label.set_xy(l_fp, na, na)
 
-    // 4. Draw Profile
-    f_draw_gex(data_str, max_val)
+// 5. Draw Profile
+f_draw_gex(data_str, max_val)
 """
 
 # ===============================================
@@ -360,5 +346,5 @@ with open(output_filename, "w") as f:
 with open(cache_file, "w") as f:
     json.dump(current_state, f, indent=2)
 
-print(f"✅ Created {output_filename} (v4.2 - Ultra-Compressed)")
-print(f"📊 Processed {len(final_map)} symbols with adaptive history.")
+print(f"✅ Created {output_filename} (v4.3 - Scope Fix)")
+print(f"📊 Processed {len(final_map)} symbols.")
