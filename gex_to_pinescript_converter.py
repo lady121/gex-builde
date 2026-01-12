@@ -1,12 +1,11 @@
 # ===========================================================
-# GEX to Pine Script Converter v3.8 (Option 3: Compression)
+# GEX to Pine Script Converter v3.9 (Variable Scope Fix)
 # ===========================================================
 # Features:
+#   ✅ FIX: Removed double variable declaration in function scopes ("cw is already defined")
 #   ✅ OPTION 3 IMPLEMENTATION: Compressed String Data
-#   ✅ FIX: Solves "Too many tokens" by packing arrays into text
-#   ✅ FIX: Uses integer 'switch' for fast date lookups
 #   ✅ Runtime Decoding: Pine Script parses the string on the fly
-#   ✅ Configuration: Auto-truncates history if needed
+#   ✅ Configuration: Auto-truncates history to 250 days per ticker
 # ===========================================================
 
 import os
@@ -16,7 +15,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 
-print("🌲 Starting Historical GEX Converter (v3.8 - Compressed Mode)...")
+print("🌲 Starting Historical GEX Converter (v3.9 - Scope Fix)...")
 
 # ===============================================
 # Configuration
@@ -233,11 +232,10 @@ for symbol, records in history_map.items():
     func_name = f"f_symbol_{symbol}"
     
     # Function Definition
-    # Returns [c_wall, p_wall, flip, data_str, max_val]
+    # Fix: Removed redundant 'float cw = na' initialization lines to prevent "already defined" errors
     pine_code += f"""
 // {symbol}
 {func_name}(int ymd) =>
-    float cw = na, float pw = na, float fl = na, string d = "", float mv = na
     [cw, pw, fl, d, mv] = switch ymd
 """
     
@@ -247,7 +245,6 @@ for symbol, records in history_map.items():
         d_dat = rec['data']
         flip_val = d_dat['flip'] if d_dat['flip'] is not None else "na"
         
-        # This one-liner is the key to token savings
         pine_code += f'        {d_int} => [{d_dat["c_wall"]}, {d_dat["p_wall"]}, {flip_val}, "{d_dat["data_str"]}", {d_dat["max_val"]}]\n'
     
     # Default return for unknown dates
@@ -288,5 +285,5 @@ with open(output_filename, "w") as f:
 with open(cache_file, "w") as f:
     json.dump(current_state, f, indent=2)
 
-print(f"✅ Created {output_filename} (v3.8 - Compressed)")
+print(f"✅ Created {output_filename} (v3.9 - Scope Fix)")
 print(f"📊 Processed {len(history_map)} tickers.")
