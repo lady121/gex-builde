@@ -1,12 +1,12 @@
 # ===========================================================
-# GEX to Pine Script Converter v4.5 (Professional Cleanup)
+# GEX to Pine Script Converter v4.6 (Type Error Fix)
 # ===========================================================
 # Features:
-#   ✅ FIX: INTRADAY CLUTTER - Draws histogram only ONCE per day (prevents "repeating" trail)
-#   ✅ FIX: MEMORY LEAK - Solves "loses labeling" by drastically reducing line count
+#   ✅ FIX: "Series Int" to "Bool" Type Mismatch resolved
+#   ✅ FIX: INTRADAY CLUTTER - Draws histogram only ONCE per day
 #   ✅ VISUALS: Smart Threshold - Only labels significant bars (Top 30%)
 #   ✅ VISUALS: Clean separate controls for Text Size and Line Width
-#   ✅ COMPRESSION: Retains Monthly Blob encoding for maximum history
+#   ✅ COMPRESSION: Retains Monthly Blob encoding
 # ===========================================================
 
 import os
@@ -16,7 +16,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 
-print("🌲 Starting Historical GEX Converter (v4.5 - Professional Clean)...")
+print("🌲 Starting Historical GEX Converter (v4.6 - Type Error Fix)...")
 
 # ===============================================
 # Configuration
@@ -198,7 +198,7 @@ pine_code = f"""//@version=6
 indicator("Universal GEX History (Bar Replay)", overlay=true, max_lines_count=500, max_labels_count=500)
 
 // --- Generated {datetime.now().strftime('%Y-%m-%d')} ---
-// Mode: V4.5 (Intraday Fix & De-Clutter)
+// Mode: V4.6 (Type Mismatch Fix)
 
 // --- Settings ---
 show_labels    = input.bool(true, "Show Histogram Values", group="Visuals")
@@ -340,7 +340,7 @@ else
 
 // 5. Draw Profile (CRITICAL FIX: Only on New Day or First Bar)
 // This prevents the "repeating numbers" mess on lower timeframes
-bool new_day = ta.change(time("D"))
+bool new_day = ta.change(time("D")) != 0
 if new_day or barstate.isfirst
     f_draw_gex(data_str, max_val)
 """
@@ -354,5 +354,5 @@ with open(output_filename, "w") as f:
 with open(cache_file, "w") as f:
     json.dump(current_state, f, indent=2)
 
-print(f"✅ Created {output_filename} (v4.5 - Professional Clean)")
+print(f"✅ Created {output_filename} (v4.6 - Type Error Fix)")
 print(f"📊 Processed {len(final_map)} symbols.")
