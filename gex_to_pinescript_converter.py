@@ -1,10 +1,10 @@
 # ===========================================================
-# GEX to Pine Script Converter v4.3 (Scope Fix)
+# GEX to Pine Script Converter v4.4 (Text Size Control)
 # ===========================================================
 # Features:
-#   ✅ FIX: "Cannot use plot in local scope" error resolved
+#   ✅ VISUALS: Added inputs to control Text Size (Histogram & Walls)
+#   ✅ FIX: "Cannot use plot in local scope" resolved
 #   ✅ ULTRA-COMPRESSION: Monthly blobs for massive token savings
-#   ✅ VISUALS: Clean labels, flip crosses, right-aligned text
 #   ✅ ADAPTIVE: Auto-limits history to prevent overflow
 # ===========================================================
 
@@ -15,7 +15,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 
-print("🌲 Starting Historical GEX Converter (v4.3 - Scope Fix)...")
+print("🌲 Starting Historical GEX Converter (v4.4 - Text Size Control)...")
 
 # ===============================================
 # Configuration
@@ -198,11 +198,13 @@ pine_code = f"""//@version=6
 indicator("Universal GEX History (Bar Replay)", overlay=true, max_lines_count=500, max_labels_count=500)
 
 // --- Generated {datetime.now().strftime('%Y-%m-%d')} ---
-// Mode: V4.3 (Scope Fix)
+// Mode: V4.4 (Text Size Control)
 
 // --- Settings ---
-show_labels = input.bool(true, "Show Histogram Values", group="Visuals")
-line_width  = input.int(1, "GEX Line Width", minval=1, maxval=4, group="Visuals")
+show_labels    = input.bool(true, "Show Histogram Values", group="Visuals")
+line_width     = input.int(1, "GEX Line Width", minval=1, maxval=4, group="Visuals")
+sz_hist_txt    = input.string("tiny", "Histogram Text Size", options=["auto", "tiny", "small", "normal", "large", "huge"], group="Visuals")
+sz_wall_txt    = input.string("small", "Wall Label Size", options=["auto", "tiny", "small", "normal", "large", "huge"], group="Visuals")
 
 var string current_ticker = syminfo.ticker
 
@@ -267,7 +269,8 @@ f_draw_gex(string d_str, float max_v) =>
                     if show_labels and math.abs(net_gex) > (max_v * 0.25)
                         color tc = net_gex >= 0 ? color.green : color.red
                         string txt = f_fmt(net_gex)
-                        label.new(bar_index + length, strike, txt, style=label.style_label_left, textcolor=tc, color=color.new(color.white, 100), size=size.tiny)
+                        // Use Input for Size
+                        label.new(bar_index + length, strike, txt, style=label.style_label_left, textcolor=tc, color=color.new(color.white, 100), size=sz_hist_txt)
 
 """
 
@@ -305,15 +308,15 @@ pine_code += """
 // 2. Parse Daily Data
 [plot_c_wall, plot_p_wall, plot_flip, max_val, data_str] = f_parse_day_data(month_blob, d)
 
-// 3. Draw Lines (FIX: plot must be global, handle na automatically)
+// 3. Draw Lines
 plot(plot_c_wall, "Call Wall", color=color.new(color.green, 20), linewidth=2, style=plot.style_stepline)
 plot(plot_p_wall, "Put Wall",  color=color.new(color.red, 20),   linewidth=2, style=plot.style_stepline)
 plot(plot_flip,   "Flip Zone", color=color.new(color.purple, 0), linewidth=2, style=plot.style_cross)
 
-// 4. Draw Labels (Updated safely)
-var label l_cw = label.new(na, na, "CW", style=label.style_label_left, textcolor=color.green, color=color.new(color.white, 100), size=size.small)
-var label l_pw = label.new(na, na, "PW", style=label.style_label_left, textcolor=color.red, color=color.new(color.white, 100), size=size.small)
-var label l_fp = label.new(na, na, "Flip", style=label.style_label_left, textcolor=color.purple, color=color.new(color.white, 100), size=size.small)
+// 4. Draw Labels (Using Input Size)
+var label l_cw = label.new(na, na, "CW", style=label.style_label_left, textcolor=color.green, color=color.new(color.white, 100), size=sz_wall_txt)
+var label l_pw = label.new(na, na, "PW", style=label.style_label_left, textcolor=color.red, color=color.new(color.white, 100), size=sz_wall_txt)
+var label l_fp = label.new(na, na, "Flip", style=label.style_label_left, textcolor=color.purple, color=color.new(color.white, 100), size=sz_wall_txt)
 
 if not na(plot_c_wall)
     label.set_xy(l_cw, bar_index + 3, plot_c_wall)
@@ -346,5 +349,5 @@ with open(output_filename, "w") as f:
 with open(cache_file, "w") as f:
     json.dump(current_state, f, indent=2)
 
-print(f"✅ Created {output_filename} (v4.3 - Scope Fix)")
+print(f"✅ Created {output_filename} (v4.4 - Text Size Control)")
 print(f"📊 Processed {len(final_map)} symbols.")
