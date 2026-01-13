@@ -2,7 +2,7 @@
 indicator("Universal GEX History (Bar Replay)", overlay=true, max_lines_count=500, max_labels_count=500)
 
 // --- Generated 2026-01-13 ---
-// Mode: V4.5 (Intraday Fix & De-Clutter)
+// Mode: V4.6 (Type Mismatch Fix)
 
 // --- Settings ---
 show_labels    = input.bool(true, "Show Histogram Values", group="Visuals")
@@ -241,6 +241,6 @@ else
 
 // 5. Draw Profile (CRITICAL FIX: Only on New Day or First Bar)
 // This prevents the "repeating numbers" mess on lower timeframes
-bool new_day = ta.change(time("D"))
+bool new_day = ta.change(time("D")) != 0
 if new_day or barstate.isfirst
     f_draw_gex(data_str, max_val)
