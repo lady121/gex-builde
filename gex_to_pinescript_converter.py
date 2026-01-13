@@ -1,11 +1,12 @@
 # ===========================================================
-# GEX to Pine Script Converter v4.4 (Text Size Control)
+# GEX to Pine Script Converter v4.5 (Professional Cleanup)
 # ===========================================================
 # Features:
-#   ✅ VISUALS: Added inputs to control Text Size (Histogram & Walls)
-#   ✅ FIX: "Cannot use plot in local scope" resolved
-#   ✅ ULTRA-COMPRESSION: Monthly blobs for massive token savings
-#   ✅ ADAPTIVE: Auto-limits history to prevent overflow
+#   ✅ FIX: INTRADAY CLUTTER - Draws histogram only ONCE per day (prevents "repeating" trail)
+#   ✅ FIX: MEMORY LEAK - Solves "loses labeling" by drastically reducing line count
+#   ✅ VISUALS: Smart Threshold - Only labels significant bars (Top 30%)
+#   ✅ VISUALS: Clean separate controls for Text Size and Line Width
+#   ✅ COMPRESSION: Retains Monthly Blob encoding for maximum history
 # ===========================================================
 
 import os
@@ -15,12 +16,11 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 
-print("🌲 Starting Historical GEX Converter (v4.4 - Text Size Control)...")
+print("🌲 Starting Historical GEX Converter (v4.5 - Professional Clean)...")
 
 # ===============================================
 # Configuration
 # ===============================================
-# We dynamically adjust this later based on symbol count
 BASE_HISTORY_DAYS = 300 
 
 # ===============================================
@@ -198,11 +198,12 @@ pine_code = f"""//@version=6
 indicator("Universal GEX History (Bar Replay)", overlay=true, max_lines_count=500, max_labels_count=500)
 
 // --- Generated {datetime.now().strftime('%Y-%m-%d')} ---
-// Mode: V4.4 (Text Size Control)
+// Mode: V4.5 (Intraday Fix & De-Clutter)
 
 // --- Settings ---
 show_labels    = input.bool(true, "Show Histogram Values", group="Visuals")
 line_width     = input.int(1, "GEX Line Width", minval=1, maxval=4, group="Visuals")
+min_pct        = input.int(30, "Label Threshold % (Hides Clutter)", minval=0, maxval=100, tooltip="Only show labels for bars larger than this % of the day's max.", group="Visuals")
 sz_hist_txt    = input.string("tiny", "Histogram Text Size", options=["auto", "tiny", "small", "normal", "large", "huge"], group="Visuals")
 sz_wall_txt    = input.string("small", "Wall Label Size", options=["auto", "tiny", "small", "normal", "large", "huge"], group="Visuals")
 
@@ -246,7 +247,7 @@ f_parse_day_data(string m_blob, int d_target) =>
                 break
     [cw, pw, fl, mv, d_str]
 
-// --- Helper: Draw Histogram ---
+// --- Helper: Draw Histogram (FIXED: Only called once per day) ---
 f_draw_gex(string d_str, float max_v) =>
     if d_str != ""
         string[] pairs = str.split(d_str, ";")
@@ -264,12 +265,13 @@ f_draw_gex(string d_str, float max_v) =>
                     
                     color c = net_gex >= 0 ? color.new(color.green, 40) : color.new(color.red, 40)
                     
+                    // Draw line
                     line.new(bar_index, strike, bar_index + length, strike, color=c, width=line_width)
                     
-                    if show_labels and math.abs(net_gex) > (max_v * 0.25)
+                    // Smart Labeling: Only label if value > Threshold % of Max
+                    if show_labels and math.abs(net_gex) > (max_v * (min_pct / 100.0))
                         color tc = net_gex >= 0 ? color.green : color.red
                         string txt = f_fmt(net_gex)
-                        // Use Input for Size
                         label.new(bar_index + length, strike, txt, style=label.style_label_left, textcolor=tc, color=color.new(color.white, 100), size=sz_hist_txt)
 
 """
@@ -308,12 +310,12 @@ pine_code += """
 // 2. Parse Daily Data
 [plot_c_wall, plot_p_wall, plot_flip, max_val, data_str] = f_parse_day_data(month_blob, d)
 
-// 3. Draw Lines
+// 3. Draw Lines (Continuous for Wall visibility)
 plot(plot_c_wall, "Call Wall", color=color.new(color.green, 20), linewidth=2, style=plot.style_stepline)
 plot(plot_p_wall, "Put Wall",  color=color.new(color.red, 20),   linewidth=2, style=plot.style_stepline)
 plot(plot_flip,   "Flip Zone", color=color.new(color.purple, 0), linewidth=2, style=plot.style_cross)
 
-// 4. Draw Labels (Using Input Size)
+// 4. Draw Identification Labels (Right Aligned - always visible)
 var label l_cw = label.new(na, na, "CW", style=label.style_label_left, textcolor=color.green, color=color.new(color.white, 100), size=sz_wall_txt)
 var label l_pw = label.new(na, na, "PW", style=label.style_label_left, textcolor=color.red, color=color.new(color.white, 100), size=sz_wall_txt)
 var label l_fp = label.new(na, na, "Flip", style=label.style_label_left, textcolor=color.purple, color=color.new(color.white, 100), size=sz_wall_txt)
@@ -336,8 +338,11 @@ if not na(plot_flip)
 else
     label.set_xy(l_fp, na, na)
 
-// 5. Draw Profile
-f_draw_gex(data_str, max_val)
+// 5. Draw Profile (CRITICAL FIX: Only on New Day or First Bar)
+// This prevents the "repeating numbers" mess on lower timeframes
+bool new_day = ta.change(time("D"))
+if new_day or barstate.isfirst
+    f_draw_gex(data_str, max_val)
 """
 
 # ===============================================
@@ -349,5 +354,5 @@ with open(output_filename, "w") as f:
 with open(cache_file, "w") as f:
     json.dump(current_state, f, indent=2)
 
-print(f"✅ Created {output_filename} (v4.4 - Text Size Control)")
+print(f"✅ Created {output_filename} (v4.5 - Professional Clean)")
 print(f"📊 Processed {len(final_map)} symbols.")
