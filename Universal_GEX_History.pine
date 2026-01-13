@@ -1,12 +1,14 @@
 //@version=6
 indicator("Universal GEX History (Bar Replay)", overlay=true, max_lines_count=500, max_labels_count=500)
 
-// --- Generated 2026-01-12 ---
-// Mode: V4.3 (Scope Fix)
+// --- Generated 2026-01-13 ---
+// Mode: V4.4 (Text Size Control)
 
 // --- Settings ---
-show_labels = input.bool(true, "Show Histogram Values", group="Visuals")
-line_width  = input.int(1, "GEX Line Width", minval=1, maxval=4, group="Visuals")
+show_labels    = input.bool(true, "Show Histogram Values", group="Visuals")
+line_width     = input.int(1, "GEX Line Width", minval=1, maxval=4, group="Visuals")
+sz_hist_txt    = input.string("tiny", "Histogram Text Size", options=["auto", "tiny", "small", "normal", "large", "huge"], group="Visuals")
+sz_wall_txt    = input.string("small", "Wall Label Size", options=["auto", "tiny", "small", "normal", "large", "huge"], group="Visuals")
 
 var string current_ticker = syminfo.ticker
 
@@ -71,7 +73,8 @@ f_draw_gex(string d_str, float max_v) =>
                     if show_labels and math.abs(net_gex) > (max_v * 0.25)
                         color tc = net_gex >= 0 ? color.green : color.red
                         string txt = f_fmt(net_gex)
-                        label.new(bar_index + length, strike, txt, style=label.style_label_left, textcolor=tc, color=color.new(color.white, 100), size=size.tiny)
+                        // Use Input for Size
+                        label.new(bar_index + length, strike, txt, style=label.style_label_left, textcolor=tc, color=color.new(color.white, 100), size=sz_hist_txt)
 
 
 // AMZU
@@ -122,7 +125,7 @@ f_symbol_MSTU(int ym) =>
 f_symbol_NOK(int ym) =>
     string b = switch ym
         202512 => "29=7.00~7.00~n~21154084~7.00:21154084;6.50:8092629;6.00:474055;7.50:129793|30=7.00~7.00~n~22605830~7.00:22605830;6.50:6558383;6.00:1181866;7.50:154105|31=7.00~7.00~n~21319697~7.00:21319697;6.50:9634004;6.00:1006903"
-        202601 => "1=7.00~6.00~n~18573012~7.00:18573012;6.50:8707948;6.00:1699138|2=7.00~6.00~n~17244590~7.00:17244590;6.50:9225772;6.00:608275;5.50:314674|3=7.00~6.00~n~16893562~7.00:16893562;6.50:7118536;6.00:661035|4=7.00~7.00~6.25~18330642~7.00:18330642;6.50:9136261;6.00:-1629906|5=7.00~7.00~6.25~18344731~7.00:18344731;6.50:9143284;6.00:-1631159|6=7.00~6.00~6.25~19612420~7.00:19612420;6.50:9129239;6.00:-2112032|7=7.00~6.00~n~18577944~7.00:18577944;6.50:8682661;6.00:279392;5.50:137632|8=7.00~6.50~6.25~20168535~7.00:20168535;6.50:12300503;7.50:267593;6.00:-40696|9=7.00~6.50~n~21309411~7.00:21309411;6.50:1893739;6.00:323258|10=7.00~6.50~6.75~19447411~7.00:19447411;6.50:-2168673;6.00:-2054759|12=7.00~6.50~6.75~19447411~7.00:19447411;6.50:-2168673;6.00:-2054759"
+        202601 => "1=7.00~6.00~n~18573012~7.00:18573012;6.50:8707948;6.00:1699138|2=7.00~6.00~n~17244590~7.00:17244590;6.50:9225772;6.00:608275;5.50:314674|3=7.00~6.00~n~16893562~7.00:16893562;6.50:7118536;6.00:661035|4=7.00~7.00~6.25~18330642~7.00:18330642;6.50:9136261;6.00:-1629906|5=7.00~7.00~6.25~18344731~7.00:18344731;6.50:9143284;6.00:-1631159|6=7.00~6.00~6.25~19612420~7.00:19612420;6.50:9129239;6.00:-2112032|7=7.00~6.00~n~18577944~7.00:18577944;6.50:8682661;6.00:279392;5.50:137632|8=7.00~6.50~6.25~20168535~7.00:20168535;6.50:12300503;7.50:267593;6.00:-40696|9=7.00~6.50~n~21309411~7.00:21309411;6.50:1893739;6.00:323258|10=7.00~6.50~6.75~19447411~7.00:19447411;6.50:-2168673;6.00:-2054759|12=7.00~6.50~6.25~20443405~7.00:20443405;6.50:-2658084;6.00:112589|13=7.00~6.50~6.25~20664244~7.00:20664244;6.50:-2686798;7.50:1323985;6.00:113805"
         => ""
 
 // OPEN
@@ -206,15 +209,15 @@ string month_blob = switch current_ticker
 // 2. Parse Daily Data
 [plot_c_wall, plot_p_wall, plot_flip, max_val, data_str] = f_parse_day_data(month_blob, d)
 
-// 3. Draw Lines (FIX: plot must be global, handle na automatically)
+// 3. Draw Lines
 plot(plot_c_wall, "Call Wall", color=color.new(color.green, 20), linewidth=2, style=plot.style_stepline)
 plot(plot_p_wall, "Put Wall",  color=color.new(color.red, 20),   linewidth=2, style=plot.style_stepline)
 plot(plot_flip,   "Flip Zone", color=color.new(color.purple, 0), linewidth=2, style=plot.style_cross)
 
-// 4. Draw Labels (Updated safely)
-var label l_cw = label.new(na, na, "CW", style=label.style_label_left, textcolor=color.green, color=color.new(color.white, 100), size=size.small)
-var label l_pw = label.new(na, na, "PW", style=label.style_label_left, textcolor=color.red, color=color.new(color.white, 100), size=size.small)
-var label l_fp = label.new(na, na, "Flip", style=label.style_label_left, textcolor=color.purple, color=color.new(color.white, 100), size=size.small)
+// 4. Draw Labels (Using Input Size)
+var label l_cw = label.new(na, na, "CW", style=label.style_label_left, textcolor=color.green, color=color.new(color.white, 100), size=sz_wall_txt)
+var label l_pw = label.new(na, na, "PW", style=label.style_label_left, textcolor=color.red, color=color.new(color.white, 100), size=sz_wall_txt)
+var label l_fp = label.new(na, na, "Flip", style=label.style_label_left, textcolor=color.purple, color=color.new(color.white, 100), size=sz_wall_txt)
 
 if not na(plot_c_wall)
     label.set_xy(l_cw, bar_index + 3, plot_c_wall)
