@@ -2,19 +2,30 @@
 indicator("Universal GEX History (Bar Replay)", overlay=true, max_lines_count=500, max_labels_count=500)
 
 // --- Generated 2026-01-17 ---
-// Mode: V5.1 (Classic Box Labels)
+// Mode: V6.1 (Clean Box Labels)
 
 // --- Settings ---
-show_labels    = input.bool(true, "Show Histogram Values", group="Visuals")
-line_width     = input.int(1, "GEX Line Width", minval=1, maxval=4, group="Visuals")
-min_pct        = input.int(30, "Label Threshold %", minval=0, maxval=100, group="Visuals")
-sz_hist_txt    = input.string("tiny", "Histogram Text Size", options=["auto", "tiny", "small", "normal", "large", "huge"], group="Visuals")
-sz_wall_txt    = input.string("small", "Wall Label Size", options=["auto", "tiny", "small", "normal", "large", "huge"], group="Visuals")
+sz_label = input.string("normal", "Label Size", options=["auto", "tiny", "small", "normal", "large", "huge"], group="Visuals")
 
 var string current_ticker = syminfo.ticker
 
-// --- Helper: Dynamic Number Formatting (K, M, B) ---
-f_fmt_num(float v) =>
+// --- Plot Variables ---
+var float plot_c_wall = na
+var float plot_p_wall = na
+var float plot_flip   = na
+var float plot_c_gex  = na
+var float plot_p_gex  = na
+var float plot_c_dex  = na
+var float plot_p_dex  = na
+
+// --- Arrays for Current Day Histogram ---
+var float[] cur_strikes = array.new<float>()
+var int[]   cur_lengths = array.new<int>()
+var int[]   cur_signs   = array.new<int>()
+var string[] cur_labels = array.new<string>()
+
+// --- Helper: Format numbers (K, M, B) ---
+f_fmt(float v) =>
     float av = math.abs(v)
     string s = ""
     if av >= 1000000000
@@ -27,249 +38,3293 @@ f_fmt_num(float v) =>
         s := str.format("${0,number,#}", v)
     s
 
-// --- Helper: Format Billions (for stored compressed values) ---
-f_fmt_billions_raw(float val_b100) =>
-    float raw_val = (val_b100 / 100.0) * 1000000000
-    f_fmt_num(raw_val)
+// ===== AMZU DATA =====
+if current_ticker == "AMZU"
+    if year == 2026 and month == 1 and dayofmonth == 2
+        plot_c_wall := 38.8
+        plot_p_wall := 33.8
+        plot_flip   := 29.9
+        plot_c_gex  := 531379.8000000002
+        plot_p_gex  := 404916.72
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 3
+        plot_c_wall := 36.8
+        plot_p_wall := 33.8
+        plot_flip   := 36.4
+        plot_c_gex  := 447182.112
+        plot_p_gex  := 388581.0239999999
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 4
+        plot_c_wall := 36.8
+        plot_p_wall := 35.0
+        plot_flip   := na
+        plot_c_gex  := 357536.4
+        plot_p_gex  := 549640.104
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 5
+        plot_c_wall := 36.8
+        plot_p_wall := 35.0
+        plot_flip   := na
+        plot_c_gex  := 358389.19999999995
+        plot_p_gex  := 550951.1120000001
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 6
+        plot_c_wall := 36.8
+        plot_p_wall := 35.0
+        plot_flip   := 39.4
+        plot_c_gex  := 378749.8
+        plot_p_gex  := 587808.3200000001
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 7
+        plot_c_wall := 38.8
+        plot_p_wall := 33.8
+        plot_flip   := 36.4
+        plot_c_gex  := 638116.284
+        plot_p_gex  := 438501.179
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 8
+        plot_c_wall := 38.8
+        plot_p_wall := 35.0
+        plot_flip   := 36.9
+        plot_c_gex  := 990567.831
+        plot_p_gex  := 235986.57
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 9
+        plot_c_wall := 38.8
+        plot_p_wall := 35.0
+        plot_flip   := 36.4
+        plot_c_gex  := 1100206.8
+        plot_p_gex  := 241354.08
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 10
+        plot_c_wall := 40.0
+        plot_p_wall := 35.0
+        plot_flip   := 37.4
+        plot_c_gex  := 1173788.0924999998
+        plot_p_gex  := 192184.845
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
 
-// --- Helper: Parse Monthly Blob for Specific Day ---
-f_parse_day_data(string m_blob, int d_target) =>
-    float cw = na, float pw = na, float fl = na, float mv = na, string d_str = ""
-    float c_gex = na, float c_dex = na, float p_gex = na, float p_dex = na
-    
-    if m_blob != ""
-        string[] days = str.split(m_blob, "|")
-        int cnt = array.size(days)
-        string target_prefix = str.tostring(d_target) + "="
-        
-        for i = 0 to cnt - 1
-            string day_entry = array.get(days, i)
-            if str.startswith(day_entry, target_prefix)
-                string content = str.replace(day_entry, target_prefix, "")
-                string[] comps = str.split(content, "~")
-                if array.size(comps) >= 9
-                    cw := str.tonumber(array.get(comps, 0))
-                    pw := str.tonumber(array.get(comps, 1))
-                    string fl_str = array.get(comps, 2)
-                    fl := fl_str == "n" ? na : str.tonumber(fl_str)
-                    mv := str.tonumber(array.get(comps, 3))
-                    
-                    c_gex := str.tonumber(array.get(comps, 4))
-                    c_dex := str.tonumber(array.get(comps, 5))
-                    p_gex := str.tonumber(array.get(comps, 6))
-                    p_dex := str.tonumber(array.get(comps, 7))
-                    
-                    d_str := array.get(comps, 8)
-                break
-    [cw, pw, fl, mv, d_str, c_gex, c_dex, p_gex, p_dex]
+    if barstate.islast
+        cur_strikes := array.from(40.0, 38.8, 39.8, 40.8, 42.0, 35.0, 45.0, 36.8, 37.8, 41.0, 39.0, 42.8, 43.8, 44.0, 43.0, 41.8, 34.0, 38.0, 34.8, 44.8, 37.0, 35.8, 36.0)
+        cur_lengths := array.from(40, 31, 26, 17, 9, 5, 5, 5, 4, 4, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2)
+        cur_signs   := array.from(1, 1, 1, 1, 1, -1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, -1, 1, 1, 1, -1, 1, -1)
+        cur_labels  := array.from('$1.2M', '$918K', '$761K', '$515K', '$280K', '$-174K', '$156K', '$149K', '$142K', '$118K', '$108K', '$62K', '$60K', '$37K', '$37K', '$35K', '$-28K', '$25K', '$20K', '$19K', '$-16K', '$10K', '$-259')
 
-// --- Helper: Draw Histogram ---
-f_draw_gex(string d_str, float max_v) =>
-    if d_str != ""
-        string[] pairs = str.split(d_str, ";")
-        if array.size(pairs) > 0
-            for i = 0 to array.size(pairs) - 1
-                string p = array.get(pairs, i)
-                string[] parts = str.split(p, ":")
-                if array.size(parts) == 2
-                    float strike = str.tonumber(array.get(parts, 0))
-                    float net_gex = str.tonumber(array.get(parts, 1))
-                    
-                    int length = int((math.abs(net_gex) / max_v) * 25) 
-                    if length < 2 
-                        length := 2
-                    
-                    color c = net_gex >= 0 ? color.new(color.green, 40) : color.new(color.red, 40)
-                    line.new(bar_index, strike, bar_index + length, strike, color=c, width=line_width)
-                    
-                    if show_labels and math.abs(net_gex) > (max_v * (min_pct / 100.0))
-                        color tc = net_gex >= 0 ? color.green : color.red
-                        label.new(bar_index + length, strike, f_fmt_num(net_gex), style=label.style_label_left, textcolor=color.white, color=tc, size=sz_hist_txt)
+// ===== BBAI DATA =====
+if current_ticker == "BBAI"
+    if year == 2025 and month == 10 and dayofmonth == 13
+        plot_c_wall := 9.0
+        plot_p_wall := 9.0
+        plot_flip   := na
+        plot_c_gex  := 12115383.375690136
+        plot_p_gex  := 524435.288815547
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 14
+        plot_c_wall := 9.0
+        plot_p_wall := 9.0
+        plot_flip   := 7.75
+        plot_c_gex  := 27195912.199730285
+        plot_p_gex  := 4701240.181788086
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 15
+        plot_c_wall := 8.5
+        plot_p_wall := 8.5
+        plot_flip   := 7.25
+        plot_c_gex  := 38475382.81061415
+        plot_p_gex  := 11600706.39264666
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 16
+        plot_c_wall := 7.5
+        plot_p_wall := 7.5
+        plot_flip   := 6.75
+        plot_c_gex  := 569602.8673256541
+        plot_p_gex  := 456643.30527522776
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 20
+        plot_c_wall := 8.0
+        plot_p_wall := 8.0
+        plot_flip   := 6.5
+        plot_c_gex  := 5666775.898907316
+        plot_p_gex  := 3773893.604737932
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 21
+        plot_c_wall := 7.0
+        plot_p_wall := 7.0
+        plot_flip   := 6.75
+        plot_c_gex  := 4924371.418320469
+        plot_p_gex  := 1917364.716213524
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 22
+        plot_c_wall := 7.0
+        plot_p_wall := 7.0
+        plot_flip   := na
+        plot_c_gex  := 3222993.63509659
+        plot_p_gex  := 2401863.492668508
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 23
+        plot_c_wall := 7.0
+        plot_p_wall := 7.0
+        plot_flip   := 6.75
+        plot_c_gex  := 4917048.3760076575
+        plot_p_gex  := 3538774.4830934447
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 24
+        plot_c_wall := 7.0
+        plot_p_wall := 7.0
+        plot_flip   := 6.75
+        plot_c_gex  := 5830026.444882926
+        plot_p_gex  := 4042037.552537942
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 27
+        plot_c_wall := 7.0
+        plot_p_wall := 7.0
+        plot_flip   := 6.75
+        plot_c_gex  := 5932462.56020887
+        plot_p_gex  := 4108538.3652193984
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 28
+        plot_c_wall := 7.0
+        plot_p_wall := 7.0
+        plot_flip   := 6.75
+        plot_c_gex  := 5631959.94638036
+        plot_p_gex  := 3832871.629110192
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 29
+        plot_c_wall := 7.0
+        plot_p_wall := 7.0
+        plot_flip   := 6.75
+        plot_c_gex  := 7218595.812512216
+        plot_p_gex  := 4556625.829514615
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 30
+        plot_c_wall := 7.0
+        plot_p_wall := 7.0
+        plot_flip   := 6.75
+        plot_c_gex  := 5944623.858958882
+        plot_p_gex  := 3602396.5263796784
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 31
+        plot_c_wall := 7.0
+        plot_p_wall := 7.0
+        plot_flip   := 6.75
+        plot_c_gex  := 8252655.717485843
+        plot_p_gex  := 4953410.195646704
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 3
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := na
+        plot_c_gex  := 814821.10170922
+        plot_p_gex  := 3863829.0952017847
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 4
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := na
+        plot_c_gex  := 1103062.2578546908
+        plot_p_gex  := 5133971.652714556
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 5
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := na
+        plot_c_gex  := 2066699.2915400765
+        plot_p_gex  := 8745519.247464458
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 6
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := na
+        plot_c_gex  := 968015.8352227284
+        plot_p_gex  := 3477460.320784348
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 7
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := na
+        plot_c_gex  := 1212395.3235274064
+        plot_p_gex  := 3886620.788840325
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 10
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := na
+        plot_c_gex  := 2216763.5723423543
+        plot_p_gex  := 4129648.128210182
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 11
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := na
+        plot_c_gex  := 9802584.299367394
+        plot_p_gex  := 13487859.662547288
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 12
+        plot_c_wall := 7.0
+        plot_p_wall := 7.0
+        plot_flip   := 6.25
+        plot_c_gex  := 15900542.377289984
+        plot_p_gex  := 5265422.428495236
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 13
+        plot_c_wall := 6.5
+        plot_p_wall := 6.5
+        plot_flip   := na
+        plot_c_gex  := 5228102.471115401
+        plot_p_gex  := 4938664.355215478
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 14
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := na
+        plot_c_gex  := 9377699.837283151
+        plot_p_gex  := 17283478.92148741
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 17
+        plot_c_wall := 5.5
+        plot_p_wall := 5.5
+        plot_flip   := na
+        plot_c_gex  := 1878498.4459815987
+        plot_p_gex  := 11287483.199559314
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 18
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := 5.75
+        plot_c_gex  := 33698255.87459246
+        plot_p_gex  := 32202856.63934007
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 19
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := 5.75
+        plot_c_gex  := 5998215.224077866
+        plot_p_gex  := 5423065.955124819
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 20
+        plot_c_wall := 5.5
+        plot_p_wall := 5.5
+        plot_flip   := na
+        plot_c_gex  := 9947774.63499621
+        plot_p_gex  := 40118273.47594017
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 24
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := na
+        plot_c_gex  := 4912175.883727246
+        plot_p_gex  := 4694458.937900282
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 25
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := 5.25
+        plot_c_gex  := 6387999.652380751
+        plot_p_gex  := 6078454.702103524
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 26
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := 5.25
+        plot_c_gex  := 8636322.980542043
+        plot_p_gex  := 8307644.021964983
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 28
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := na
+        plot_c_gex  := 3706782.840911339
+        plot_p_gex  := 3588489.0773064382
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 1
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := 5.25
+        plot_c_gex  := 9688035.00843378
+        plot_p_gex  := 9615163.80290716
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 2
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := 5.25
+        plot_c_gex  := 7255829.134317092
+        plot_p_gex  := 7488194.076849752
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 3
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := 5.25
+        plot_c_gex  := 9994023.6226852
+        plot_p_gex  := 9978220.590261646
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 4
+        plot_c_wall := 7.0
+        plot_p_wall := 7.0
+        plot_flip   := 6.25
+        plot_c_gex  := 26976616.598359924
+        plot_p_gex  := 7650747.136142328
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 5
+        plot_c_wall := 7.0
+        plot_p_wall := 7.0
+        plot_flip   := 5.75
+        plot_c_gex  := 22952249.2867365
+        plot_p_gex  := 6742324.782609726
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 8
+        plot_c_wall := 7.0
+        plot_p_wall := 6.5
+        plot_flip   := 6.25
+        plot_c_gex  := 4194449.163711248
+        plot_p_gex  := 1900085.895691693
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 9
+        plot_c_wall := 7.0
+        plot_p_wall := 7.0
+        plot_flip   := 6.25
+        plot_c_gex  := 13860585.141506871
+        plot_p_gex  := 4276986.595481177
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 10
+        plot_c_wall := 7.0
+        plot_p_wall := 6.5
+        plot_flip   := 6.25
+        plot_c_gex  := 5429406.265333654
+        plot_p_gex  := 2787601.986048053
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 11
+        plot_c_wall := 7.0
+        plot_p_wall := 7.0
+        plot_flip   := 5.75
+        plot_c_gex  := 15874952.05092622
+        plot_p_gex  := 4831889.113452917
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 12
+        plot_c_wall := 6.5
+        plot_p_wall := 6.5
+        plot_flip   := 5.75
+        plot_c_gex  := 4270213.903594941
+        plot_p_gex  := 3820651.7946827463
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 15
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := na
+        plot_c_gex  := 23470364.980320618
+        plot_p_gex  := 29401868.84964444
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 16
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := na
+        plot_c_gex  := 11341360.708175438
+        plot_p_gex  := 13402039.83700624
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 17
+        plot_c_wall := 5.5
+        plot_p_wall := 5.5
+        plot_flip   := na
+        plot_c_gex  := 18892213.271243032
+        plot_p_gex  := 26075870.66887221
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 18
+        plot_c_wall := 5.5
+        plot_p_wall := 5.5
+        plot_flip   := na
+        plot_c_gex  := 1787995.7061610967
+        plot_p_gex  := 2422699.5343982344
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 22
+        plot_c_wall := 7.0
+        plot_p_wall := 6.0
+        plot_flip   := na
+        plot_c_gex  := 6058993.626450071
+        plot_p_gex  := 4218760.347678346
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 23
+        plot_c_wall := 7.0
+        plot_p_wall := 6.0
+        plot_flip   := 2.25
+        plot_c_gex  := 5995422.576000001
+        plot_p_gex  := 2643941.1900000004
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 23
+        plot_c_wall := 7.0
+        plot_p_wall := 6.0
+        plot_flip   := 2.25
+        plot_c_gex  := 5995422.576000001
+        plot_p_gex  := 2643941.1900000004
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 23
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := na
+        plot_c_gex  := 14049843.91862863
+        plot_p_gex  := 10367925.42024582
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 24
+        plot_c_wall := 7.0
+        plot_p_wall := 6.0
+        plot_flip   := 2.25
+        plot_c_gex  := 5995422.576000001
+        plot_p_gex  := 2643941.1900000004
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 24
+        plot_c_wall := 7.0
+        plot_p_wall := 6.0
+        plot_flip   := 6.25
+        plot_c_gex  := 11081861.323500002
+        plot_p_gex  := 6821368.026000001
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 25
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := 6.25
+        plot_c_gex  := 5245552.4084600005
+        plot_p_gex  := 4767455.732
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 26
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := 6.25
+        plot_c_gex  := 5245552.4084600005
+        plot_p_gex  := 4767455.732
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 27
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := 5.25
+        plot_c_gex  := 5271508.78386
+        plot_p_gex  := 4256739.46878
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 28
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := 5.25
+        plot_c_gex  := 5271508.78386
+        plot_p_gex  := 4256739.46878
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 29
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := 5.25
+        plot_c_gex  := 5271508.78386
+        plot_p_gex  := 4256739.46878
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 30
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := 5.25
+        plot_c_gex  := 5880830.445
+        plot_p_gex  := 4788787.878
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 31
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := 5.25
+        plot_c_gex  := 7730148.800000001
+        plot_p_gex  := 5466659.000000001
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 1
+        plot_c_wall := 6.0
+        plot_p_wall := 5.5
+        plot_flip   := 5.75
+        plot_c_gex  := 8229307.824539999
+        plot_p_gex  := 6486696.292079999
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 2
+        plot_c_wall := 6.0
+        plot_p_wall := 5.5
+        plot_flip   := na
+        plot_c_gex  := 8495798.4
+        plot_p_gex  := 5508920.7
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 3
+        plot_c_wall := 6.0
+        plot_p_wall := 5.5
+        plot_flip   := na
+        plot_c_gex  := 6830229.569999999
+        plot_p_gex  := 3528328.95
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 4
+        plot_c_wall := 6.0
+        plot_p_wall := 5.5
+        plot_flip   := 5.75
+        plot_c_gex  := 2142474.1925
+        plot_p_gex  := 1292534.3949999998
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 5
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := na
+        plot_c_gex  := 6714449.48
+        plot_p_gex  := 6394985.128
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 6
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := na
+        plot_c_gex  := 7358016.204
+        plot_p_gex  := 6714546.635999999
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 7
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := 5.75
+        plot_c_gex  := 10618988.044
+        plot_p_gex  := 6394124.353
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 8
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := 5.75
+        plot_c_gex  := 12171421.831
+        plot_p_gex  := 5017846.361
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 9
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := 5.75
+        plot_c_gex  := 16635829.799
+        plot_p_gex  := 8682823.816
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 10
+        plot_c_wall := 7.0
+        plot_p_wall := 6.0
+        plot_flip   := na
+        plot_c_gex  := 11065549.8352
+        plot_p_gex  := 7097273.01112
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
 
+    if barstate.islast
+        cur_strikes := array.from(7.0, 6.5, 6.0, 5.5)
+        cur_lengths := array.from(40, 18, 7, 2)
+        cur_signs   := array.from(1, 1, 1, 1)
+        cur_labels  := array.from('$9.4M', '$4.3M', '$1.8M', '$137K')
 
-// AMZU
-f_symbol_AMZU(int ym) =>
-    string b = switch ym
-        202601 => "2=38.80~33.80~29.90~502682~0~0~0~0~38.80:502682;36.80:404784;40.00:353257;39.80:270828;35.00:-136312;37.80:83111;31.80:-78665;32.80:-60100;34.80:59862;38.00:54298;36.00:49269;35.80:46952;37.00:-37417;33.80:-35439;30.80:-34824;30.00:33622;29.80:-24479;32.00:-22116;39.00:17611;34.00:-14630;33.00:-3481;31.00:-1877|3=36.80~33.80~36.40~388454~0~0~0~0~36.80:388454;35.00:-130813;37.80:79758;31.80:-75492;32.80:-57675;34.80:57447;38.00:52108;36.00:47281;35.80:45058;37.00:-35908;33.80:-34010;30.80:-33419;30.00:32265;29.80:-23491;32.00:-21224;28.80:-16914;34.00:-14040;33.00:-3341;31.00:-1801;29.00:-1560|4=36.80~35.00~n~352526~0~0~0~0~35.00:-352526;36.80:310507;33.80:-142166;31.80:-115629;32.80:-73064;34.80:65564;30.80:-65255;38.00:53597;34.00:-53530;37.80:53181;37.00:-51034;32.00:-39497;29.80:-38712;36.00:24464;28.80:-24457;33.00:-19520;35.80:18075;30.00:14999;31.00:-7362;29.00:-4075|5=36.80~35.00~n~353366~0~0~0~0~35.00:-353366;36.80:311247;33.80:-142505;31.80:-115905;32.80:-73238;34.80:65720;30.80:-65411;38.00:53725;34.00:-53658;37.80:53308;37.00:-51156;32.00:-39591;29.80:-38804;36.00:24522;28.80:-24516;33.00:-19567;35.80:18118;30.00:15035;31.00:-7380;29.00:-4085|6=36.80~35.00~39.40~365270~0~0~0~0~35.00:-365270;40.00:354639;38.80:347316;36.80:328930;39.80:179665;33.80:-150601;31.80:-122490;40.80:103350;32.80:-77399;38.00:72094;34.80:69454;30.80:-69127;37.80:56336;34.00:-55811;32.00:-49195;37.00:-46246;39.00:29305;36.00:28221;33.00:-24764;35.80:19147;31.00:-12873|7=38.80~33.80~36.40~602928~0~0~0~0~38.80:602928;36.80:481051;40.00:446720;39.80:263638;33.80:-159491;40.80:131745;37.80:99567;38.00:82238;35.00:-79262;32.80:-71885;36.00:66380;42.00:52130;41.00:51455;34.80:47494;35.80:41155;39.00:31094;42.80:20331;37.00:-17924;43.00:8621;41.80:7605;34.00:-4739;33.00:-2824|8=38.80~35.00~36.90~939748~0~0~0~0~38.80:939748;40.00:700837;39.80:551474;40.80:315373;36.80:213002;35.00:-211438;36.00:155330;37.80:150038;38.00:145638;32.80:-140928;42.00:85766;37.00:78571;41.00:78350;33.80:-68466;39.00:51620;35.80:42626;43.80:42610;34.80:37886;34.00:-35415;42.80:32792;33.00:-27107;43.00:16465;41.80:14207|9=38.80~35.00~36.40~1061177~0~0~0~0~38.80:1061177;40.00:757988;39.80:583767;40.80:358930;42.00:239881;35.00:-220350;36.80:213515;36.00:174010;38.00:164134;37.80:135384;45.00:120855;37.00:86090;41.00:83596;33.80:-77204;39.00:73090;43.80:59543;42.80:36638;34.00:-34175;34.80:31066;44.00:28670;43.00:24204;41.80:21657;44.80:15206;35.80:11904|10=40.00~35.00~37.40~1158992~0~0~0~0~40.00:1158992;38.80:918277;39.80:761178;40.80:514995;42.00:279574;35.00:-173678;45.00:155532;36.80:148949;37.80:142204;41.00:117758;39.00:107830;42.80:62017;43.80:60104;44.00:37086;43.00:36871;41.80:34922;34.00:-27572;38.00:24887;34.80:19872;44.80:19474;37.00:-16363;35.80:9554;36.00:-259"
-        => ""
+// ===== BITO DATA =====
+if current_ticker == "BITO"
+    if year == 2025 and month == 12 and dayofmonth == 23
+        plot_c_wall := 14.0
+        plot_p_wall := 12.0
+        plot_flip   := 17.5
+        plot_c_gex  := 1544687.4300000002
+        plot_p_gex  := 1262927.6
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 23
+        plot_c_wall := 14.0
+        plot_p_wall := 12.0
+        plot_flip   := 17.5
+        plot_c_gex  := 1544687.4300000002
+        plot_p_gex  := 1262927.6
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 24
+        plot_c_wall := 14.0
+        plot_p_wall := 12.0
+        plot_flip   := 17.5
+        plot_c_gex  := 1544687.4300000002
+        plot_p_gex  := 1262927.6
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 24
+        plot_c_wall := 13.0
+        plot_p_wall := 12.0
+        plot_flip   := 12.75
+        plot_c_gex  := 5795738.025
+        plot_p_gex  := 2733815.865
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 25
+        plot_c_wall := 13.0
+        plot_p_wall := 12.5
+        plot_flip   := 12.75
+        plot_c_gex  := 5407029.449999999
+        plot_p_gex  := 1221777.27
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 26
+        plot_c_wall := 13.0
+        plot_p_wall := 12.5
+        plot_flip   := 12.75
+        plot_c_gex  := 5407029.449999999
+        plot_p_gex  := 1221777.27
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 27
+        plot_c_wall := 13.0
+        plot_p_wall := 12.0
+        plot_flip   := na
+        plot_c_gex  := 1831093.695
+        plot_p_gex  := 6086089.305
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 28
+        plot_c_wall := 13.0
+        plot_p_wall := 12.0
+        plot_flip   := na
+        plot_c_gex  := 1831093.695
+        plot_p_gex  := 6086089.305
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 29
+        plot_c_wall := 13.0
+        plot_p_wall := 12.0
+        plot_flip   := na
+        plot_c_gex  := 1831093.695
+        plot_p_gex  := 6086089.305
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 30
+        plot_c_wall := 13.0
+        plot_p_wall := 12.0
+        plot_flip   := 10.75
+        plot_c_gex  := 2177882.6300000004
+        plot_p_gex  := 5420654.8
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 31
+        plot_c_wall := 13.0
+        plot_p_wall := 12.0
+        plot_flip   := na
+        plot_c_gex  := 2996639.724
+        plot_p_gex  := 5843308.276000001
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 1
+        plot_c_wall := 13.0
+        plot_p_wall := 12.0
+        plot_flip   := 13.25
+        plot_c_gex  := 2605299.91866
+        plot_p_gex  := 4294167.7578300005
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 2
+        plot_c_wall := 13.0
+        plot_p_wall := 12.0
+        plot_flip   := na
+        plot_c_gex  := 2284221.40713
+        plot_p_gex  := 5104468.23012
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 3
+        plot_c_wall := 13.0
+        plot_p_wall := 12.0
+        plot_flip   := na
+        plot_c_gex  := 1827563.029
+        plot_p_gex  := 4158505.5320000006
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 4
+        plot_c_wall := 13.0
+        plot_p_wall := 12.0
+        plot_flip   := 13.25
+        plot_c_gex  := 2421438.7980000004
+        plot_p_gex  := 3593330.5340000005
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 5
+        plot_c_wall := 13.0
+        plot_p_wall := 12.0
+        plot_flip   := 13.25
+        plot_c_gex  := 2417561.3940000003
+        plot_p_gex  := 3587576.6020000004
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 6
+        plot_c_wall := 13.0
+        plot_p_wall := 12.0
+        plot_flip   := 13.25
+        plot_c_gex  := 2597732.753
+        plot_p_gex  := 3765948.494
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 7
+        plot_c_wall := 13.0
+        plot_p_wall := 13.0
+        plot_flip   := 13.25
+        plot_c_gex  := 2810053.4199999995
+        plot_p_gex  := 2998855.9
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 8
+        plot_c_wall := 13.0
+        plot_p_wall := 12.0
+        plot_flip   := 13.25
+        plot_c_gex  := 3206539.764
+        plot_p_gex  := 3230460.984
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 9
+        plot_c_wall := 13.0
+        plot_p_wall := 12.0
+        plot_flip   := 13.25
+        plot_c_gex  := 3687026.551
+        plot_p_gex  := 3523681.6550000003
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 10
+        plot_c_wall := 13.0
+        plot_p_wall := 12.0
+        plot_flip   := 13.75
+        plot_c_gex  := 2612109.9968
+        plot_p_gex  := 3589997.6816
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
 
-// BBAI
-f_symbol_BBAI(int ym) =>
-    string b = switch ym
-        202510 => "13=9.00~9.00~n~11590948~1~0~0~0~9.00:11590948;8.50:1616212;9.50:2172;8.00:56;10.00:0;7.50:0;10.50:0|14=9.00~9.00~7.75~22494672~2~0~0~0~9.00:22494672;8.50:379968;9.50:8070;8.00:0;10.00:0;10.50:0;7.50:-0|15=8.50~8.50~7.25~26874676~3~0~1~0~8.50:26874676;9.00:7083;8.00:389;9.50:0;7.50:-0;10.00:0;7.00:0|16=7.50~7.50~6.75~112960~0~0~0~0~7.50:112960;8.00:11968;7.00:0;8.50:0;9.00:0;6.50:-0|20=8.00~8.00~6.50~1892882~0~0~0~0~8.00:1892882;7.00:1361469;6.00:-578|21=7.00~7.00~6.75~3007007~0~0~0~0~7.00:3007007;8.00:323933;7.50:22614;6.00:-19273;6.50:-17759|22=7.00~7.00~n~872459~0~0~0~0~6.50:-872459;7.00:821130;6.00:-729804;7.50:5469;5.50:-200|23=7.00~7.00~6.75~1378274~0~0~0~0~7.00:1378274;6.50:-661018;6.00:-238127;8.00:27092;7.50:15978;5.50:-52|24=7.00~7.00~6.75~1787989~0~0~0~0~7.00:1787989;6.50:-235424;8.00:211997;7.50:70055;6.00:-22250|27=7.00~7.00~6.75~1823924~0~0~0~0~7.00:1823924;8.00:240945;6.50:-163089;7.50:157855;6.00:-7360;8.50:326|28=7.00~7.00~6.75~1799088~0~0~0~0~7.00:1799088;6.50:-723308;6.00:-146049;7.50:29195;8.00:11955;5.50:-13|29=7.00~7.00~6.75~2661970~0~0~0~0~7.00:2661970;6.50:-461663;7.50:358541;8.00:40455;6.00:-38654|30=7.00~7.00~6.75~2342227~0~0~0~0~7.00:2342227;6.50:-903573;7.50:652890;6.00:-158180;8.00:5116;5.50:-12|31=7.00~7.00~6.75~3299246~0~0~0~0~7.00:3299246;7.50:2309076;6.50:-461975;8.00:31823;6.00:-21219"
-        202511 => "3=6.00~6.00~n~3049008~0~0~0~0~6.00:-3049008;6.50:-1188314;7.00:143689;5.50:-1932;7.50:1257|4=6.00~6.00~n~4030909~0~0~0~0~6.00:-4030909;5.50:-568057;5.00:-7885;6.50:-7485|5=6.00~6.00~n~6678820~0~0~0~0~6.00:-6678820;6.50:670214;5.50:-28348;7.00:22757;5.00:-2|6=6.00~6.00~n~2509444~0~0~0~0~6.00:-2509444;5.50:-1590268;5.00:-12943;6.50:2082|7=6.00~6.00~n~2674225~0~0~0~0~6.00:-2674225;5.50:-1637438;5.00:-6443;6.50:2122|10=6.00~6.00~n~3239335~0~0~0~0~5.50:-3239335;6.00:-1912885;5.00:-616;6.50:342|11=6.00~6.00~n~3685275~0~0~1~0~6.00:-3685275;6.50:198871;5.50:-32357;7.00:141;5.00:-0|12=7.00~7.00~6.25~10635120~1~0~0~0~7.00:10635120;7.50:3711986;8.00:7232;6.50:6008;8.50:0;6.00:-0|13=6.50~6.50~n~696671~0~0~0~0~6.00:-696671;6.50:289438;7.00:15251;5.50:-4;7.50:0|14=6.00~6.00~n~7905779~0~0~1~0~6.00:-7905779;6.50:-5604;5.50:-3592;7.00:1;5.00:-0|17=5.50~5.50~n~9408985~0~0~1~0~5.50:-9408985;6.00:-6111;5.00:-1;6.50:0;4.50:-0|18=6.00~6.00~5.75~1495399~3~0~3~0~6.00:1495399;6.50:37;5.50:-27;7.00:0;5.00:-0|19=6.00~6.00~5.75~575149~0~0~0~0~6.00:575149;5.50:-731;6.50:0;5.00:-0;7.00:0|20=5.50~5.50~n~30170499~0~0~4~0~5.50:-30170499;6.00:0;5.00:-0;6.50:0;4.50:-0|24=6.00~6.00~n~990361~0~0~0~0~7.00:990361;6.00:217717;5.50:27923|25=6.00~6.00~5.25~614097~0~0~0~0~6.50:614097;7.00:492199;6.00:309545;5.50:40059;5.00:-51|26=6.00~6.00~5.25~328679~0~0~0~0~6.00:328679;6.50:300291;5.50:141319;7.00:71218;5.00:-535|28=6.00~6.00~n~1301455~0~0~0~0~7.00:1301455;6.50:972440;6.00:118294;5.50:3721;7.50:743"
-        202512 => "1=6.00~6.00~5.25~335538~0~0~0~0~6.50:335538;6.00:72871;5.50:51343;7.00:29005;5.00:-33|2=6.00~6.00~5.25~232365~0~0~0~0~6.00:-232365;5.50:213527;6.50:20554;5.00:-2624|3=6.00~6.00~5.25~391587~0~0~0~0~6.50:391587;7.00:29758;6.00:15803;5.50:4146;5.00:-3|4=7.00~7.00~6.25~19325869~2~0~0~0~7.00:19325869;7.50:524559;6.50:172697;8.00:26177;6.00:-2|5=7.00~7.00~5.75~16209925~2~0~0~0~7.00:16209925;6.50:682437;7.50:130128;6.00:-831;8.00:713;5.50:0|8=7.00~6.50~6.25~2923147~0~0~0~0~7.00:2923147;6.50:2129200;6.00:-14661;7.50:688;5.50:-0|9=7.00~7.00~6.25~9583599~1~0~0~0~7.00:9583599;6.50:972344;7.50:7256;6.00:-1355;8.00:1;5.50:-0|10=7.00~6.50~6.25~3787229~0~0~0~0~7.00:3787229;6.50:1479089;6.00:-5548;7.50:477;5.50:-0|11=7.00~7.00~5.75~11043063~1~0~0~0~7.00:11043063;6.50:431570;7.50:3949;6.00:-151;8.00:0;5.50:0|12=6.50~6.50~5.75~449562~0~0~0~0~6.50:449562;6.00:-137499;7.00:35837;7.50:0;5.50:0|15=6.00~6.00~n~5931504~2~0~2~0~6.00:-5931504;6.50:43;5.50:-7;7.00:0;5.00:-0|16=6.00~6.00~n~2060679~1~0~1~0~6.00:-2060679;5.50:-3632;6.50:0;5.00:-0;7.00:0|17=5.50~5.50~n~7183657~1~0~2~0~5.50:-7183657;5.00:-0;6.00:-0;6.50:0;4.50:-0|18=5.50~5.50~n~634704~0~0~0~0~5.50:-634704;6.00:-0;5.00:-0;6.50:0|22=7.00~6.00~n~4943277~0~0~0~0~7.00:4943277;6.00:1721092;5.50:5357|23=7.00~6.00~2.25~4658376~0~0~0~0~7.00:4658376;8.00:3863885;10.00:2389985;9.00:893652;4.00:533750;12.00:487779;5.00:484011;11.00:294158;15.00:290563;17.00:260652;3.50:227400;6.00:133919;13.00:78179;5.50:-67763;16.00:62402;3.00:61799;4.50:55231;14.00:50984;8.50:27063;1.50:-22307;2.50:21918;6.50:12071;2.00:8259;1.00:-4683;9.50:2132;7.50:-562;10.50:43;0.50:-27|23=7.00~6.00~2.25~4658376~0~0~0~0~7.00:4658376;8.00:3863885;10.00:2389985;9.00:893652;4.00:533750;12.00:487779;5.00:484011;11.00:294158;15.00:290563;17.00:260652;3.50:227400;6.00:133919;13.00:78179;5.50:-67763;16.00:62402;3.00:61799;4.50:55231;14.00:50984;8.50:27063;1.50:-22307;2.50:21918;6.50:12071;2.00:8259;1.00:-4683;9.50:2132;7.50:-562;10.50:43;0.50:-27|23=6.00~6.00~n~3681918~1~0~1~0~6.00:3681918;7.00:530013;5.50:60209;6.50:38287;5.00:256|24=7.00~6.00~2.25~4658376~0~0~0~0~7.00:4658376;8.00:3863885;10.00:2389985;9.00:893652;4.00:533750;12.00:487779;5.00:484011;11.00:294158;15.00:290563;17.00:260652;3.50:227400;6.00:133919;13.00:78179;5.50:-67763;16.00:62402;3.00:61799;4.50:55231;14.00:50984;8.50:27063;1.50:-22307;2.50:21918;6.50:12071;2.00:8259;1.00:-4683;9.50:2132;7.50:-562;10.50:43;0.50:-27|24=7.00~6.00~6.25~9497460~1~0~0~0~7.00:9497460;6.50:5031714;6.00:-1144281;5.50:-869025|25=6.00~6.00~6.25~3313296~0~0~0~0~6.50:3313296;5.50:-499235;6.00:478097|26=6.00~6.00~6.25~3313296~0~0~0~0~6.50:3313296;5.50:-499235;6.00:478097|27=6.00~6.00~5.25~1232919~0~0~0~0~6.50:1232919;6.00:1014769;5.50:-652778;5.00:445539|28=6.00~6.00~5.25~1232919~0~0~0~0~6.50:1232919;6.00:1014769;5.50:-652778;5.00:445539|29=6.00~6.00~5.25~1232919~0~0~0~0~6.50:1232919;6.00:1014769;5.50:-652778;5.00:445539|30=6.00~6.00~5.25~1092043~0~0~0~0~6.00:1092043;5.50:-966525;6.50:853124;5.00:542219|31=6.00~6.00~5.25~2263490~0~0~0~0~6.00:2263490;5.50:-1636066;5.00:403940"
-        202601 => "1=6.00~5.50~5.75~3441714~0~0~0~0~6.00:3441714;5.50:-2706012;5.00:-518009|2=6.00~5.50~n~4296788~0~0~0~0~6.00:4296788;5.00:694064;5.50:580479|3=6.00~5.50~n~3354488~0~0~0~0~6.00:3354488;5.00:1545038;6.50:960795;5.50:-26864|4=6.00~5.50~5.75~1278000~0~0~0~0~6.00:1278000;6.50:1145321;5.50:-553330;5.00:-322386|5=6.00~6.00~n~2613962~0~0~0~0~5.50:-2613962;6.50:1473510;5.00:-1107672;6.00:319464|6=6.00~6.00~n~2631866~0~0~0~0~5.50:-2631866;6.50:1483602;5.00:-1438992;6.00:643470|7=6.00~6.00~5.75~6715989~1~0~0~0~7.00:6715989;6.00:4224864;6.50:1821193;5.50:-878409|8=6.00~6.00~5.75~7153575~1~0~0~0~6.00:7153575;6.50:5493849;5.50:-280896|9=6.00~6.00~5.75~9848057~1~0~0~0~7.00:9848057;6.50:8559772;6.00:7953006;5.50:-1002163|10=7.00~6.00~n~9441337~1~0~0~0~7.00:9441337;6.50:4280565;6.00:1830020;5.50:137058"
-        => ""
+    if barstate.islast
+        cur_strikes := array.from(12.0, 13.0, 14.0, 13.5, 12.5, 11.0, 11.5)
+        cur_lengths := array.from(40, 34, 25, 15, 5, 2, 2)
+        cur_signs   := array.from(-1, 1, 1, 1, -1, -1, -1)
+        cur_labels  := array.from('$-3.1M', '$2.6M', '$1.9M', '$1.2M', '$-441K', '$-217K', '$-216K')
 
-// BITO
-f_symbol_BITO(int ym) =>
-    string b = switch ym
-        202512 => "23=14.00~12.00~17.50~998270~0~0~0~0~14.00:998270;12.00:-817493;10.00:-600573;18.00:566695;20.00:437646;19.00:207242;50.00:-138615;11.00:-131884;16.00:129679;30.00:126975;25.00:94235;24.00:78203;17.00:69695;22.00:64529;15.00:61332;13.00:58377;28.00:49834;38.00:45382;27.00:32214;5.00:-31967;3.00:-27666;35.00:23578;40.00:20384;9.00:-18916;21.00:16890;45.00:13946;23.00:13246;31.00:12376;36.00:11529;26.00:10446;49.00:-10224;32.00:10017;42.00:9247;34.00:8034;33.00:7898;37.00:-6756;7.00:-6677;29.00:6062;43.00:5036;8.00:-4316|23=14.00~12.00~17.50~998270~0~0~0~0~14.00:998270;12.00:-817493;10.00:-600573;18.00:566695;20.00:437646;19.00:207242;50.00:-138615;11.00:-131884;16.00:129679;30.00:126975;25.00:94235;24.00:78203;17.00:69695;22.00:64529;15.00:61332;13.00:58377;28.00:49834;38.00:45382;27.00:32214;5.00:-31967;3.00:-27666;35.00:23578;40.00:20384;9.00:-18916;21.00:16890;45.00:13946;23.00:13246;31.00:12376;36.00:11529;26.00:10446;49.00:-10224;32.00:10017;42.00:9247;34.00:8034;33.00:7898;37.00:-6756;7.00:-6677;29.00:6062;43.00:5036;8.00:-4316|24=14.00~12.00~17.50~998270~0~0~0~0~14.00:998270;12.00:-817493;10.00:-600573;18.00:566695;20.00:437646;19.00:207242;50.00:-138615;11.00:-131884;16.00:129679;30.00:126975;25.00:94235;24.00:78203;17.00:69695;22.00:64529;15.00:61332;13.00:58377;28.00:49834;38.00:45382;27.00:32214;5.00:-31967;3.00:-27666;35.00:23578;40.00:20384;9.00:-18916;21.00:16890;45.00:13946;23.00:13246;31.00:12376;36.00:11529;26.00:10446;49.00:-10224;32.00:10017;42.00:9247;34.00:8034;33.00:7898;37.00:-6756;7.00:-6677;29.00:6062;43.00:5036;8.00:-4316|24=13.00~12.00~12.75~4047793~0~0~0~0~13.00:4047793;12.00:-2176292;14.00:2137995;13.50:1128453;12.50:-681712;11.00:-271272;14.50:91217;11.50:-89020|25=13.00~12.50~12.75~4791123~0~0~0~0~13.00:4791123;12.00:-871225;13.50:804933;12.50:-615346;11.50:-73477;11.00:-8262;10.50:-4786|26=13.00~12.50~12.75~4791123~0~0~0~0~13.00:4791123;12.00:-871225;13.50:804933;12.50:-615346;11.50:-73477;11.00:-8262;10.50:-4786|27=13.00~12.00~n~5884769~0~0~0~0~12.00:-5884769;13.00:1831094;13.50:784347;11.00:-516737;12.50:78812;11.50:-53211;10.50:-8801|28=13.00~12.00~n~5884769~0~0~0~0~12.00:-5884769;13.00:1831094;13.50:784347;11.00:-516737;12.50:78812;11.50:-53211;10.50:-8801|29=13.00~12.00~n~5884769~0~0~0~0~12.00:-5884769;13.00:1831094;13.50:784347;11.00:-516737;12.50:78812;11.50:-53211;10.50:-8801|30=13.00~12.00~10.75~4761652~0~0~0~0~12.00:-4761652;13.00:2177883;13.50:796962;11.00:-419653;12.50:170799;11.50:-70600;10.50:8539|31=13.00~12.00~n~4575230~0~0~0~0~12.00:-4575230;13.00:1882853;13.50:707050;11.00:-449712;11.50:-110801;12.50:24315;10.50:-1426"
-        202601 => "1=13.00~12.00~13.25~3671473~0~0~0~0~12.00:-3671473;13.00:2479905;12.50:1254212;13.50:864008;11.50:-378251;11.00:-297946;10.50:-13783|2=13.00~12.00~n~3947460~0~0~0~0~12.00:-3947460;13.00:2274433;12.50:993719;13.50:837167;11.50:-695916;11.00:-371845;10.50:-355|3=13.00~12.00~n~3510735~0~0~0~0~12.00:-3510735;13.00:1827563;14.00:1044445;13.50:668360;11.50:-476998;11.00:-343461;12.50:284647|4=13.00~12.00~13.25~2919605~0~0~0~0~12.00:-2919605;13.00:2421439;14.00:1242222;13.50:1120442;11.50:-378722;11.00:-221006;12.50:212876|5=13.00~12.00~13.25~2914930~0~0~0~0~12.00:-2914930;13.00:2417561;14.00:1240233;13.50:1118648;11.50:-378115;11.00:-220652;12.50:212535|6=13.00~12.00~13.25~3050056~0~0~0~0~12.00:-3050056;13.00:2597733;14.00:1342344;13.50:1174266;15.00:522600;11.50:-396915;12.50:223102;14.50:16203|7=13.00~13.00~13.25~2276829~0~0~0~0~14.00:2276829;13.50:2203296;12.00:-1410467;13.00:-188802;11.50:-181650;12.50:179242;11.00:-94066;14.50:23417|8=13.00~12.00~13.25~2613424~0~0~0~0~12.00:-2613424;13.00:2598116;13.50:2484916;14.00:2236918;12.50:-648095;11.50:-201594;11.00:-141812;14.50:56130|9=13.00~12.00~13.25~3687027~0~0~0~0~13.00:3687027;12.00:-2823804;13.50:2181946;14.00:2063261;12.50:-1053939;11.50:-235097;11.00:-192291;14.50:53402|10=13.00~12.00~13.75~3054129~0~0~0~0~12.00:-3054129;13.00:2612110;14.00:1928391;13.50:1186810;12.50:-441036;11.00:-216738;11.50:-216180"
-        => ""
+// ===== BMNU DATA =====
+if current_ticker == "BMNU"
+    if year == 2025 and month == 10 and dayofmonth == 13
+        plot_c_wall := 31.0
+        plot_p_wall := 30.0
+        plot_flip   := na
+        plot_c_gex  := 76922.08028171572
+        plot_p_gex  := 670527.0428667199
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 14
+        plot_c_wall := 27.0
+        plot_p_wall := 26.0
+        plot_flip   := na
+        plot_c_gex  := 12225.740627525664
+        plot_p_gex  := 154312.796746758
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 15
+        plot_c_wall := 27.0
+        plot_p_wall := 27.0
+        plot_flip   := na
+        plot_c_gex  := 54814.93814615717
+        plot_p_gex  := 221869.9877344457
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 16
+        plot_c_wall := 25.0
+        plot_p_wall := 25.0
+        plot_flip   := na
+        plot_c_gex  := 703248.4965827618
+        plot_p_gex  := 1121120.7916536783
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 20
+        plot_c_wall := 27.0
+        plot_p_wall := 28.0
+        plot_flip   := na
+        plot_c_gex  := 65823.00613235131
+        plot_p_gex  := 91840.24719652152
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 21
+        plot_c_wall := 27.0
+        plot_p_wall := 25.0
+        plot_flip   := na
+        plot_c_gex  := 62805.01137295608
+        plot_p_gex  := 212971.8626129996
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 22
+        plot_c_wall := 20.0
+        plot_p_wall := 22.0
+        plot_flip   := na
+        plot_c_gex  := 8078.063352616085
+        plot_p_gex  := 156291.18249015207
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 23
+        plot_c_wall := 23.0
+        plot_p_wall := 22.0
+        plot_flip   := na
+        plot_c_gex  := 16827.3578919975
+        plot_p_gex  := 266820.4427503548
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 24
+        plot_c_wall := 25.0
+        plot_p_wall := 25.0
+        plot_flip   := na
+        plot_c_gex  := 59694.30215334648
+        plot_p_gex  := 135700.4194299911
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 27
+        plot_c_wall := 27.0
+        plot_p_wall := 25.0
+        plot_flip   := 27.5
+        plot_c_gex  := 248126.86519589945
+        plot_p_gex  := 171406.5309936181
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 28
+        plot_c_wall := 25.0
+        plot_p_wall := 25.0
+        plot_flip   := na
+        plot_c_gex  := 155429.21450556265
+        plot_p_gex  := 344284.0665392033
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 29
+        plot_c_wall := 23.0
+        plot_p_wall := 22.0
+        plot_flip   := na
+        plot_c_gex  := 38439.61547944796
+        plot_p_gex  := 263711.4398620423
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 30
+        plot_c_wall := 20.0
+        plot_p_wall := 18.0
+        plot_flip   := 15.5
+        plot_c_gex  := 6630.94990712186
+        plot_p_gex  := 91159.62459294371
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 31
+        plot_c_wall := 20.0
+        plot_p_wall := 20.0
+        plot_flip   := 16.5
+        plot_c_gex  := 165805.75962810166
+        plot_p_gex  := 459388.4349329055
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 3
+        plot_c_wall := 16.0
+        plot_p_wall := 17.0
+        plot_flip   := 15.5
+        plot_c_gex  := 62748.47056232468
+        plot_p_gex  := 271214.27966778865
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 4
+        plot_c_wall := 15.0
+        plot_p_wall := 15.0
+        plot_flip   := na
+        plot_c_gex  := 2750.713788415938
+        plot_p_gex  := 20602.28490507448
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 5
+        plot_c_wall := 15.0
+        plot_p_wall := 15.0
+        plot_flip   := na
+        plot_c_gex  := 55788.6644962088
+        plot_p_gex  := 404204.6635197015
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 6
+        plot_c_wall := 13.0
+        plot_p_wall := 12.0
+        plot_flip   := na
+        plot_c_gex  := 120.07922504082148
+        plot_p_gex  := 41370.79594995718
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 7
+        plot_c_wall := 14.0
+        plot_p_wall := 13.0
+        plot_flip   := na
+        plot_c_gex  := 19654.011457256744
+        plot_p_gex  := 71402.22432968114
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 10
+        plot_c_wall := 15.0
+        plot_p_wall := 15.0
+        plot_flip   := na
+        plot_c_gex  := 78915.51842182313
+        plot_p_gex  := 240177.66476207043
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 11
+        plot_c_wall := 14.0
+        plot_p_wall := 13.0
+        plot_flip   := na
+        plot_c_gex  := 9144.085638068938
+        plot_p_gex  := 278585.0320607527
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 12
+        plot_c_wall := 14.0
+        plot_p_wall := 14.0
+        plot_flip   := na
+        plot_c_gex  := 51969.33353179028
+        plot_p_gex  := 67013.08797520325
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 13
+        plot_c_wall := 11.0
+        plot_p_wall := 11.0
+        plot_flip   := na
+        plot_c_gex  := 12045.226715873596
+        plot_p_gex  := 34931.157476033426
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 14
+        plot_c_wall := 10.0
+        plot_p_wall := 10.0
+        plot_flip   := na
+        plot_c_gex  := 13090.794809217175
+        plot_p_gex  := 251634.16688828572
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 17
+        plot_c_wall := 9.0
+        plot_p_wall := 8.0
+        plot_flip   := 7.5
+        plot_c_gex  := 1.868826368215846e-08
+        plot_p_gex  := 86604.4664532882
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 18
+        plot_c_wall := 8.0
+        plot_p_wall := 8.0
+        plot_flip   := na
+        plot_c_gex  := 131.99191012635973
+        plot_p_gex  := 1309.765877407723
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 19
+        plot_c_wall := 7.0
+        plot_p_wall := 7.0
+        plot_flip   := na
+        plot_c_gex  := 4216.867712059027
+        plot_p_gex  := 80120.48652912152
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 20
+        plot_c_wall := 6.0
+        plot_p_wall := 5.0
+        plot_flip   := na
+        plot_c_gex  := 4.116549357367381e-27
+        plot_p_gex  := 1.0088185645790912e-08
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 24
+        plot_c_wall := 8.0
+        plot_p_wall := 7.0
+        plot_flip   := 6.5
+        plot_c_gex  := 49476.97894008652
+        plot_p_gex  := 76190.27662714117
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 25
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := na
+        plot_c_gex  := 44749.91967447281
+        plot_p_gex  := 51298.688407322494
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 26
+        plot_c_wall := 8.0
+        plot_p_wall := 8.0
+        plot_flip   := 7.5
+        plot_c_gex  := 1682224.9914273643
+        plot_p_gex  := 62333.30808280912
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 28
+        plot_c_wall := 8.0
+        plot_p_wall := 8.0
+        plot_flip   := na
+        plot_c_gex  := 4214996.90419621
+        plot_p_gex  := 124195.9800799902
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 1
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := na
+        plot_c_gex  := 162137.40815834017
+        plot_p_gex  := 208116.67315846647
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 2
+        plot_c_wall := 8.0
+        plot_p_wall := 7.0
+        plot_flip   := 7.5
+        plot_c_gex  := 600433.5761882963
+        plot_p_gex  := 211985.76934109995
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 3
+        plot_c_wall := 8.0
+        plot_p_wall := 8.0
+        plot_flip   := 7.5
+        plot_c_gex  := 7485572.58771584
+        plot_p_gex  := 201149.74466990423
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 4
+        plot_c_wall := 9.0
+        plot_p_wall := 9.0
+        plot_flip   := na
+        plot_c_gex  := 597195.4659594197
+        plot_p_gex  := 116856.62631205942
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 5
+        plot_c_wall := 8.0
+        plot_p_wall := 8.0
+        plot_flip   := 7.5
+        plot_c_gex  := 5879941.488682581
+        plot_p_gex  := 444386.35131563066
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 8
+        plot_c_wall := 9.0
+        plot_p_wall := 9.0
+        plot_flip   := na
+        plot_c_gex  := 1118988.597224568
+        plot_p_gex  := 253620.422377778
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 9
+        plot_c_wall := 11.0
+        plot_p_wall := 11.0
+        plot_flip   := na
+        plot_c_gex  := 1241563.412111892
+        plot_p_gex  := 50791.23049548649
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 10
+        plot_c_wall := 11.0
+        plot_p_wall := 11.0
+        plot_flip   := na
+        plot_c_gex  := 846189.048918485
+        plot_p_gex  := 43660.860017907085
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 11
+        plot_c_wall := 10.0
+        plot_p_wall := 10.0
+        plot_flip   := na
+        plot_c_gex  := 3636345.975854912
+        plot_p_gex  := 271415.1364505786
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 12
+        plot_c_wall := 8.0
+        plot_p_wall := 8.0
+        plot_flip   := 7.5
+        plot_c_gex  := 2198376.1779045262
+        plot_p_gex  := 412414.7696410817
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 15
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := na
+        plot_c_gex  := 368.3648789362807
+        plot_p_gex  := 2213.392446478
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 16
+        plot_c_wall := 7.0
+        plot_p_wall := 7.0
+        plot_flip   := 6.5
+        plot_c_gex  := 7157.3061811385405
+        plot_p_gex  := 3074.5348828887504
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 17
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := na
+        plot_c_gex  := 2208.318101437819
+        plot_p_gex  := 10533.260680065674
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 18
+        plot_c_wall := 5.0
+        plot_p_wall := 5.0
+        plot_flip   := na
+        plot_c_gex  := 7.175222040568787e-07
+        plot_p_gex  := 9.117197777383538e-07
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 22
+        plot_c_wall := 7.0
+        plot_p_wall := 6.0
+        plot_flip   := na
+        plot_c_gex  := 267448.601450803
+        plot_p_gex  := 380062.3506360491
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 23
+        plot_c_wall := 11.0
+        plot_p_wall := 8.0
+        plot_flip   := 2.5
+        plot_c_gex  := 471050.211
+        plot_p_gex  := 160179.105
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 23
+        plot_c_wall := 11.0
+        plot_p_wall := 8.0
+        plot_flip   := 2.5
+        plot_c_gex  := 471050.211
+        plot_p_gex  := 160179.105
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 23
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := na
+        plot_c_gex  := 221737.837095483
+        plot_p_gex  := 1349802.1733870665
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 24
+        plot_c_wall := 11.0
+        plot_p_wall := 8.0
+        plot_flip   := 2.5
+        plot_c_gex  := 471050.211
+        plot_p_gex  := 160179.105
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 24
+        plot_c_wall := 5.0
+        plot_p_wall := 6.0
+        plot_flip   := na
+        plot_c_gex  := 39024.25
+        plot_p_gex  := 64078.37999999999
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 26
+        plot_c_wall := 5.0
+        plot_p_wall := 5.0
+        plot_flip   := na
+        plot_c_gex  := 464429.5281123398
+        plot_p_gex  := 1481690.3427915063
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 27
+        plot_c_wall := 5.0
+        plot_p_wall := 5.0
+        plot_flip   := na
+        plot_c_gex  := 56751.156
+        plot_p_gex  := 164219.832
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 28
+        plot_c_wall := 5.0
+        plot_p_wall := 5.0
+        plot_flip   := na
+        plot_c_gex  := 56751.156
+        plot_p_gex  := 164219.832
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 29
+        plot_c_wall := 5.0
+        plot_p_wall := 5.0
+        plot_flip   := na
+        plot_c_gex  := 56751.156
+        plot_p_gex  := 164219.832
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 30
+        plot_c_wall := 5.0
+        plot_p_wall := 5.0
+        plot_flip   := na
+        plot_c_gex  := 71312.44999999998
+        plot_p_gex  := 210478.37399999995
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 31
+        plot_c_wall := 5.0
+        plot_p_wall := 5.0
+        plot_flip   := na
+        plot_c_gex  := 75773.61000000002
+        plot_p_gex  := 212398.56
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 1
+        plot_c_wall := 5.0
+        plot_p_wall := 5.0
+        plot_flip   := na
+        plot_c_gex  := 87425.67599999999
+        plot_p_gex  := 257017.67
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 2
+        plot_c_wall := 5.0
+        plot_p_wall := 5.0
+        plot_flip   := na
+        plot_c_gex  := 108945.76
+        plot_p_gex  := 294376.3
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 3
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := na
+        plot_c_gex  := 493012.716
+        plot_p_gex  := 260681.652
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 4
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := na
+        plot_c_gex  := 454181.91
+        plot_p_gex  := 219002.784
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 5
+        plot_c_wall := 7.0
+        plot_p_wall := 6.0
+        plot_flip   := na
+        plot_c_gex  := 469260.83100000006
+        plot_p_gex  := 222276.912
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 6
+        plot_c_wall := 7.0
+        plot_p_wall := 8.0
+        plot_flip   := na
+        plot_c_gex  := 545159.247
+        plot_p_gex  := 275064.08
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 7
+        plot_c_wall := 7.0
+        plot_p_wall := 6.0
+        plot_flip   := na
+        plot_c_gex  := 522507.92999999993
+        plot_p_gex  := 205637.502
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 8
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := 5.5
+        plot_c_gex  := 491956.992
+        plot_p_gex  := 253037.952
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 9
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := na
+        plot_c_gex  := 632786.9440000001
+        plot_p_gex  := 362436.096
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 10
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := 5.5
+        plot_c_gex  := 740763.457
+        plot_p_gex  := 334895.61400000006
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 11
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := 5.5
+        plot_c_gex  := 876618.2514999999
+        plot_p_gex  := 502189.656
+        plot_c_dex  := 1393234.4815000002
+        plot_p_dex  := -977054.702
 
-// BMNU
-f_symbol_BMNU(int ym) =>
-    string b = switch ym
-        202510 => "13=31.00~30.00~n~609277~0~0~0~0~30.00:-609277;31.00:-84614;29.00:-24536;32.00:-10839;28.00:-29;33.00:-23;34.00:-0;27.00:-0;35.00:0;26.00:-0;36.00:0;25.00:-0|14=27.00~26.00~n~151316~0~0~0~0~26.00:-151316;27.00:-49922;28.00:-780;25.00:-518;29.00:-0;24.00:-0;30.00:-0;23.00:-0;31.00:-0;22.00:-0|15=27.00~27.00~n~167055~0~0~0~0~27.00:-167055;28.00:-69953;26.00:-1222;29.00:-5;25.00:-0;30.00:-0;24.00:-0;31.00:-0;32.00:0;23.00:-0;22.00:-0|16=25.00~25.00~n~417872~0~0~0~0~25.00:-417872;24.00:-455;26.00:-6;23.00:-0;27.00:-0;28.00:-0;22.00:-0;29.00:-0;21.00:-0;20.00:-0|20=27.00~28.00~n~74202~0~0~0~0~28.00:-74202;25.00:-60905;26.00:-48166;30.00:-24454;29.00:-24349;24.00:-6162;31.00:-2094;23.00:-282;32.00:-168;22.00:-53;27.00:0|21=27.00~25.00~n~182758~0~0~0~0~25.00:-182758;26.00:-59831;24.00:-51947;27.00:20693;29.00:10160;28.00:9583;23.00:-6851;22.00:-3017;21.00:-217;30.00:46|22=20.00~22.00~n~154189~0~0~0~0~22.00:-154189;21.00:-121090;20.00:-82800;23.00:-21795;24.00:-12746;25.00:-2807;19.00:-2703;18.00:-25|23=23.00~22.00~n~254862~0~0~0~0~22.00:-254862;21.00:-66349;23.00:-49136;24.00:-47751;20.00:-28360;25.00:-16465;26.00:-765;19.00:-586;18.00:-8|24=25.00~25.00~n~120869~0~0~0~0~22.00:-120869;24.00:-114442;25.00:-76006;23.00:-52859;21.00:-12748;26.00:-7370;20.00:-2038;27.00:1405;19.00:-15|27=27.00~25.00~27.50~159348~0~0~0~0~27.00:159348;25.00:-94080;26.00:-65708;29.00:57093;28.00:49426;24.00:-13656;30.00:4668;23.00:-730;22.00:-159;31.00:-13|28=25.00~25.00~n~188855~0~0~0~0~25.00:-188855;27.00:64513;26.00:-61735;24.00:-44913;28.00:10168;23.00:-8791;29.00:5619;22.00:-2865;30.00:237;21.00:-55|29=23.00~22.00~n~251859~0~0~0~0~22.00:-251859;23.00:-89147;21.00:-52355;24.00:-37396;25.00:-17373;20.00:-7801;26.00:-620;27.00:78;19.00:-67|30=20.00~18.00~15.50~90257~0~0~0~0~18.00:-90257;19.00:-58674;17.00:-39601;20.00:-24811;16.00:1274;21.00:-495;15.00:-12|31=20.00~20.00~16.50~293583~0~0~0~0~20.00:-293583;19.00:-135552;21.00:-60526;18.00:-28049;22.00:-5521;17.00:-2796;23.00:-80;16.00:1"
-        202511 => "3=16.00~17.00~15.50~266109~0~0~0~0~17.00:-266109;16.00:27134;15.00:-21439;18.00:-11103;19.00:-191|4=15.00~15.00~n~17852~0~0~0~0~15.00:-17852;16.00:-16|5=15.00~15.00~n~348416~0~0~0~0~15.00:-348416;14.00:-8616;16.00:-7289;17.00:-1229;13.00:-92;12.00:-0|6=13.00~12.00~n~41371~0~0~0~0~12.00:-41371;13.00:-13569;11.00:-153;14.00:-9;10.00:-0|7=14.00~13.00~n~71125~0~0~0~0~13.00:-71125;14.00:-24826;15.00:-19145;12.00:-254;16.00:1|10=15.00~15.00~n~161262~0~0~0~0~15.00:-161262;14.00:-10531;13.00:-810;16.00:106;17.00:-0;12.00:-0|11=14.00~13.00~n~273329~0~0~0~0~13.00:-273329;12.00:-2443;14.00:-1345;15.00:-62;11.00:-0|12=14.00~14.00~n~15044~0~0~0~0~14.00:-15044;13.00:-13933;15.00:-7570;16.00:0;12.00:-0|13=11.00~11.00~n~22886~0~0~0~0~11.00:-22886;12.00:-7934;10.00:-20;13.00:-0;9.00:-0|14=10.00~10.00~n~238543~0~0~0~0~10.00:-238543;9.00:-172;11.00:-2;8.00:-0|17=9.00~8.00~7.50~86604~0~0~0~0~8.00:-86604;9.00:-0;7.00:0|18=8.00~8.00~n~1178~0~0~0~0~8.00:-1178;9.00:-207;10.00:-0;7.00:-0|19=7.00~7.00~n~75904~0~0~0~0~7.00:-75904;8.00:-0;6.00:-0|20=6.00~5.00~n~0~0~0~0~0~5.00:-0;6.00:-0|24=8.00~7.00~6.50~31347~0~0~0~0~7.00:-31347;8.00:20615;6.00:1|25=6.00~6.00~n~6549~0~0~0~0~6.00:-6549;7.00:3565|26=8.00~8.00~7.50~1619892~0~0~0~0~8.00:1619892;7.00:-5244;9.00:216|28=8.00~8.00~n~4090801~0~0~0~0~8.00:4090801;9.00:49835;7.00:38"
-        202512 => "1=6.00~6.00~n~45979~0~0~0~0~6.00:-45979;7.00:-283;5.00:-0|2=8.00~7.00~7.50~580388~0~0~0~0~8.00:580388;7.00:-23554;6.00:-1|3=8.00~8.00~7.50~7284423~0~0~0~0~8.00:7284423;9.00:12458;7.00:-29|4=9.00~9.00~n~480339~0~0~0~0~9.00:480339;10.00:268778;8.00:926;11.00:23|5=8.00~8.00~7.50~5435555~0~0~0~0~8.00:5435555;9.00:36387;7.00:-15|8=9.00~9.00~n~865368~0~0~0~0~9.00:865368;10.00:11110;8.00:5512|9=11.00~11.00~n~1190772~0~0~0~0~11.00:1190772;10.00:203916;12.00:3443;9.00:0|10=11.00~11.00~n~820488~0~0~0~0~12.00:820488;11.00:802528;10.00:146;13.00:23|11=10.00~10.00~n~3364931~0~0~0~0~10.00:3364931;11.00:28080;9.00:6;12.00:0|12=8.00~8.00~7.50~1785961~0~0~0~0~8.00:1785961;9.00:2649;7.00:-0|15=6.00~6.00~n~1845~0~0~0~0~6.00:-1845;7.00:-73|16=7.00~7.00~6.50~4083~0~0~0~0~7.00:4083;6.00:-0|17=6.00~6.00~n~8325~0~0~0~0~6.00:-8325;5.00:-0|18=5.00~5.00~n~0~0~0~0~0~5.00:-0;6.00:-0|22=7.00~6.00~n~277354~0~0~0~0~6.00:-277354;7.00:124705|23=11.00~8.00~2.50~465626~0~0~0~0~11.00:465626;13.00:140882;9.00:139733;10.00:135216;12.00:125033;7.00:116593;15.00:47114;6.00:-38103;4.00:-5513;8.00:-3655;3.00:-3408;5.00:-2374;23.00:-914;21.00:-853;22.00:528;20.00:-365;16.00:-299;14.00:128;18.00:-121;17.00:99;19.00:-88;24.00:-85;2.00:0|23=11.00~8.00~2.50~465626~0~0~0~0~11.00:465626;13.00:140882;9.00:139733;10.00:135216;12.00:125033;7.00:116593;15.00:47114;6.00:-38103;4.00:-5513;8.00:-3655;3.00:-3408;5.00:-2374;23.00:-914;21.00:-853;22.00:528;20.00:-365;16.00:-299;14.00:128;18.00:-121;17.00:99;19.00:-88;24.00:-85;2.00:0|23=6.00~6.00~n~1128064~0~0~0~0~6.00:-1128064;5.00:-1454|24=11.00~8.00~2.50~465626~0~0~0~0~11.00:465626;13.00:140882;9.00:139733;10.00:135216;12.00:125033;7.00:116593;15.00:47114;6.00:-38103;4.00:-5513;8.00:-3655;3.00:-3408;5.00:-2374;23.00:-914;21.00:-853;22.00:528;20.00:-365;16.00:-299;14.00:128;18.00:-121;17.00:99;19.00:-88;24.00:-85;2.00:0|24=5.00~6.00~n~38103~0~0~0~0~6.00:-38103;5.00:-2374|26=5.00~5.00~n~1017261~0~0~0~0~5.00:-1017261;6.00:-4524|27=5.00~5.00~n~107469~0~0~0~0~5.00:-107469|28=5.00~5.00~n~107469~0~0~0~0~5.00:-107469|29=5.00~5.00~n~107469~0~0~0~0~5.00:-107469|30=5.00~5.00~n~139166~0~0~0~0~5.00:-139166;6.00:-132319|31=5.00~5.00~n~136625~0~0~0~0~5.00:-136625"
-        202601 => "1=5.00~5.00~n~169592~0~0~0~0~5.00:-169592|2=5.00~5.00~n~185431~0~0~0~0~5.00:-185431|3=6.00~6.00~n~232331~0~0~0~0~6.00:232331|4=6.00~6.00~n~235179~0~0~0~0~6.00:235179|5=7.00~6.00~n~314299~0~0~0~0~7.00:314299;6.00:238695|6=7.00~8.00~n~360482~0~0~0~0~7.00:360482;6.00:281948;8.00:24239|7=7.00~6.00~n~356036~0~0~0~0~7.00:356036;6.00:208824|8=6.00~6.00~5.50~238919~0~0~0~0~6.00:238919;5.00:-144111|9=6.00~6.00~n~270351~0~0~0~0~6.00:270351|10=6.00~6.00~5.50~405868~0~0~0~0~6.00:405868;5.00:-215764|11=6.00~6.00~5.50~374429~0~0~0~0~6.00:374429;5.00:-359142"
-        => ""
+    if barstate.islast
+        cur_strikes := array.from(6.0, 5.0)
+        cur_lengths := array.from(40, 38)
+        cur_signs   := array.from(1, -1)
+        cur_labels  := array.from('$374K | D: $2.4M', '$-359K | D: $1.2M')
 
-// CLF
-f_symbol_CLF(int ym) =>
-    string b = switch ym
-        202512 => "25=14.00~12.00~n~6941221~0~0~0~0~14.00:6941221;13.50:4933894;14.50:1545967;13.00:1410227;12.50:176472;15.00:148540;12.00:89126;15.50:46087|26=14.00~12.00~n~6941221~0~0~0~0~14.00:6941221;13.50:4933894;14.50:1545967;13.00:1410227;12.50:176472;15.00:148540;12.00:89126;15.50:46087|27=15.00~12.00~n~10433728~1~0~0~0~15.00:10433728;12.00:5069208;14.00:4531721;13.00:3071141;14.50:2039333;13.50:1798506;15.50:558016;12.50:513885"
-        => ""
+// ===== CLF DATA =====
+if current_ticker == "CLF"
+    if year == 2025 and month == 12 and dayofmonth == 25
+        plot_c_wall := 14.0
+        plot_p_wall := 12.0
+        plot_flip   := na
+        plot_c_gex  := 6941221.29
+        plot_p_gex  := 0.0
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 26
+        plot_c_wall := 14.0
+        plot_p_wall := 12.0
+        plot_flip   := na
+        plot_c_gex  := 6941221.29
+        plot_p_gex  := 0.0
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 27
+        plot_c_wall := 15.0
+        plot_p_wall := 12.0
+        plot_flip   := na
+        plot_c_gex  := 10433728.0445
+        plot_p_gex  := 0.0
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
 
-// MSTU
-f_symbol_MSTU(int ym) =>
-    string b = switch ym
-        202512 => "24=10.00~8.50~n~381897~0~0~0~0~8.50:-381897;9.50:-351873;9.00:-84279;10.00:-25607;8.00:-14750|25=10.00~8.50~n~842371~0~0~0~0~8.50:-842371;10.00:565240;9.50:-471030;9.00:-209433;10.50:92368;8.00:-43059|26=10.00~8.50~n~842371~0~0~0~0~8.50:-842371;10.00:565240;9.50:-471030;9.00:-209433;10.50:92368;8.00:-43059|27=9.00~9.00~n~125052~0~0~0~0~10.00:125052;9.00:123246;9.50:-26765;8.50:5166;8.00:2287|28=9.00~9.00~n~125052~0~0~0~0~10.00:125052;9.00:123246;9.50:-26765;8.50:5166;8.00:2287|29=9.00~9.00~n~125052~0~0~0~0~10.00:125052;9.00:123246;9.50:-26765;8.50:5166;8.00:2287|30=10.00~9.00~8.75~89744~0~0~0~0~10.00:89744;9.00:-47351;8.50:12056;9.50:6265;8.00:4528|31=10.00~9.00~7.75~277626~0~0~0~0~10.00:277626;9.00:121543;8.00:-81565;8.50:-81090;9.50:29109;7.50:0"
-        202601 => "1=10.00~8.50~2.50~286293~0~0~0~0~8.50:-286293;8.00:-176307;9.00:-152235;10.00:92475;9.50:65181;11.00:55067;13.00:26442;10.50:22405;11.50:19578;12.00:19370;7.00:-3954;15.50:1885;14.00:1323;6.00:-999;12.50:991;14.50:783;13.50:720;16.00:569;20.00:402;15.00:373;17.00:354;4.00:-196;5.00:71;3.00:-42;16.50:36;17.50:29;18.00:26;1.00:0;2.00:0;19.00:0|2=9.00~8.50~n~617344~0~0~0~0~8.50:-617344;8.00:-527221;9.00:282818;9.50:177104;7.50:-703|3=9.00~9.00~8.75~253831~0~0~0~0~10.00:253831;9.00:209562;8.00:-50595;8.50:-22107;9.50:12201|4=10.00~8.00~n~82549~0~0~0~0~10.00:82549;8.00:-66611;8.50:-26171;9.50:-13031;9.00:-6618|5=10.00~8.00~n~82689~0~0~0~0~10.00:82689;8.00:-66724;8.50:-26215;9.50:-13053;9.00:-6629|6=10.00~9.00~9.75~90613~0~0~0~0~10.00:90613;8.50:-28727;10.50:24612;11.00:16916;9.50:-14304;9.00:-7265|7=10.00~9.00~8.75~408721~0~0~0~0~10.00:408721;9.00:248678;8.00:-64814;8.50:-16634;9.50:-6492|8=10.00~8.50~n~388009~0~0~0~0~8.50:-388009;10.00:377533;10.50:181879;9.00:-129121;8.00:-56525;9.50:-43505|9=10.00~8.50~n~706349~0~0~0~0~8.50:-706349;10.00:252162;9.00:-227198;10.50:128102;11.00:107337;9.50:-17588"
-        => ""
+    if barstate.islast
+        cur_strikes := array.from(15.0, 12.0, 14.0, 13.0, 14.5, 13.5, 15.5, 12.5)
+        cur_lengths := array.from(40, 19, 17, 11, 7, 6, 2, 2)
+        cur_signs   := array.from(1, 1, 1, 1, 1, 1, 1, 1)
+        cur_labels  := array.from('$10.4M', '$5.1M', '$4.5M', '$3.1M', '$2.0M', '$1.8M', '$558K', '$514K')
 
-// NOK
-f_symbol_NOK(int ym) =>
-    string b = switch ym
-        202512 => "29=7.00~7.00~n~21154084~2~0~0~0~7.00:21154084;6.50:8092629;6.00:474055;7.50:129793|30=7.00~7.00~n~22605830~2~0~0~0~7.00:22605830;6.50:6558383;6.00:1181866;7.50:154105|31=7.00~7.00~n~21319697~2~0~0~0~7.00:21319697;6.50:9634004;6.00:1006903"
-        202601 => "1=7.00~6.00~n~18573012~2~0~0~0~7.00:18573012;6.50:8707948;6.00:1699138|2=7.00~6.00~n~17244590~1~0~0~0~7.00:17244590;6.50:9225772;6.00:608275;5.50:314674|3=7.00~6.00~n~16893562~1~0~0~0~7.00:16893562;6.50:7118536;6.00:661035|4=7.00~7.00~6.25~18330642~2~0~0~0~7.00:18330642;6.50:9136261;6.00:-1629906|5=7.00~7.00~6.25~18344731~2~0~0~0~7.00:18344731;6.50:9143284;6.00:-1631159|6=7.00~6.00~6.25~19612420~2~0~0~0~7.00:19612420;6.50:9129239;6.00:-2112032|7=7.00~6.00~n~18577944~1~0~0~0~7.00:18577944;6.50:8682661;6.00:279392;5.50:137632|8=7.00~6.50~6.25~20168535~2~0~0~0~7.00:20168535;6.50:12300503;7.50:267593;6.00:-40696|9=7.00~6.50~n~21309411~2~0~0~0~7.00:21309411;6.50:1893739;6.00:323258|10=7.00~6.50~6.75~19447411~2~0~0~0~7.00:19447411;6.50:-2168673;6.00:-2054759|12=7.00~6.50~6.25~20443405~2~0~0~0~7.00:20443405;6.50:-2658084;6.00:112589|13=7.00~6.50~6.25~20758889~2~0~0~0~7.00:20758889;6.50:-2699103;7.50:1330049;6.00:114326|14=7.00~6.50~6.75~23120169~2~0~0~0~7.00:23120169;6.00:-1251822;6.50:505000|15=7.00~6.50~6.75~19786041~2~0~0~0~7.00:19786041;6.50:-1855570;5.50:-646126;6.00:-126460|16=7.00~6.50~6.75~25375615~2~0~0~0~7.00:25375615;6.00:-1925429;7.50:1551352;6.50:-1297933|17=7.00~6.50~6.75~5234734~0~0~0~0~7.00:5234734;7.50:1366207;6.00:-822977;6.50:290924"
-        => ""
+// ===== MSTU DATA =====
+if current_ticker == "MSTU"
+    if year == 2025 and month == 12 and dayofmonth == 24
+        plot_c_wall := 10.0
+        plot_p_wall := 8.5
+        plot_flip   := na
+        plot_c_gex  := 132917.16
+        plot_p_gex  := 381897.036
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 25
+        plot_c_wall := 10.0
+        plot_p_wall := 8.5
+        plot_flip   := na
+        plot_c_gex  := 728640.9984
+        plot_p_gex  := 842371.3024999999
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 26
+        plot_c_wall := 10.0
+        plot_p_wall := 8.5
+        plot_flip   := na
+        plot_c_gex  := 728640.9984
+        plot_p_gex  := 842371.3024999999
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 27
+        plot_c_wall := 9.0
+        plot_p_wall := 9.0
+        plot_flip   := na
+        plot_c_gex  := 246080.472
+        plot_p_gex  := 122834.574
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 28
+        plot_c_wall := 9.0
+        plot_p_wall := 9.0
+        plot_flip   := na
+        plot_c_gex  := 246080.472
+        plot_p_gex  := 122834.574
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 29
+        plot_c_wall := 9.0
+        plot_p_wall := 9.0
+        plot_flip   := na
+        plot_c_gex  := 246080.472
+        plot_p_gex  := 122834.574
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 30
+        plot_c_wall := 10.0
+        plot_p_wall := 9.0
+        plot_flip   := 8.75
+        plot_c_gex  := 92948.625
+        plot_p_gex  := 50344.0
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 31
+        plot_c_wall := 10.0
+        plot_p_wall := 9.0
+        plot_flip   := 7.75
+        plot_c_gex  := 303075.414
+        plot_p_gex  := 180332.248
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 1
+        plot_c_wall := 10.0
+        plot_p_wall := 8.5
+        plot_flip   := 2.5
+        plot_c_gex  := 104053.95
+        plot_p_gex  := 358300.481
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 2
+        plot_c_wall := 9.0
+        plot_p_wall := 8.5
+        plot_flip   := na
+        plot_c_gex  := 389602.716
+        plot_p_gex  := 738470.643
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 3
+        plot_c_wall := 9.0
+        plot_p_wall := 9.0
+        plot_flip   := 8.75
+        plot_c_gex  := 323350.0655
+        plot_p_gex  := 113787.63550000002
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 4
+        plot_c_wall := 10.0
+        plot_p_wall := 8.0
+        plot_flip   := na
+        plot_c_gex  := 84356.27200000001
+        plot_p_gex  := 69005.24399999999
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 5
+        plot_c_wall := 10.0
+        plot_p_wall := 8.0
+        plot_flip   := na
+        plot_c_gex  := 84499.168
+        plot_p_gex  := 69122.13599999998
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 6
+        plot_c_wall := 10.0
+        plot_p_wall := 9.0
+        plot_flip   := 9.75
+        plot_c_gex  := 92596.60800000002
+        plot_p_gex  := 55728.64800000001
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 7
+        plot_c_wall := 10.0
+        plot_p_wall := 9.0
+        plot_flip   := 8.75
+        plot_c_gex  := 425610.985
+        plot_p_gex  := 114363.995
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 8
+        plot_c_wall := 10.0
+        plot_p_wall := 8.5
+        plot_flip   := na
+        plot_c_gex  := 392766.1919999999
+        plot_p_gex  := 388009.44
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 9
+        plot_c_wall := 10.0
+        plot_p_wall := 8.5
+        plot_flip   := na
+        plot_c_gex  := 277089.12000000005
+        plot_p_gex  := 724297.8600000001
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
 
-// OPEN
-f_symbol_OPEN(int ym) =>
-    string b = switch ym
-        202512 => "23=0.50~6.00~n~867760~0~0~0~0~6.00:-867760;7.00:-745368;5.00:-530885;4.50:-488444;5.50:-347622;8.00:-105827;3.50:-67146;2.50:-57779;4.00:-50600;1.50:-32727;9.00:-25411;10.00:-14508;16.00:-7369;3.00:-6554;0.50:-5112;14.00:-2514;12.00:-1003;11.00:-629;2.00:-70;1.00:-46;6.50:0;13.00:0;8.50:0;15.00:0;17.00:0;18.00:0;19.00:0;20.00:0;21.00:0|23=7.00~6.00~1.25~1551778~0~0~0~0~9.00:1551778;7.00:1325473;21.00:1261290;8.00:1045948;5.50:716135;6.00:-675344;10.00:628370;5.00:-530885;20.00:348898;11.00:329948;4.50:-313254;18.00:134459;12.00:79371;2.50:-57779;4.00:-48202;1.50:43793;3.50:-39864;15.00:32861;17.00:28530;19.00:15288;14.00:11955;3.00:-6554;13.00:6061;0.50:-3212;16.00:-781;2.00:-70;1.00:-39;6.50:0;8.50:0|24=7.00~6.00~1.25~1551778~0~0~0~0~9.00:1551778;7.00:1325473;21.00:1261290;8.00:1045948;5.50:716135;6.00:-675344;10.00:628370;5.00:-530885;20.00:348898;11.00:329948;4.50:-313254;18.00:134459;12.00:79371;2.50:-57779;4.00:-48202;1.50:43793;3.50:-39864;15.00:32861;17.00:28530;19.00:15288;14.00:11955;3.00:-6554;13.00:6061;0.50:-3212;16.00:-781;2.00:-70;1.00:-39;6.50:0;8.50:0|24=7.00~6.00~5.75~9842548~1~0~0~0~7.00:9842548;6.50:6983793;6.00:-2621752;5.50:136549|25=6.50~6.00~6.25~6821190~0~0~0~0~6.50:6821190;7.00:5792901;6.00:-2953599;5.50:-316601|26=6.50~6.00~6.25~6821190~0~0~0~0~6.50:6821190;7.00:5792901;6.00:-2953599;5.50:-316601|27=6.50~6.00~n~1569199~0~0~0~0~6.00:-1569199;6.50:553812;5.50:-496186"
-        => ""
+    if barstate.islast
+        cur_strikes := array.from(8.5, 10.0, 9.0, 10.5, 11.0, 9.5)
+        cur_lengths := array.from(40, 14, 12, 7, 6, 2)
+        cur_signs   := array.from(-1, 1, -1, 1, 1, -1)
+        cur_labels  := array.from('$-706K', '$252K', '$-227K', '$128K', '$107K', '$-18K')
 
-// QQQ
-f_symbol_QQQ(int ym) =>
-    string b = switch ym
-        202512 => "23=630.00~600.00~467.28~21812473~3~0~4~0~600.00:-21812473;640.00:21540182;630.00:19918067;650.00:18810499;620.00:15901423;590.00:-15443273;580.00:-13028971;635.00:12885458;625.00:11130399;610.00:-9216654;570.00:-7738550;655.00:7269456;560.00:-6176625;550.00:-4683722;645.00:4281784;615.00:-3962422;584.78:-3687209;574.78:-2523554;604.78:-2174780;670.00:1993647;660.00:1974371;594.78:-1853927;665.00:1796285;675.00:1521942;510.00:-1184362;609.78:-1111610;589.78:-1079027;544.78:-1010193;680.00:906848;540.00:-868047;569.78:-646931;530.00:-638412;579.78:-584812;690.00:501676;514.78:-473633;520.00:-468534;549.78:-440117;564.78:-401254;480.00:389751;554.78:-382040|23=630.00~600.00~467.28~21812473~3~0~4~0~600.00:-21812473;640.00:21540182;630.00:19918067;650.00:18810499;620.00:15901423;590.00:-15443273;580.00:-13028971;635.00:12885458;625.00:11130399;610.00:-9216654;570.00:-7738550;655.00:7269456;560.00:-6176625;550.00:-4683722;645.00:4281784;615.00:-3962422;584.78:-3687209;574.78:-2523554;604.78:-2174780;670.00:1993647;660.00:1974371;594.78:-1853927;665.00:1796285;675.00:1521942;510.00:-1184362;609.78:-1111610;589.78:-1079027;544.78:-1010193;680.00:906848;540.00:-868047;569.78:-646931;530.00:-638412;579.78:-584812;690.00:501676;514.78:-473633;520.00:-468534;549.78:-440117;564.78:-401254;480.00:389751;554.78:-382040|24=630.00~600.00~467.28~21812473~3~0~4~0~600.00:-21812473;640.00:21540182;630.00:19918067;650.00:18810499;620.00:15901423;590.00:-15443273;580.00:-13028971;635.00:12885458;625.00:11130399;610.00:-9216654;570.00:-7738550;655.00:7269456;560.00:-6176625;550.00:-4683722;645.00:4281784;615.00:-3962422;584.78:-3687209;574.78:-2523554;604.78:-2174780;670.00:1993647;660.00:1974371;594.78:-1853927;665.00:1796285;675.00:1521942;510.00:-1184362;609.78:-1111610;589.78:-1079027;544.78:-1010193;680.00:906848;540.00:-868047;569.78:-646931;530.00:-638412;579.78:-584812;690.00:501676;514.78:-473633;520.00:-468534;549.78:-440117;564.78:-401254;480.00:389751;554.78:-382040|24=625.00~620.00~562.50~42756526~4~0~2~0~625.00:42756526;620.00:16902972;623.00:14544509;617.00:12139286;630.00:8840086;622.00:8782631;618.00:7342830;624.00:7074021;615.00:7050890;613.00:-6988087;600.00:-6846377;621.00:6796321;628.00:6321818;627.00:5870570;619.00:5001653;616.00:4947493;607.00:-4756784;626.00:4495127;611.00:-4440967;635.00:4210089;605.00:-3417716;606.00:-3149592;609.00:-3041148;610.00:-2822085;595.00:-2715320;603.00:2561733;632.00:2471259;608.00:2453538;590.00:-2197974;631.00:2053590;629.00:1470581;602.00:-1292992;612.00:1138348;633.00:1045325;637.00:909646;575.00:-847216;604.00:-799710;599.00:-739456;601.00:-735104;640.00:624235"
-        => ""
+// ===== NOK DATA =====
+if current_ticker == "NOK"
+    if year == 2025 and month == 12 and dayofmonth == 29
+        plot_c_wall := 7.0
+        plot_p_wall := 7.0
+        plot_flip   := na
+        plot_c_gex  := 23204749.72845
+        plot_p_gex  := 2050665.6461
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 30
+        plot_c_wall := 7.0
+        plot_p_wall := 7.0
+        plot_flip   := na
+        plot_c_gex  := 24819232.28400001
+        plot_p_gex  := 2213402.1140000005
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 31
+        plot_c_wall := 7.0
+        plot_p_wall := 7.0
+        plot_flip   := na
+        plot_c_gex  := 23456287.764
+        plot_p_gex  := 2136590.4630000005
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 1
+        plot_c_wall := 7.0
+        plot_p_wall := 6.0
+        plot_flip   := na
+        plot_c_gex  := 20160587.195
+        plot_p_gex  := 1752984.5199999998
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 2
+        plot_c_wall := 7.0
+        plot_p_wall := 6.0
+        plot_flip   := na
+        plot_c_gex  := 18952481.714
+        plot_p_gex  := 1830522.162
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 3
+        plot_c_wall := 7.0
+        plot_p_wall := 6.0
+        plot_flip   := na
+        plot_c_gex  := 18610693.114
+        plot_p_gex  := 1790955.299
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 4
+        plot_c_wall := 7.0
+        plot_p_wall := 7.0
+        plot_flip   := 6.25
+        plot_c_gex  := 20200373.305000003
+        plot_p_gex  := 1869731.4995
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 5
+        plot_c_wall := 7.0
+        plot_p_wall := 7.0
+        plot_flip   := 6.25
+        plot_c_gex  := 20215900.110000003
+        plot_p_gex  := 1871168.649
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 6
+        plot_c_wall := 7.0
+        plot_p_wall := 6.0
+        plot_flip   := 6.25
+        plot_c_gex  := 21596390.4
+        plot_p_gex  := 2796571.05
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 7
+        plot_c_wall := 7.0
+        plot_p_wall := 6.0
+        plot_flip   := na
+        plot_c_gex  := 19836328.357
+        plot_p_gex  := 2822329.813
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 8
+        plot_c_wall := 7.0
+        plot_p_wall := 6.5
+        plot_flip   := 6.25
+        plot_c_gex  := 21827918.924
+        plot_p_gex  := 4304080.507999999
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 9
+        plot_c_wall := 7.0
+        plot_p_wall := 6.5
+        plot_flip   := na
+        plot_c_gex  := 24024133.595000003
+        plot_p_gex  := 4627846.366000001
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 10
+        plot_c_wall := 7.0
+        plot_p_wall := 6.5
+        plot_flip   := 6.75
+        plot_c_gex  := 21626298.621000003
+        plot_p_gex  := 4495036.246
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 12
+        plot_c_wall := 7.0
+        plot_p_wall := 6.5
+        plot_flip   := 6.25
+        plot_c_gex  := 20862536.904
+        plot_p_gex  := 6263199.936000001
+        plot_c_dex  := 7741332.0
+        plot_p_dex  := -2914945.0560000003
+    if year == 2026 and month == 1 and dayofmonth == 13
+        plot_c_wall := 7.0
+        plot_p_wall := 6.5
+        plot_flip   := 6.25
+        plot_c_gex  := 21184489.634
+        plot_p_gex  := 6359854.256
+        plot_c_dex  := 7860797.0
+        plot_p_dex  := -2959928.7760000005
+    if year == 2026 and month == 1 and dayofmonth == 14
+        plot_c_wall := 7.0
+        plot_p_wall := 6.5
+        plot_flip   := 6.75
+        plot_c_gex  := 23192104.224
+        plot_p_gex  := 5582154.723999999
+        plot_c_dex  := 5695066.128
+        plot_p_dex  := -2409160.2120000003
+    if year == 2026 and month == 1 and dayofmonth == 15
+        plot_c_wall := 7.0
+        plot_p_wall := 6.5
+        plot_flip   := 6.75
+        plot_c_gex  := 20207511.612
+        plot_p_gex  := 8059258.439999999
+        plot_c_dex  := 5879828.904
+        plot_p_dex  := -2809612.68
+    if year == 2026 and month == 1 and dayofmonth == 16
+        plot_c_wall := 7.0
+        plot_p_wall := 6.5
+        plot_flip   := 6.75
+        plot_c_gex  := 27112498.095000003
+        plot_p_gex  := 3820911.822
+        plot_c_dex  := 5493978.836999999
+        plot_p_dex  := -2514009.0620000004
+    if year == 2026 and month == 1 and dayofmonth == 17
+        plot_c_wall := 7.0
+        plot_p_wall := 6.5
+        plot_flip   := 6.75
+        plot_c_gex  := 5732120.771
+        plot_p_gex  := 1579177.9250000005
+        plot_c_dex  := 4112265.4495000006
+        plot_p_dex  := -994789.8545
 
-// RR
-f_symbol_RR(int ym) =>
-    string b = switch ym
-        202510 => "13=6.50~6.50~5.75~3422907~0~0~0~0~6.50:3422907;6.00:7982;7.00:1339;7.50:0;5.50:-0|14=7.00~6.50~5.75~1410064~0~0~0~0~7.00:1410064;6.50:586100;7.50:0;6.00:0;8.00:0;5.50:-0|15=6.00~6.00~5.25~2371799~0~0~0~0~6.00:2371799;6.50:1770;5.50:-0;7.00:0;5.00:0|16=5.50~5.50~5.25~6292~0~0~0~0~5.50:-6292;6.00:0;5.00:0;6.50:0|20=6.00~6.00~n~1222409~0~0~0~0~6.00:1222409;5.00:207303|21=6.00~6.00~n~1687442~0~0~0~0~6.00:1687442;5.50:125249;5.00:115755;6.50:1119|22=5.00~5.00~4.75~1806930~0~0~0~0~5.00:1806930;5.50:44190;6.00:23371;4.50:-1537|23=5.00~5.00~4.75~723092~0~0~0~0~6.00:723092;5.00:448097;5.50:202981;6.50:742;4.50:-39|24=6.00~6.00~n~3955731~0~0~0~0~6.00:3955731;7.00:188824;6.50:104978;5.50:37615;5.00:620|27=6.00~6.00~n~3563421~0~0~0~0~6.00:3563421;5.50:71468;6.50:53596;7.00:11026;5.00:4580|28=5.00~5.00~4.75~957583~0~0~0~0~5.00:957583;5.50:119184;6.00:83113;4.50:-691|29=5.00~5.00~4.75~1776784~0~0~0~0~5.00:1776784;5.50:39473;4.50:-7633;6.00:5783|30=5.00~5.00~4.75~2119275~0~0~0~0~5.00:2119275;4.50:-40599;5.50:13183;4.00:-1|31=5.00~5.00~4.75~1840947~0~0~0~0~5.00:1840947;4.50:-111773;5.50:3980;4.00:-15"
-        202511 => "3=4.50~4.50~n~542214~0~0~0~0~4.50:-542214;5.00:32153;4.00:-11253|4=4.00~4.00~n~531380~0~0~0~0~4.00:-531380;4.50:-16770;3.50:-53|5=4.00~4.00~n~315440~0~0~0~0~4.00:-315440;4.50:-6151;3.50:-78|6=4.00~4.00~n~52110~0~0~0~0~4.00:-52110;3.50:-25524;3.00:-0|7=4.00~4.00~n~21895~0~0~0~0~3.50:-21895;4.00:-19994;3.00:-0|10=4.00~4.00~n~206597~0~0~0~0~4.00:-206597;3.50:-5743;4.50:-0|11=3.50~3.50~n~224772~0~0~0~0~3.50:-224772;4.00:-1585;3.00:-0|12=3.50~3.50~n~569823~0~0~0~0~3.50:-569823;4.00:-10;3.00:-0|13=3.50~3.50~n~22238~0~0~0~0~3.00:-22238;3.50:-18218|14=3.50~3.50~n~90854~0~0~0~0~3.50:-90854;3.00:-159;4.00:0|17=3.00~3.00~n~257397~0~0~0~0~3.00:-257397;3.50:0;2.50:-0|18=3.50~3.00~3.25~90~0~0~0~0~3.50:90;3.00:-32|19=3.00~3.00~n~9~0~0~0~0~3.00:-9;3.50:0|20=3.00~3.00~n~1653866~0~0~0~0~3.00:-1653866;3.50:0;2.50:-0|24=3.00~3.00~n~281767~0~0~0~0~3.00:-281767|25=4.00~4.00~3.25~128703~0~0~0~0~4.00:128703;3.50:16101;3.00:-873|26=3.50~3.50~3.25~147967~0~0~0~0~3.50:147967;4.00:17477;3.00:-9229|28=3.50~3.50~3.25~137617~0~0~0~0~3.50:137617;4.00:70705;3.00:-623"
-        202512 => "1=3.50~3.00~3.25~104376~0~0~0~0~3.50:104376;3.00:-32787;4.00:253|2=3.50~3.50~3.25~123479~0~0~0~0~3.50:123479;4.00:49124;3.00:-83|3=4.00~4.00~n~1305573~0~0~0~0~4.00:1305573;4.50:67197;5.00:409;3.50:0|4=5.00~5.00~n~604074~0~0~0~0~5.00:604074;4.50:567654;4.00:2816;5.50:3|5=4.50~4.50~n~719542~0~0~0~0~4.50:719542;5.00:59843;4.00:26286|8=4.50~4.50~n~644013~0~0~0~0~4.50:644013;4.00:52224;5.00:3139|9=4.50~4.50~n~505613~0~0~0~0~4.50:505613;4.00:79497;5.00:327;3.50:0|10=4.00~4.00~n~1322380~0~0~0~0~4.00:1322380;4.50:25587;3.50:0|11=5.00~4.50~n~1055458~0~0~0~0~5.00:1055458;4.50:502010;4.00:0;5.50:0|12=4.00~4.00~n~1447525~0~0~0~0~4.00:1447525;4.50:4170;3.50:0|15=3.50~3.50~3.25~319940~0~0~0~0~3.50:319940;4.00:0;3.00:-0|16=3.50~3.50~3.25~47874~0~0~0~0~3.50:47874;4.00:0;3.00:-0|17=3.50~3.50~3.25~602888~0~0~0~0~3.50:602888;3.00:-0;4.00:0|18=3.50~3.50~3.25~127516~0~0~0~0~3.50:127516;3.00:-0;4.00:0|22=4.00~4.00~3.50~41900~0~0~0~0~4.00:41900;3.00:-3435|23=3.00~3.00~n~78737~0~0~0~0~3.00:-78737;3.50:-61452;4.00:3889|24=3.50~3.50~3.25~39799~0~0~0~0~3.50:39799;3.00:-17691|25=4.00~3.50~3.75~755760~0~0~0~0~4.00:755760;3.50:-45315|26=4.00~3.50~3.75~755760~0~0~0~0~4.00:755760;3.50:-45315|27=3.50~3.50~n~863787~0~0~0~0~3.50:-863787;3.00:-486888|28=3.50~3.50~n~863787~0~0~0~0~3.50:-863787;3.00:-486888|29=3.50~3.50~n~863787~0~0~0~0~3.50:-863787;3.00:-486888|30=3.50~3.50~n~1215745~0~0~0~0~3.50:-1215745;3.00:-716334|31=3.50~3.50~n~1144416~0~0~0~0~3.00:-1144416;3.50:-1082693"
-        202601 => "1=3.50~3.00~n~3526499~0~0~0~0~3.00:-3526499;3.50:-37537|2=3.50~3.00~n~1838428~0~0~0~0~3.00:-1838428;3.50:1517184|3=3.50~3.00~n~725846~0~0~0~0~3.00:-725846;3.50:105840|4=3.50~3.00~3.25~2503123~0~0~0~0~3.50:2503123;3.00:-411105|5=4.00~3.00~3.25~3999991~0~0~0~0~4.00:3999991;3.50:2524670;3.00:-414643|6=4.00~3.50~n~4834079~0~0~0~0~4.00:4834079;3.50:2749568|7=4.00~3.50~n~5754918~0~0~0~0~4.00:5754918;3.50:2651430|8=3.50~3.00~3.25~2511392~0~0~0~0~3.50:2511392;3.00:-669868|9=4.00~3.50~n~7663730~0~0~0~0~4.00:7663730;3.50:2796321;4.50:1496559|11=4.00~3.50~n~2837022~0~0~0~0~4.00:2837022;3.50:1042923"
-        => ""
+    if barstate.islast
+        cur_strikes := array.from(7.0, 7.5, 6.0, 6.5)
+        cur_lengths := array.from(40, 10, 6, 2)
+        cur_signs   := array.from(1, 1, -1, 1)
+        cur_labels  := array.from('$5.2M | D: $4.9M', '$1.4M | D: $844K', '$-823K | D: $2.5M', '$291K | D: $2.6M')
 
-// SOFI
-f_symbol_SOFI(int ym) =>
-    string b = switch ym
-        202512 => "22=27.00~27.00~23.50~7727036~2~0~2~0~30.00:7727036;28.00:7661804;29.00:2834133;26.00:-1374163;27.00:-1111847;25.00:716379;31.00:404945;24.00:-163410;32.00:117923;23.00:3525;22.00:4|23=27.00~27.00~23.75~7689914~2~0~2~0~28.00:7689914;30.00:5687626;29.00:2558066;26.00:-1882599;27.00:-1337230;25.00:544508;26.50:-367365;25.50:-326737;28.50:275926;31.00:256077;24.00:-205847;27.50:113522;29.50:64766;32.00:62643;30.50:34261;24.50:-12351;23.00:4688;31.50:1441;23.50:-306;22.00:7|24=27.00~27.00~23.75~8676176~2~0~2~0~28.00:8676176;30.00:8233366;29.00:4105426;26.00:-2032256;27.00:-1381625;31.00:417471;28.50:388684;26.50:-367522;25.50:-256138;25.00:206184;27.50:192015;29.50:191270;32.00:108056;24.00:-89332;30.50:70256;24.50:-12367;31.50:2773;23.00:1440;23.50:-129;22.00:1|26=27.00~27.00~23.75~7673430~2~0~2~0~28.00:7673430;30.00:3429634;26.00:-2777669;29.00:2521469;27.00:-1573452;26.50:-591510;25.50:-438612;25.00:402199;27.50:398540;28.50:335569;24.00:-174225;31.00:114988;29.50:102984;30.50:26198;24.50:-26015;32.00:18735;23.00:2997;31.50:561;23.50:-284;22.00:3|29=30.00~27.00~29.75~20009880~2~0~2~0~30.00:20009880;28.00:9763600;29.00:8462304;26.00:-7535893;27.00:-7376203;25.00:-5377711;31.00:4366829;24.00:-4081570;28.50:3666086;25.50:-1934157;26.50:-1885580;29.50:1483716;27.50:1479887;30.50:551715;24.50:-298309;23.50:-55796|30=30.00~27.00~29.75~17824612~2~0~2~0~30.00:17824612;28.00:10317423;26.00:-9837656;27.00:-8784001;29.00:8025609;25.00:-6147742;24.00:-4512218;28.50:3929066;26.50:-3285488;25.50:-2441095;27.50:1593591;23.00:-1271925;29.50:1270791;30.50:539932;24.50:-354898;23.50:-83196|31=27.00~27.00~n~16041188~2~0~3~0~30.00:16041188;26.00:-14857712;28.00:11804210;27.00:-11328546;25.00:-8674432;29.00:7718501;26.50:-6721579;24.00:-4995923;28.50:4374833;25.50:-4357229;27.50:2472537;29.50:1351676;23.00:-1111419;24.50:-438160;30.50:436792;23.50:-235051"
-        202601 => "1=27.00~27.00~n~22531771~2~0~3~0~26.00:-22531771;30.00:14642919;26.50:-14633429;28.00:13718369;27.00:-12462198;25.00:-11473995;29.00:7231512;27.50:5831150;25.50:-5661265;24.00:-5528865;28.50:4952785;23.00:-1453764;29.50:1282423;24.50:-778560;23.50:-253381|2=27.00~26.00~n~30021309~2~0~3~0~26.00:-30021309;26.50:-16534914;25.00:-13366331;30.00:12828773;28.00:11877684;25.50:-7991616;27.50:7411042;29.00:6551694;24.00:-6432728;27.00:-5535621;28.50:5089761;23.00:-1559551;29.50:1273617;24.50:-1227957;23.50:-217271|3=25.00~25.00~n~12512356~1~0~2~0~30.00:12512356;25.00:-11603695;26.00:-10998155;24.00:-6242969;28.00:6032453;29.00:5135518;25.50:-3564018;26.50:-2928688;31.00:2822535;28.50:2077862;27.00:-1023970;24.50:-886029;29.50:741852;27.50:603457;30.50:300792;23.50:-5214|4=30.00~25.00~29.75~18440447~2~0~2~0~30.00:18440447;26.00:-9602136;28.00:8984952;29.00:8409595;25.00:-8382097;24.00:-4116171;31.00:3986314;28.50:3661324;26.50:-3170743;25.50:-2663353;27.00:-1866685;29.50:1272354;27.50:1098382;24.50:-654151;30.50:493998;23.50:-54778|5=30.00~25.00~29.75~18521386~2~0~2~0~30.00:18521386;26.00:-9644282;28.00:9024388;29.00:8446507;25.00:-8418887;24.00:-4134238;31.00:4003811;28.50:3677394;26.50:-3184660;25.50:-2675043;27.00:-1874878;29.50:1277939;27.50:1103203;24.50:-657022;30.50:496167;31.50:144107;23.50:-55019|6=30.00~25.00~29.75~26594380~2~0~2~0~30.00:26594380;25.00:-11313406;26.00:-10763600;28.00:10461653;29.00:9611192;32.00:8108077;31.00:6383151;28.50:3921125;26.50:-3395733;25.50:-2852340;33.00:1895368;27.00:-1845647;29.50:1362638;27.50:1176321;30.50:529052;31.50:153659|7=30.00~25.00~28.75~32238073~3~0~1~0~30.00:32238073;29.00:10348594;31.00:8483327;28.00:7537473;25.00:-6492605;26.00:-5610925;28.50:3592851;24.00:-2843498;23.00:-2489779;29.50:2014470;26.50:-1529016;25.50:-1173198;30.50:1018614;27.00:-943059;27.50:612883;24.50:-291797;23.50:-26899|8=30.00~25.00~29.75~25126446~2~0~2~0~30.00:25126446;26.00:-15605960;28.00:12124963;25.00:-11804125;29.00:10489276;31.00:8014448;24.00:-5664627;26.50:-4579956;29.50:4262069;23.00:-4173123;28.50:3757587;25.50:-3610640;27.00:-3391570;30.50:1965643;24.50:-976752;23.50:-139971;27.50:66706|9=27.00~25.00~29.75~25398414~3~0~3~0~30.00:25398414;26.00:-21276444;25.00:-17559007;28.00:16769982;29.00:11122825;24.00:-8112646;26.50:-7833459;31.00:7574058;25.50:-6763838;27.50:5064023;28.50:5000646;29.50:3793476;27.00:2913511;24.50:-1825495;30.50:1660738;31.50:572640|10=30.00~25.00~29.75~26861397~3~0~2~0~30.00:26861397;25.00:-12406586;26.00:-12146991;28.00:9781843;29.00:8714086;31.00:7387191;24.00:-6474729;25.50:-2331080;28.50:1572602;29.50:1434289;26.50:-1152777;24.50:-1128583;30.50:854104;27.50:837878;23.50:-308188;27.00:-290104"
-        => ""
+// ===== OPEN DATA =====
+if current_ticker == "OPEN"
+    if year == 2025 and month == 12 and dayofmonth == 23
+        plot_c_wall := 0.5
+        plot_p_wall := 6.0
+        plot_flip   := na
+        plot_c_gex  := 0.0
+        plot_p_gex  := 867760.2359999999
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 23
+        plot_c_wall := 7.0
+        plot_p_wall := 6.0
+        plot_flip   := 1.25
+        plot_c_gex  := 2070840.751
+        plot_p_gex  := 867760.2359999999
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 24
+        plot_c_wall := 7.0
+        plot_p_wall := 6.0
+        plot_flip   := 1.25
+        plot_c_gex  := 2070840.751
+        plot_p_gex  := 867760.2359999999
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 24
+        plot_c_wall := 7.0
+        plot_p_wall := 6.0
+        plot_flip   := 5.75
+        plot_c_gex  := 12354992.4675
+        plot_p_gex  := 3141040.7805
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 25
+        plot_c_wall := 6.5
+        plot_p_wall := 6.0
+        plot_flip   := 6.25
+        plot_c_gex  := 9588240.0
+        plot_p_gex  := 4737133.125
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 26
+        plot_c_wall := 6.5
+        plot_p_wall := 6.0
+        plot_flip   := 6.25
+        plot_c_gex  := 9588240.0
+        plot_p_gex  := 4737133.125
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 27
+        plot_c_wall := 6.5
+        plot_p_wall := 6.0
+        plot_flip   := na
+        plot_c_gex  := 1862797.5795
+        plot_p_gex  := 2584420.6635000003
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
 
-// SOXL
-f_symbol_SOXL(int ym) =>
-    string b = switch ym
-        202601 => "2=40.00~42.00~37.75~5057588~0~0~0~0~42.00:-5057588;45.00:4351450;42.50:-2495212;44.00:2279901;46.00:2055116;44.50:1853199;41.00:-1479225;38.00:1472462;47.00:1362545;40.50:-1304254;41.50:-1298332;40.00:-1096891;39.00:-1047690;43.50:958095;43.00:-801457;48.00:682710;39.50:-630181;45.50:505112;46.50:342582;36.50:-284488;36.00:-240807;47.50:177051;37.50:-162211;38.50:-156759;37.00:-103306|3=45.00~42.00~44.75~2732710~0~0~0~0~50.00:2732710;45.00:2565620;49.00:1100770;46.00:940482;47.00:716328;44.00:650276;42.50:-425334;48.00:422443;42.00:-391358;52.00:377039;51.00:277200;40.50:-227781;54.00:196042;53.00:176437;44.50:149301;41.00:103100;45.50:102687;43.00:95810;46.50:93108;47.50:80580;51.50:31658;49.50:-30796;52.50:18756;50.50:9181;48.50:8840;43.50:654;41.50:588|4=50.00~42.00~43.75~4419476~0~0~0~0~50.00:4419476;45.00:2231132;49.00:1421047;47.00:1249208;52.00:1179435;48.00:935937;46.00:898149;44.00:801041;51.00:457220;54.00:333952;53.00:293444;44.50:229753;47.50:203398;42.50:-179362;45.50:111627;46.50:99194;40.50:-90634;51.50:61511;43.50:56340;42.00:-41101;41.50:-35029;52.50:28895;49.50:-19761;41.00:19467;50.50:10343;48.50:9101;43.00:-3380|5=50.00~42.00~43.75~4404558~0~0~0~0~50.00:4404558;45.00:2223601;49.00:1416250;47.00:1244991;52.00:1175454;48.00:932777;46.00:895118;44.00:798337;51.00:455677;54.00:332825;53.00:292453;44.50:228977;47.50:202712;42.50:-178756;45.50:111250;46.50:98859;40.50:-90328;51.50:61303;43.50:56149;42.00:-40962;41.50:-34910;52.50:28798;49.50:-19694;41.00:19401;50.50:10308;48.50:9070;43.00:-3368|6=50.00~42.00~42.25~5215332~0~0~0~0~50.00:5215332;45.00:3232233;49.00:1535265;47.00:1455416;55.00:1313131;52.00:1287772;46.00:1216330;48.00:1148170;44.00:899692;51.00:541282;54.00:357298;53.00:334243;56.00:239790;44.50:238574;47.50:211208;42.50:-186248;43.00:133529;45.50:115913;46.50:103003;51.50:63873;43.50:58503;42.00:43107;52.50:30005;49.50:-20520;50.50:10740;48.50:9450|7=50.00~48.00~n~5914759~0~0~0~0~50.00:5914759;60.00:2065791;49.00:1692954;52.00:1653462;55.00:1652031;46.00:1346323;58.00:1327145;47.00:1154955;48.00:907066;51.00:613888;54.00:444843;53.00:413835;56.00:310498;61.00:292389;57.00:184412;47.50:183726;46.50:114021;62.00:81717;51.50:81469;52.50:40972;59.00:39254;49.50:-26449;50.50:12255;48.50:10343|8=50.00~50.00~44.75~5046905~0~0~0~0~50.00:5046905;55.00:3994177;60.00:3411201;58.00:2167468;56.00:1953371;52.00:1816884;45.00:1200662;53.00:1158286;54.00:1115785;51.00:1074345;49.00:990326;49.50:759758;57.00:708341;51.50:600948;48.00:454641;47.00:430341;52.50:399966;48.50:202347;46.00:200056;59.00:158962;47.50:130647;50.50:59203;46.50:-53456;44.50:-46454;45.50:-1814|9=50.00~50.00~44.75~5097183~0~0~0~0~55.00:5097183;50.00:4466628;56.00:2968549;52.00:2110319;53.00:2102891;54.00:1706490;45.00:1302627;57.00:946870;51.00:869655;49.50:865812;49.00:617939;47.00:322447;52.50:-315595;48.00:-190845;51.50:142893;42.50:-136587;46.00:120739;43.00:88273;47.50:88119;50.50:87826;46.50:-43086;43.50:-28226;44.00:13043;45.50:-10536;48.50:-7368;44.50:3019;54.50:0;53.50:0;55.50:0;56.50:0|10=50.00~48.00~n~4267832~0~0~0~0~50.00:4267832;60.00:2761137;55.00:2442038;53.00:1642158;49.00:1494745;56.00:1486273;58.00:1454047;52.00:981826;54.00:724708;51.00:684303;57.00:458565;51.50:269203;61.00:268857;47.50:263987;47.00:260991;50.50:137066;49.50:118481;62.00:116688;52.50:114461;59.00:105231;48.50:90762;48.00:31234;46.50:26901;53.50:9258;57.50:6955;54.50:6880;59.50:-4545;55.50:3001;58.50:2237;61.50:1224;60.50:553;56.50:433"
-        => ""
+    if barstate.islast
+        cur_strikes := array.from(6.0, 6.5, 5.5)
+        cur_lengths := array.from(40, 14, 12)
+        cur_signs   := array.from(-1, 1, -1)
+        cur_labels  := array.from('$-1.6M', '$554K', '$-496K')
 
-// SPY
-f_symbol_SPY(int ym) =>
-    string b = switch ym
-        202512 => "23=210.00~660.00~572.50~31841840~0~0~3~0~660.00:-31841840;650.00:-31134243;670.00:-29689610;675.00:-24541979;647.00:-16959065;665.00:-16756836;655.00:-14223466;640.00:-13185355;645.00:-8620543;635.00:-8401392;653.00:-7650048;654.00:-7024582;595.00:-6640002;630.00:-6491975;644.00:-6003255;585.00:-5843603;646.00:-5813063;673.00:-4668609;651.00:-4404886;625.00:-4222329;643.00:-4002216;610.00:-3999739;620.00:-3398416;649.00:-3252591;600.00:-3243855;642.00:-3138820;678.00:-3069553;674.00:-2659935;679.00:-2453304;615.00:-2424414;575.00:-2063634;677.00:-1921592;590.00:-1722802;580.00:-1620655;676.00:-1459353;657.00:-1290966;605.00:-1240615;672.00:-1140188;666.00:-961690;659.00:-948690|23=700.00~660.00~547.50~53645055~5~0~3~0~700.00:53645055;690.00:32512430;695.00:26607951;660.00:-25770625;705.00:20658487;650.00:-19174233;670.00:-18155107;685.00:17276579;647.00:-16958240;710.00:16008725;655.00:-10398923;640.00:-8501338;665.00:-8056846;653.00:-7636085;635.00:-7128585;654.00:-7006766;715.00:6721444;595.00:-6370569;646.00:-5810655;645.00:-5773855;644.00:-5756315;630.00:-5705345;585.00:-5622871;720.00:5021892;693.00:4953037;675.00:-4882395;673.00:-4472158;651.00:-4398282;643.00:-3999120;725.00:3965759;688.00:-3807140;610.00:-3698665;625.00:-3593767;689.00:3282788;701.00:3271370;649.00:-3244750;696.00:3190271;642.00:-3115777;702.00:3066182;687.00:3045822|24=700.00~660.00~547.50~53645055~5~0~3~0~700.00:53645055;690.00:32512430;695.00:26607951;660.00:-25770625;705.00:20658487;650.00:-19174233;670.00:-18155107;685.00:17276579;647.00:-16958240;710.00:16008725;655.00:-10398923;640.00:-8501338;665.00:-8056846;653.00:-7636085;635.00:-7128585;654.00:-7006766;715.00:6721444;595.00:-6370569;646.00:-5810655;645.00:-5773855;644.00:-5756315;630.00:-5705345;585.00:-5622871;720.00:5021892;693.00:4953037;675.00:-4882395;673.00:-4472158;651.00:-4398282;643.00:-3999120;725.00:3965759;688.00:-3807140;610.00:-3698665;625.00:-3593767;689.00:3282788;701.00:3271370;649.00:-3244750;696.00:3190271;642.00:-3115777;702.00:3066182;687.00:3045822|24=690.00~680.00~587.50~109454445~11~0~3~0~690.00:109454445;685.00:50006027;684.00:39172448;687.00:32236325;689.00:28182726;688.00:27730599;681.00:26320496;686.00:23460946;682.00:21545338;691.00:21291657;680.00:17080815;692.00:14752976;695.00:7576654;675.00:-7268633;693.00:7058355;670.00:-6555396;694.00:6300202;674.00:-5396704;683.00:5148595;678.00:-4980208;700.00:4770137;677.00:-4518657;659.00:-4389134;673.00:-3175551;665.00:-3104634;697.00:3076913;660.00:-2768135;671.00:-2078079;679.00:-2052284;652.00:-1827837;669.00:-1790899;664.00:-1722526;668.00:-1673207;662.00:-1670318;699.00:1472904;655.00:-1459216;696.00:1400266;667.00:-1273495;658.00:-1196249;650.00:-1149887"
-        => ""
+// ===== QQQ DATA =====
+if current_ticker == "QQQ"
+    if year == 2025 and month == 12 and dayofmonth == 23
+        plot_c_wall := 630.0
+        plot_p_wall := 600.0
+        plot_flip   := 467.28
+        plot_c_gex  := 31989885.984
+        plot_p_gex  := 42177994.11
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 23
+        plot_c_wall := 630.0
+        plot_p_wall := 600.0
+        plot_flip   := 467.28
+        plot_c_gex  := 31989885.984
+        plot_p_gex  := 42177994.11
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 24
+        plot_c_wall := 630.0
+        plot_p_wall := 600.0
+        plot_flip   := 467.28
+        plot_c_gex  := 31989885.984
+        plot_p_gex  := 42177994.11
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 24
+        plot_c_wall := 625.0
+        plot_p_wall := 620.0
+        plot_flip   := 562.5
+        plot_c_gex  := 45345929.517
+        plot_p_gex  := 22312470.411
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
 
-// TEMT
-f_symbol_TEMT(int ym) =>
-    string b = switch ym
-        202510 => "13=42.00~41.00~34.50~103805~0~0~0~0~42.00:103805;41.00:-34061;43.00:13466;40.00:1320;39.00:28;45.00:-0;38.00:0;37.00:0;47.00:-0;36.00:0;48.00:0;35.00:0;34.00:-0;44.00:0;46.00:0;49.00:0|14=37.00~37.00~34.50~20714~0~0~0~0~37.00:20714;38.00:4840;36.00:3008;39.00:319;35.00:24;40.00:3;41.00:-0;34.00:-0;42.00:0;33.00:-0;43.00:0;32.00:-0;31.00:-0;30.00:-0;44.00:0|15=40.00~39.00~34.50~19425~0~0~0~0~39.00:-19425;40.00:8615;38.00:388;41.00:-178;37.00:3;42.00:0;36.00:0;43.00:0;35.00:0;34.00:-0;33.00:-0;47.00:-0;32.00:-0;44.00:0;45.00:0;46.00:0|16=38.00~39.00~34.50~16071~0~0~0~0~39.00:-16071;38.00:3927;37.00:11;40.00:5;41.00:-0;36.00:0;42.00:0;35.00:0;43.00:0;34.00:-0;33.00:-0;32.00:-0;31.00:-0;44.00:0;45.00:0;46.00:0|20=40.00~41.00~n~8132~0~0~0~0~38.00:-8132;40.00:5913;41.00:-5550;42.00:4622;43.00:1660;39.00:-712;44.00:562;37.00:-320;36.00:287;34.00:-195;35.00:-191;45.00:136;46.00:-94;33.00:-41;32.00:-0;47.00:0|21=36.00~38.00~n~7991~0~0~0~0~38.00:-7991;34.00:-5109;37.00:-2949;33.00:-2472;35.00:-1643;36.00:1465;39.00:-694;40.00:675;41.00:-667;42.00:261;31.00:-87;43.00:48;30.00:-38;32.00:-32|22=34.00~34.00~n~17194~0~0~0~0~34.00:-17194;33.00:-16162;30.00:-4292;31.00:-3593;32.00:-2033;35.00:-1656;37.00:-894;38.00:-587;36.00:-304;29.00:-72;28.00:-37;39.00:-22;40.00:9;27.00:-0|23=36.00~34.00~n~14695~0~0~0~0~34.00:-14695;33.00:-10036;36.00:6065;37.00:-3021;38.00:-2748;35.00:-2359;31.00:-675;32.00:-661;30.00:-506;39.00:-162;40.00:148;41.00:-55;29.00:-4;28.00:-1|24=36.00~38.00~n~7543~0~0~0~0~38.00:-7543;34.00:-6340;37.00:-5406;36.00:4613;33.00:-2559;35.00:-1676;40.00:1348;41.00:-535;39.00:334;42.00:186;32.00:-73;31.00:-55;43.00:29;30.00:-23|27=40.00~38.00~35.50~7355~0~0~0~0~38.00:-7355;40.00:4833;41.00:-3423;42.00:2112;37.00:-1796;36.00:1557;39.00:813;34.00:-643;43.00:421;35.00:-335;33.00:-104;44.00:89;45.00:51;32.00:-1;31.00:-0|28=36.00~34.00~n~20287~0~0~0~0~34.00:-20287;33.00:-15554;35.00:3169;36.00:2550;32.00:-1893;31.00:-1271;38.00:-848;30.00:-796;37.00:-465;40.00:54;39.00:-19;29.00:-6;41.00:-5;28.00:-1|29=36.00~34.00~n~9981~0~0~0~0~34.00:-9981;38.00:-4533;36.00:4411;33.00:-3716;35.00:2232;37.00:-2152;40.00:1119;32.00:-391;39.00:-172;41.00:-126;31.00:-71;42.00:39;30.00:-25;29.00:-0|30=35.00~34.00~n~21578~0~0~0~0~34.00:-21578;33.00:-17495;32.00:-5162;31.00:-2077;35.00:2050;30.00:-1767;36.00:1733;38.00:-332;37.00:-243;29.00:-57;40.00:16;39.00:-5;28.00:-2;27.00:-0|31=36.00~38.00~35.50~6909~0~0~0~0~38.00:-6909;34.00:-4282;36.00:4098;40.00:2895;37.00:-1829;35.00:1444;33.00:-922;41.00:-575;39.00:-364;42.00:217;32.00:-73;43.00:16;31.00:-6;30.00:-1"
-        202511 => "3=36.00~34.00~n~10625~0~0~0~0~34.00:-10625;36.00:4931;33.00:-3619;38.00:-3204;35.00:2574;37.00:-1402;40.00:427;32.00:-405;39.00:-97;41.00:-42;31.00:-27;42.00:9;30.00:-5;29.00:-0|4=35.00~33.00~n~26117~0~0~0~0~33.00:-26117;32.00:-20261;34.00:-11893;31.00:-11386;30.00:-11333;29.00:-477;35.00:305;36.00:142;37.00:37;28.00:-34;38.00:-3;27.00:-0;26.00:-0|5=30.00~30.00~n~79536~0~0~0~0~30.00:-79536;31.00:-21721;29.00:-11981;32.00:-10616;33.00:-3893;28.00:-3174;34.00:-471;27.00:-37;35.00:18;26.00:-9;36.00:0|6=26.00~26.00~n~355~0~0~0~0~26.00:-355;27.00:-0|7=26.00~26.00~n~43~0~0~0~0~26.00:-43;27.00:-0|10=23.00~22.00~22.50~7212~0~0~0~0~23.00:7212;24.00:1185;26.00:-16;27.00:-0;22.00:0;25.00:0|11=23.00~22.00~20.50~6238~0~0~0~0~23.00:6238;21.00:-862;24.00:543;25.00:6;26.00:-1;18.00:0;22.00:0;19.00:0;20.00:0|12=23.00~23.00~20.50~6428~0~0~0~0~23.00:-6428;21.00:-2066;24.00:159;25.00:1;26.00:-0;18.00:0;22.00:0;19.00:0;20.00:0|13=22.00~21.00~18.50~6162~0~0~0~0~21.00:-6162;19.00:-108;22.00:9;23.00:-0;24.00:0;20.00:0;18.00:0|14=20.00~21.00~18.50~12356~0~0~0~0~21.00:-12356;20.00:953;22.00:63;19.00:-14;23.00:-0;24.00:0;18.00:0|17=20.00~19.00~18.50~1655~0~0~0~0~19.00:-1655;20.00:1375;21.00:-1;22.00:0;23.00:-0;18.00:0;17.00:0|18=20.00~19.00~n~3120~0~0~0~0~19.00:-3120;20.00:1814;21.00:-0;18.00:-0;22.00:0;17.00:-0;23.00:-0|19=21.00~21.00~19.50~21413~0~0~0~0~21.00:-21413;20.00:285;22.00:1;19.00:-0;23.00:-0;18.00:-0;24.00:0;17.00:-0|20=18.00~19.00~16.50~8080~0~0~0~0~19.00:-8080;20.00:0;17.00:-0;21.00:-0;22.00:0;18.00:0;15.00:0;16.00:0|24=25.00~25.00~20.50~4566~0~0~0~0~26.00:4566;24.00:-3658;23.00:780;22.00:-619;27.00:406;28.00:-123;29.00:35;21.00:-4;20.00:0;25.00:0|25=25.00~25.00~22.50~6217~0~0~0~0~26.00:6217;28.00:4900;27.00:3815;24.00:-2307;25.00:1603;23.00:466;29.00:238;22.00:-142;30.00:23;21.00:-1|26=25.00~25.00~22.50~7335~0~0~0~0~27.00:7335;26.00:6733;28.00:6333;24.00:-1820;25.00:1511;29.00:343;23.00:295;22.00:-68;30.00:38;21.00:-0|28=28.00~25.00~22.50~12522~0~0~0~0~28.00:12522;27.00:10477;26.00:7334;25.00:-3788;29.00:1647;24.00:-781;30.00:155;23.00:68;31.00:-8;22.00:-8;21.00:-0"
-        202512 => "1=24.00~24.00~19.50~5812~0~0~0~0~22.00:-5812;24.00:-5301;23.00:5088;26.00:354;25.00:-317;27.00:40;21.00:-35;20.00:6;28.00:4;19.00:-0|2=24.00~24.00~19.50~7786~0~0~0~0~22.00:-7786;23.00:5746;24.00:-4749;26.00:193;21.00:-77;27.00:13;20.00:10;19.00:-0;25.00:0|3=25.00~24.00~20.50~6351~0~0~0~0~24.00:-6351;23.00:3297;22.00:-1704;26.00:1147;25.00:599;27.00:118;28.00:12;21.00:-9;20.00:0|4=25.00~25.00~20.50~5438~0~0~0~0~26.00:5438;24.00:-3277;25.00:-2174;27.00:1313;23.00:612;28.00:288;22.00:-82;29.00:6;21.00:-0;20.00:0|5=25.00~25.00~22.50~7015~0~0~0~0~26.00:7015;24.00:-2454;25.00:-2243;27.00:1943;28.00:453;23.00:298;22.00:-23;29.00:9;30.00:0;21.00:-0|8=25.00~25.00~22.50~9069~0~0~0~0~26.00:9069;25.00:-2330;27.00:2255;24.00:-1418;28.00:352;23.00:63;29.00:4;22.00:-1;30.00:0;21.00:-0|9=25.00~25.00~20.50~5363~0~0~0~0~24.00:-5363;25.00:-2090;26.00:1913;23.00:896;27.00:84;22.00:-52;28.00:2;21.00:-0;29.00:0;20.00:0|10=24.00~24.00~20.50~7057~0~0~0~0~24.00:-7057;23.00:2291;25.00:-987;22.00:-314;26.00:277;27.00:3;21.00:-0;28.00:0;20.00:0|11=23.00~24.00~19.50~8781~0~0~0~0~23.00:8781;22.00:-6378;24.00:-2873;21.00:-6;26.00:1;20.00:0;27.00:0;19.00:-0;25.00:0|12=20.00~22.00~19.50~9357~0~0~0~0~22.00:-9357;21.00:-4739;20.00:4070;23.00:22;19.00:-1;24.00:-0;25.00:0;17.00:-0;18.00:0|15=20.00~20.00~19.50~48147~0~0~0~0~20.00:48147;21.00:-2482;19.00:-310;22.00:-0;23.00:0;17.00:-0;16.00:-0;18.00:0|16=20.00~20.00~19.50~29203~0~0~0~0~20.00:29203;19.00:-1327;21.00:-24;18.00:-0;22.00:-0;17.00:-0;23.00:0;16.00:-0|17=18.00~18.00~n~7390~0~0~0~0~18.00:-7390;17.00:-5636;19.00:-0;16.00:-0;20.00:0;15.00:-0;21.00:-0|18=17.00~16.00~n~4653~0~0~0~0~16.00:-4653;17.00:-14;15.00:-0;18.00:-0;14.00:-0;19.00:-0|22=18.00~17.00~n~19589~0~0~0~0~17.00:-19589;19.00:-11114;20.00:2972;18.00:-773;16.00:-512;21.00:-45;15.00:-3|23=16.00~15.00~n~12617~0~0~0~0~15.00:-12617;14.00:-1686;16.00:-302|24=16.00~15.00~n~8387~0~0~0~0~15.00:-8387;14.00:-1612;16.00:-131|26=15.00~12.00~11.50~786~0~0~0~0~12.00:-786;15.00:46;11.00:0;13.00:0;14.00:0|27=11.00~14.00~13.50~116~0~0~0~0~14.00:-116;11.00:0;12.00:0;13.00:0|28=11.00~14.00~13.50~116~0~0~0~0~14.00:-116;11.00:0;12.00:0;13.00:0|29=11.00~14.00~13.50~116~0~0~0~0~14.00:-116;11.00:0;12.00:0;13.00:0|30=11.00~12.00~11.50~554~0~0~0~0~12.00:-554;11.00:0;13.00:0;14.00:0|31=11.00~13.00~11.50~1403~0~0~0~0~13.00:-1403;12.00:-582;11.00:0"
-        202601 => "1=10.00~12.00~11.50~1533~0~0~0~0~12.00:-1533;13.00:-1450;11.00:0;10.00:0|2=13.00~12.00~10.50~2842~0~0~0~0~12.00:-2842;13.00:-1429;11.00:-471;10.00:0|3=14.00~12.00~n~3110~0~0~0~0~12.00:-3110;13.00:-1564;14.00:662;11.00:-515|4=14.00~12.00~n~2258~0~0~0~0~12.00:-2258;13.00:-1040;14.00:1037;11.00:-486|5=15.00~12.00~10.50~2294~0~0~0~0~12.00:-2294;15.00:1526;13.00:-1057;14.00:1054;11.00:-494;29.00:172;26.00:87;27.00:41;30.00:34;6.00:0;7.00:0;8.00:0;9.00:0;10.00:0;5.00:0;16.00:0;17.00:0;18.00:0;22.00:0;21.00:0;20.00:0;19.00:0;25.00:0;24.00:0;23.00:0;28.00:0|6=15.00~12.00~n~2473~0~0~0~0~12.00:-2473;15.00:1633;13.00:-1566;14.00:1128|7=15.00~14.00~n~2192~0~0~0~0~15.00:2192;14.00:1026;16.00:414;17.00:0;18.00:0|8=14.00~14.00~n~2106~0~0~0~0~15.00:2106;14.00:1598;18.00:617;16.00:393;17.00:0|9=14.00~13.00~13.50~1889~0~0~0~0~15.00:1889;14.00:1795;16.00:1092;13.00:-1043;17.00:547|10=14.00~13.00~13.50~3155~0~0~0~0~14.00:3155;15.00:3102;16.00:1341;13.00:-699"
-        => ""
+    if barstate.islast
+        cur_strikes := array.from(625.0, 620.0, 623.0, 617.0, 630.0, 622.0, 618.0, 624.0, 615.0, 613.0, 600.0, 621.0, 628.0, 627.0, 619.0, 616.0, 607.0, 626.0, 611.0, 635.0, 605.0, 606.0, 609.0, 610.0, 595.0, 603.0, 632.0, 608.0, 590.0, 631.0, 629.0, 602.0, 612.0, 633.0, 637.0, 575.0, 604.0, 599.0, 601.0, 640.0)
+        cur_lengths := array.from(40, 15, 13, 11, 8, 8, 6, 6, 6, 6, 6, 6, 5, 5, 4, 4, 4, 4, 4, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2)
+        cur_signs   := array.from(1, 1, 1, 1, 1, 1, 1, 1, 1, -1, -1, 1, 1, 1, 1, 1, -1, 1, -1, 1, -1, -1, -1, -1, -1, 1, 1, 1, -1, 1, 1, -1, 1, 1, 1, -1, -1, -1, -1, 1)
+        cur_labels  := array.from('$42.8M', '$16.9M', '$14.5M', '$12.1M', '$8.8M', '$8.8M', '$7.3M', '$7.1M', '$7.1M', '$-7.0M', '$-6.8M', '$6.8M', '$6.3M', '$5.9M', '$5.0M', '$4.9M', '$-4.8M', '$4.5M', '$-4.4M', '$4.2M', '$-3.4M', '$-3.1M', '$-3.0M', '$-2.8M', '$-2.7M', '$2.6M', '$2.5M', '$2.5M', '$-2.2M', '$2.1M', '$1.5M', '$-1.3M', '$1.1M', '$1.0M', '$910K', '$-847K', '$-800K', '$-739K', '$-735K', '$624K')
 
-// TSLL
-f_symbol_TSLL(int ym) =>
-    string b = switch ym
-        202601 => "2=20.50~19.00~n~5817472~0~0~0~0~19.00:-5817472;19.50:-5131721;20.00:-3743328;18.50:-2515755;18.00:-2504270;20.43:748617;21.50:-708790;21.43:668198;17.00:-572803;19.43:564515;21.00:430787;17.50:-419533;18.43:281404;16.50:-133822;20.50:130271;17.43:-75370;16.43:-21701|3=20.43~20.00~n~1219735~0~0~0~0~18.00:-1219735;19.00:-1212450;20.00:-998791;19.50:-815266;20.43:716271;18.50:-553170;19.43:540124;17.00:-457195;21.00:-407219;17.50:-276086;18.43:269245;16.00:-213178;20.50:-95139;16.50:-72836;17.43:-72113;16.43:-20764|4=21.00~19.50~n~945286~0~0~0~0~19.50:-945286;20.00:-725009;18.00:-709546;19.00:-658718;18.50:-420537;17.00:-296220;17.50:-201522;20.50:-183154;21.00:104623;16.50:-64779;16.00:-45603|5=20.50~19.50~n~936791~0~0~0~0~19.50:-936791;20.00:-718494;18.00:-703170;19.00:-652798;18.50:-416758;17.00:-293558;17.50:-199711;20.50:-181508;16.50:-64197;16.00:-45193;15.50:-663|6=21.00~19.50~n~993661~0~0~0~0~19.50:-993661;20.00:-762111;18.00:-745857;19.00:-692427;18.50:-442058;17.00:-311379;17.50:-211835;20.50:-192527;23.50:128928;22.50:123942;21.00:109977;21.50:-106429;23.00:103061;16.50:-68095;25.00:60958;22.00:-58064;24.00:55357;16.00:-47937;26.00:42296;13.00:-27408;27.00:9047;30.00:8084;12.00:-7992;14.00:-7040;15.00:-5334;28.00:3798;29.00:2998;35.00:888;15.50:-703;14.50:-700;34.00:657;11.00:-175;33.00:173;10.00:-8;24.50:0|7=20.00~19.50~n~1875824~0~0~0~0~19.50:-1875824;20.00:-1412646;19.00:-1137878;18.00:-727632;18.50:-585842;17.00:-182300;17.50:-164990;16.50:-32536;16.00:-17849;15.50:-275|8=20.00~19.00~n~3740565~0~0~0~0~18.00:-3740565;19.00:-3305058;17.00:-2626108;18.50:-2283726;17.50:-1782331;19.50:-950686;16.50:-946866;16.00:-888051;23.00:844131;22.00:818382;21.00:788685;15.00:-562428;24.00:463041;20.50:437960;20.00:396521;25.00:337565;14.00:-191664;13.00:-189817;22.50:160259;23.50:159770;26.00:143440;21.50:124946;12.00:-115485;15.50:-108175;28.00:69231;30.00:68172;27.00:63092;29.00:32259;32.00:27169;35.00:21213;14.50:-18512;31.00:9905;10.00:-5925;11.00:-3740;24.50:3020;25.50:2863;33.00:2453;34.00:548;5.00:-310;26.50:0|9=20.00~18.00~15.75~6233415~0~0~0~0~18.00:-6233415;17.00:-5160292;18.50:-2709202;16.50:-2046860;16.00:-1660441;17.50:-1456008;19.00:-1065513;20.00:949613;20.43:816725;17.43:-569029;20.50:352450;15.43:314556;15.50:-312425;19.43:267307;16.43:-220353;19.50:-211440;18.43:-37790|10=20.00~18.00~n~1532765~0~0~0~0~17.00:-1532765;18.50:-1505444;20.00:1331673;16.00:-1039815;18.00:-892015;16.50:-756527;17.50:-756298;19.00:-614057;20.43:507187;21.00:458754;17.43:-423138;19.43:340817;20.50:266608;19.50:262905;16.43:-163654;18.43:49759"
-        => ""
+// ===== RR DATA =====
+if current_ticker == "RR"
+    if year == 2025 and month == 10 and dayofmonth == 13
+        plot_c_wall := 6.5
+        plot_p_wall := 6.5
+        plot_flip   := 5.75
+        plot_c_gex  := 7986782.522094852
+        plot_p_gex  := 4563875.726911345
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 14
+        plot_c_wall := 7.0
+        plot_p_wall := 6.5
+        plot_flip   := 5.75
+        plot_c_gex  := 1587726.746819233
+        plot_p_gex  := 595553.1673292319
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 15
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := 5.25
+        plot_c_gex  := 4200153.133803838
+        plot_p_gex  := 1828354.3578021915
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 16
+        plot_c_wall := 5.5
+        plot_p_wall := 5.5
+        plot_flip   := 5.25
+        plot_c_gex  := 41623.14329902098
+        plot_p_gex  := 47915.265221106754
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 20
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := na
+        plot_c_gex  := 1598797.4137469886
+        plot_p_gex  := 376388.0755091245
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 21
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := na
+        plot_c_gex  := 2184517.714385154
+        plot_p_gex  := 497075.887105604
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 22
+        plot_c_wall := 5.0
+        plot_p_wall := 5.0
+        plot_flip   := 4.75
+        plot_c_gex  := 3358970.1345566576
+        plot_p_gex  := 1552040.4961023894
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 23
+        plot_c_wall := 5.0
+        plot_p_wall := 5.0
+        plot_flip   := 4.75
+        plot_c_gex  := 886127.2919266607
+        plot_p_gex  := 438029.9110788596
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 24
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := na
+        plot_c_gex  := 4875284.565437395
+        plot_p_gex  := 919553.6734194224
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 27
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := na
+        plot_c_gex  := 4525292.480951064
+        plot_p_gex  := 961871.2352710284
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 28
+        plot_c_wall := 5.0
+        plot_p_wall := 5.0
+        plot_flip   := 4.75
+        plot_c_gex  := 2008911.908366356
+        plot_p_gex  := 1051329.1384930257
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 29
+        plot_c_wall := 5.0
+        plot_p_wall := 5.0
+        plot_flip   := 4.75
+        plot_c_gex  := 3974470.860098037
+        plot_p_gex  := 2197687.0538358265
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 30
+        plot_c_wall := 5.0
+        plot_p_wall := 5.0
+        plot_flip   := 4.75
+        plot_c_gex  := 4553046.851585355
+        plot_p_gex  := 2433771.5117187025
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 31
+        plot_c_wall := 5.0
+        plot_p_wall := 5.0
+        plot_flip   := 4.75
+        plot_c_gex  := 3701851.7838224806
+        plot_p_gex  := 1860904.8565636715
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 3
+        plot_c_wall := 4.5
+        plot_p_wall := 4.5
+        plot_flip   := na
+        plot_c_gex  := 158226.17758485692
+        plot_p_gex  := 700440.2739427204
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 4
+        plot_c_wall := 4.0
+        plot_p_wall := 4.0
+        plot_flip   := na
+        plot_c_gex  := 2063732.847283144
+        plot_p_gex  := 2595113.161254253
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 5
+        plot_c_wall := 4.0
+        plot_p_wall := 4.0
+        plot_flip   := na
+        plot_c_gex  := 2473497.256007007
+        plot_p_gex  := 2788937.0629018336
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 6
+        plot_c_wall := 4.0
+        plot_p_wall := 4.0
+        plot_flip   := na
+        plot_c_gex  := 423634.2308230529
+        plot_p_gex  := 475744.53056875744
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 7
+        plot_c_wall := 4.0
+        plot_p_wall := 4.0
+        plot_flip   := na
+        plot_c_gex  := 539203.2659435256
+        plot_p_gex  := 559196.8980526713
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 10
+        plot_c_wall := 4.0
+        plot_p_wall := 4.0
+        plot_flip   := na
+        plot_c_gex  := 745721.0016744527
+        plot_p_gex  := 952318.2052709972
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 11
+        plot_c_wall := 3.5
+        plot_p_wall := 3.5
+        plot_flip   := na
+        plot_c_gex  := 71974.28199416888
+        plot_p_gex  := 296746.4249431717
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 12
+        plot_c_wall := 3.5
+        plot_p_wall := 3.5
+        plot_flip   := na
+        plot_c_gex  := 281887.0109125964
+        plot_p_gex  := 851710.1102251839
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 13
+        plot_c_wall := 3.5
+        plot_p_wall := 3.5
+        plot_flip   := na
+        plot_c_gex  := 16944.793065922517
+        plot_p_gex  := 35162.894281307425
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 14
+        plot_c_wall := 3.5
+        plot_p_wall := 3.5
+        plot_flip   := na
+        plot_c_gex  := 173178.7549670803
+        plot_p_gex  := 264032.7056457413
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 17
+        plot_c_wall := 3.0
+        plot_p_wall := 3.0
+        plot_flip   := na
+        plot_c_gex  := 422464.26965661946
+        plot_p_gex  := 679861.2100710735
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 18
+        plot_c_wall := 3.5
+        plot_p_wall := 3.0
+        plot_flip   := 3.25
+        plot_c_gex  := 118.82027543945796
+        plot_p_gex  := 105.82405726184882
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 19
+        plot_c_wall := 3.0
+        plot_p_wall := 3.0
+        plot_flip   := na
+        plot_c_gex  := 16.343238501701364
+        plot_p_gex  := 25.59888188846612
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 20
+        plot_c_wall := 3.0
+        plot_p_wall := 3.0
+        plot_flip   := na
+        plot_c_gex  := 4357536.81440946
+        plot_p_gex  := 6011402.638855519
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 24
+        plot_c_wall := 3.0
+        plot_p_wall := 3.0
+        plot_flip   := na
+        plot_c_gex  := 354662.8597625272
+        plot_p_gex  := 636429.5230930143
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 25
+        plot_c_wall := 4.0
+        plot_p_wall := 4.0
+        plot_flip   := 3.25
+        plot_c_gex  := 297370.20279285096
+        plot_p_gex  := 168667.4331149113
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 26
+        plot_c_wall := 3.5
+        plot_p_wall := 3.5
+        plot_flip   := 3.25
+        plot_c_gex  := 175819.34446997262
+        plot_p_gex  := 27852.569420985765
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 28
+        plot_c_wall := 3.5
+        plot_p_wall := 3.5
+        plot_flip   := 3.25
+        plot_c_gex  := 210672.4388845133
+        plot_p_gex  := 73055.76509704896
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 1
+        plot_c_wall := 3.5
+        plot_p_wall := 3.0
+        plot_flip   := 3.25
+        plot_c_gex  := 156564.45945997356
+        plot_p_gex  := 75625.97075974842
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 2
+        plot_c_wall := 3.5
+        plot_p_wall := 3.5
+        plot_flip   := 3.25
+        plot_c_gex  := 246056.48967000248
+        plot_p_gex  := 122577.59192351771
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 3
+        plot_c_wall := 4.0
+        plot_p_wall := 4.0
+        plot_flip   := na
+        plot_c_gex  := 2295971.780872718
+        plot_p_gex  := 990398.7363855498
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 4
+        plot_c_wall := 5.0
+        plot_p_wall := 5.0
+        plot_flip   := na
+        plot_c_gex  := 677675.5041345715
+        plot_p_gex  := 73601.51679485539
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 5
+        plot_c_wall := 4.5
+        plot_p_wall := 4.5
+        plot_flip   := na
+        plot_c_gex  := 840763.0907275084
+        plot_p_gex  := 121221.13345145292
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 8
+        plot_c_wall := 4.5
+        plot_p_wall := 4.5
+        plot_flip   := na
+        plot_c_gex  := 892206.7323034023
+        plot_p_gex  := 248194.0134329009
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 9
+        plot_c_wall := 4.5
+        plot_p_wall := 4.5
+        plot_flip   := na
+        plot_c_gex  := 731393.664536126
+        plot_p_gex  := 225781.01898683023
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 10
+        plot_c_wall := 4.0
+        plot_p_wall := 4.0
+        plot_flip   := na
+        plot_c_gex  := 3368720.2024402674
+        plot_p_gex  := 2046339.8957002629
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 11
+        plot_c_wall := 5.0
+        plot_p_wall := 4.5
+        plot_flip   := na
+        plot_c_gex  := 1122572.7548640366
+        plot_p_gex  := 316341.3459213811
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 12
+        plot_c_wall := 4.0
+        plot_p_wall := 4.0
+        plot_flip   := na
+        plot_c_gex  := 4487028.315554322
+        plot_p_gex  := 3039503.2509534783
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 15
+        plot_c_wall := 3.5
+        plot_p_wall := 3.5
+        plot_flip   := 3.25
+        plot_c_gex  := 1897644.7087398143
+        plot_p_gex  := 1577704.6103221432
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 16
+        plot_c_wall := 3.5
+        plot_p_wall := 3.5
+        plot_flip   := 3.25
+        plot_c_gex  := 365346.0853671935
+        plot_p_gex  := 317471.855270259
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 17
+        plot_c_wall := 3.5
+        plot_p_wall := 3.5
+        plot_flip   := 3.25
+        plot_c_gex  := 2143601.5559189687
+        plot_p_gex  := 1540713.618316759
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 18
+        plot_c_wall := 3.5
+        plot_p_wall := 3.5
+        plot_flip   := 3.25
+        plot_c_gex  := 270400.5110878029
+        plot_p_gex  := 142884.29884459797
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 22
+        plot_c_wall := 4.0
+        plot_p_wall := 4.0
+        plot_flip   := 3.5
+        plot_c_gex  := 59148.33021270784
+        plot_p_gex  := 17248.703011078454
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 23
+        plot_c_wall := 3.0
+        plot_p_wall := 3.0
+        plot_flip   := na
+        plot_c_gex  := 26505.91303986995
+        plot_p_gex  := 105243.2163338784
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 24
+        plot_c_wall := 3.5
+        plot_p_wall := 3.5
+        plot_flip   := 3.25
+        plot_c_gex  := 784306.31748
+        plot_p_gex  := 744506.9074799999
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 25
+        plot_c_wall := 4.0
+        plot_p_wall := 3.5
+        plot_flip   := 3.75
+        plot_c_gex  := 1032846.8964
+        plot_p_gex  := 1039268.88234
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 26
+        plot_c_wall := 4.0
+        plot_p_wall := 3.5
+        plot_flip   := 3.75
+        plot_c_gex  := 1032846.8964
+        plot_p_gex  := 1039268.88234
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 27
+        plot_c_wall := 3.5
+        plot_p_wall := 3.5
+        plot_flip   := na
+        plot_c_gex  := 264760.215
+        plot_p_gex  := 1128547.33
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 28
+        plot_c_wall := 3.5
+        plot_p_wall := 3.5
+        plot_flip   := na
+        plot_c_gex  := 264760.215
+        plot_p_gex  := 1128547.33
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 29
+        plot_c_wall := 3.5
+        plot_p_wall := 3.5
+        plot_flip   := na
+        plot_c_gex  := 264760.215
+        plot_p_gex  := 1128547.33
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 30
+        plot_c_wall := 3.5
+        plot_p_wall := 3.5
+        plot_flip   := na
+        plot_c_gex  := 461373.8549999999
+        plot_p_gex  := 1677118.8199999998
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 31
+        plot_c_wall := 3.5
+        plot_p_wall := 3.5
+        plot_flip   := na
+        plot_c_gex  := 633697.2000000001
+        plot_p_gex  := 1716390.5579999995
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 1
+        plot_c_wall := 3.5
+        plot_p_wall := 3.0
+        plot_flip   := na
+        plot_c_gex  := 1455502.6564999998
+        plot_p_gex  := 3801432.2739999993
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 2
+        plot_c_wall := 3.5
+        plot_p_wall := 3.0
+        plot_flip   := na
+        plot_c_gex  := 1830687.4490000005
+        plot_p_gex  := 2074110.908
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 3
+        plot_c_wall := 3.5
+        plot_p_wall := 3.0
+        plot_flip   := na
+        plot_c_gex  := 440726.14068
+        plot_p_gex  := 897368.5152599999
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 4
+        plot_c_wall := 3.5
+        plot_p_wall := 3.0
+        plot_flip   := 3.25
+        plot_c_gex  := 2858797.1294400003
+        plot_p_gex  := 727850.79087
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 5
+        plot_c_wall := 4.0
+        plot_p_wall := 3.0
+        plot_flip   := 3.25
+        plot_c_gex  := 4322889.756
+        plot_p_gex  := 734116.0920000001
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 6
+        plot_c_wall := 4.0
+        plot_p_wall := 3.5
+        plot_flip   := na
+        plot_c_gex  := 5193396.826
+        plot_p_gex  := 390692.15
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 7
+        plot_c_wall := 4.0
+        plot_p_wall := 3.5
+        plot_flip   := na
+        plot_c_gex  := 6087280.192
+        plot_p_gex  := 379120.756
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 8
+        plot_c_wall := 3.5
+        plot_p_wall := 3.0
+        plot_flip   := 3.25
+        plot_c_gex  := 3454465.392
+        plot_p_gex  := 947578.716
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 9
+        plot_c_wall := 4.0
+        plot_p_wall := 3.5
+        plot_flip   := na
+        plot_c_gex  := 8170701.870000001
+        plot_p_gex  := 1788991.4130000002
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 11
+        plot_c_wall := 4.0
+        plot_p_wall := 3.5
+        plot_flip   := na
+        plot_c_gex  := 3291242.4315000004
+        plot_p_gex  := 489800.147
+        plot_c_dex  := 4452863.271500001
+        plot_p_dex  := -408386.084
 
-// ===== MAIN EXECUTION =====
-int ym = year * 100 + month
-int d  = dayofmonth
+    if barstate.islast
+        cur_strikes := array.from(4.0, 3.5)
+        cur_lengths := array.from(40, 14)
+        cur_signs   := array.from(1, 1)
+        cur_labels  := array.from('$2.8M | D: $5.1M', '$1.0M | D: $3.0M')
 
-// 1. Get Monthly Blob
-string month_blob = switch current_ticker
-    "AMZU" => f_symbol_AMZU(ym)
-    "BBAI" => f_symbol_BBAI(ym)
-    "BITO" => f_symbol_BITO(ym)
-    "BMNU" => f_symbol_BMNU(ym)
-    "CLF" => f_symbol_CLF(ym)
-    "MSTU" => f_symbol_MSTU(ym)
-    "NOK" => f_symbol_NOK(ym)
-    "OPEN" => f_symbol_OPEN(ym)
-    "QQQ" => f_symbol_QQQ(ym)
-    "RR" => f_symbol_RR(ym)
-    "SOFI" => f_symbol_SOFI(ym)
-    "SOXL" => f_symbol_SOXL(ym)
-    "SPY" => f_symbol_SPY(ym)
-    "TEMT" => f_symbol_TEMT(ym)
-    "TSLL" => f_symbol_TSLL(ym)
-    => ""
+// ===== SOFI DATA =====
+if current_ticker == "SOFI"
+    if year == 2025 and month == 12 and dayofmonth == 22
+        plot_c_wall := 27.0
+        plot_p_wall := 27.0
+        plot_flip   := 23.5
+        plot_c_gex  := 21856281.671971936
+        plot_p_gex  := 22968128.80201928
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 23
+        plot_c_wall := 27.0
+        plot_p_wall := 27.0
+        plot_flip   := 23.75
+        plot_c_gex  := 23209178.65410035
+        plot_p_gex  := 24546409.026411444
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 24
+        plot_c_wall := 27.0
+        plot_p_wall := 27.0
+        plot_flip   := 23.75
+        plot_c_gex  := 21893074.241752915
+        plot_p_gex  := 23274698.983181886
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 26
+        plot_c_wall := 27.0
+        plot_p_wall := 27.0
+        plot_flip   := 23.75
+        plot_c_gex  := 25445100.85181056
+        plot_p_gex  := 27018553.07058152
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 29
+        plot_c_wall := 30.0
+        plot_p_wall := 27.0
+        plot_flip   := 29.75
+        plot_c_gex  := 22592508.954
+        plot_p_gex  := 20727029.577
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 30
+        plot_c_wall := 30.0
+        plot_p_wall := 27.0
+        plot_flip   := 29.75
+        plot_c_gex  := 20231610.678
+        plot_p_gex  := 24239551.248
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 31
+        plot_c_wall := 27.0
+        plot_p_wall := 27.0
+        plot_flip   := na
+        plot_c_gex  := 20243649.536
+        plot_p_gex  := 31572196.031999998
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 1
+        plot_c_wall := 27.0
+        plot_p_wall := 27.0
+        plot_flip   := na
+        plot_c_gex  := 24419804.287320003
+        plot_p_gex  := 36882002.31255
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 2
+        plot_c_wall := 27.0
+        plot_p_wall := 26.0
+        plot_flip   := na
+        plot_c_gex  := 25540975.127970003
+        plot_p_gex  := 39312593.94312
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 3
+        plot_c_wall := 25.0
+        plot_p_wall := 25.0
+        plot_flip   := na
+        plot_c_gex  := 18121222.666
+        plot_p_gex  := 29724917.412
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 4
+        plot_c_wall := 30.0
+        plot_p_wall := 25.0
+        plot_flip   := 29.75
+        plot_c_gex  := 20967970.092
+        plot_p_gex  := 20247705.994
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 5
+        plot_c_wall := 30.0
+        plot_p_wall := 25.0
+        plot_flip   := 29.75
+        plot_c_gex  := 21060002.148
+        plot_p_gex  := 20336576.686
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 6
+        plot_c_wall := 30.0
+        plot_p_wall := 25.0
+        plot_flip   := 29.75
+        plot_c_gex  := 29907464.544
+        plot_p_gex  := 25074662.928
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 7
+        plot_c_wall := 30.0
+        plot_p_wall := 25.0
+        plot_flip   := 28.75
+        plot_c_gex  := 36435837.084
+        plot_p_gex  := 12728198.116
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 8
+        plot_c_wall := 30.0
+        plot_p_wall := 25.0
+        plot_flip   := 29.75
+        plot_c_gex  := 28008147.6
+        plot_p_gex  := 26878707.9
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 9
+        plot_c_wall := 27.0
+        plot_p_wall := 25.0
+        plot_flip   := 29.75
+        plot_c_gex  := 35867362.608
+        plot_p_gex  := 34009205.076
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 10
+        plot_c_wall := 30.0
+        plot_p_wall := 25.0
+        plot_flip   := 29.75
+        plot_c_gex  := 30333665.901
+        plot_p_gex  := 24291168.4785
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
 
-// 2. Parse Daily Data
-[plot_c_wall, plot_p_wall, plot_flip, max_val, data_str, c_gex, c_dex, p_gex, p_dex] = f_parse_day_data(month_blob, d)
+    if barstate.islast
+        cur_strikes := array.from(30.0, 25.0, 26.0, 28.0, 29.0, 31.0, 24.0, 25.5, 28.5, 29.5, 26.5, 24.5, 30.5, 27.5, 23.5, 27.0)
+        cur_lengths := array.from(40, 18, 18, 14, 12, 11, 9, 3, 2, 2, 2, 2, 2, 2, 2, 2)
+        cur_signs   := array.from(1, -1, -1, 1, 1, 1, -1, -1, 1, 1, -1, -1, 1, 1, -1, -1)
+        cur_labels  := array.from('$26.9M', '$-12.4M', '$-12.1M', '$9.8M', '$8.7M', '$7.4M', '$-6.5M', '$-2.3M', '$1.6M', '$1.4M', '$-1.2M', '$-1.1M', '$854K', '$838K', '$-308K', '$-290K')
 
-// 3. Draw Lines
+// ===== SOXL DATA =====
+if current_ticker == "SOXL"
+    if year == 2026 and month == 1 and dayofmonth == 2
+        plot_c_wall := 40.0
+        plot_p_wall := 42.0
+        plot_flip   := 37.75
+        plot_c_gex  := 5485167.180000001
+        plot_p_gex  := 6997364.55
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 3
+        plot_c_wall := 45.0
+        plot_p_wall := 42.0
+        plot_flip   := 44.75
+        plot_c_gex  := 3283620.78
+        plot_p_gex  := 1899005.16
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 4
+        plot_c_wall := 50.0
+        plot_p_wall := 42.0
+        plot_flip   := 43.75
+        plot_c_gex  := 4685494.74
+        plot_p_gex  := 1010615.4
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 5
+        plot_c_wall := 50.0
+        plot_p_wall := 42.0
+        plot_flip   := 43.75
+        plot_c_gex  := 4669678.724
+        plot_p_gex  := 1007204.0400000002
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 6
+        plot_c_wall := 50.0
+        plot_p_wall := 42.0
+        plot_flip   := 42.25
+        plot_c_gex  := 5529010.572
+        plot_p_gex  := 1083632.442
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 7
+        plot_c_wall := 50.0
+        plot_p_wall := 48.0
+        plot_flip   := na
+        plot_c_gex  := 6339040.279
+        plot_p_gex  := 446430.457
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 8
+        plot_c_wall := 50.0
+        plot_p_wall := 50.0
+        plot_flip   := 44.75
+        plot_c_gex  := 5886761.139
+        plot_p_gex  := 839855.835
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 9
+        plot_c_wall := 50.0
+        plot_p_wall := 50.0
+        plot_flip   := 44.75
+        plot_c_gex  := 6777786.045
+        plot_p_gex  := 2311157.85
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 10
+        plot_c_wall := 50.0
+        plot_p_wall := 48.0
+        plot_flip   := na
+        plot_c_gex  := 5206343.704
+        plot_p_gex  := 991668.522
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+
+    if barstate.islast
+        cur_strikes := array.from(50.0, 60.0, 55.0, 53.0, 49.0, 56.0, 58.0, 52.0, 54.0, 51.0, 57.0, 51.5, 61.0, 47.5, 47.0, 50.5, 49.5, 62.0, 52.5, 59.0, 48.5, 48.0, 46.5, 53.5, 57.5, 54.5, 59.5, 55.5, 58.5, 61.5, 60.5, 56.5)
+        cur_lengths := array.from(40, 25, 22, 15, 14, 13, 13, 9, 6, 6, 4, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2)
+        cur_signs   := array.from(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, -1, 1, 1, 1, 1, 1)
+        cur_labels  := array.from('$4.3M', '$2.8M', '$2.4M', '$1.6M', '$1.5M', '$1.5M', '$1.5M', '$982K', '$725K', '$684K', '$459K', '$269K', '$269K', '$264K', '$261K', '$137K', '$118K', '$117K', '$114K', '$105K', '$91K', '$31K', '$27K', '$9K', '$7K', '$7K', '$-5K', '$3K', '$2K', '$1K', '$553', '$433')
+
+// ===== SPY DATA =====
+if current_ticker == "SPY"
+    if year == 2025 and month == 12 and dayofmonth == 23
+        plot_c_wall := 210.0
+        plot_p_wall := 660.0
+        plot_flip   := 572.5
+        plot_c_gex  := 0.0
+        plot_p_gex  := 31841839.7325
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 23
+        plot_c_wall := 700.0
+        plot_p_wall := 660.0
+        plot_flip   := 547.5
+        plot_c_gex  := 56354653.2255
+        plot_p_gex  := 31841839.7325
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 24
+        plot_c_wall := 700.0
+        plot_p_wall := 660.0
+        plot_flip   := 547.5
+        plot_c_gex  := 56354653.2255
+        plot_p_gex  := 31841839.7325
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 24
+        plot_c_wall := 690.0
+        plot_p_wall := 680.0
+        plot_flip   := 587.5
+        plot_c_gex  := 118528834.89300002
+        plot_p_gex  := 38182280.766
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+
+    if barstate.islast
+        cur_strikes := array.from(690.0, 685.0, 684.0, 687.0, 689.0, 688.0, 681.0, 686.0, 682.0, 691.0, 680.0, 692.0, 695.0, 675.0, 693.0, 670.0, 694.0, 674.0, 683.0, 678.0, 700.0, 677.0, 659.0, 673.0, 665.0, 697.0, 660.0, 671.0, 679.0, 652.0, 669.0, 664.0, 668.0, 662.0, 699.0, 655.0, 696.0, 667.0, 658.0, 650.0)
+        cur_lengths := array.from(40, 18, 14, 11, 10, 10, 9, 8, 7, 7, 6, 5, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2)
+        cur_signs   := array.from(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, -1, -1, -1, 1, -1, -1, -1, -1, -1, -1, -1, -1, 1, -1, 1, -1, -1, -1)
+        cur_labels  := array.from('$109.5M', '$50.0M', '$39.2M', '$32.2M', '$28.2M', '$27.7M', '$26.3M', '$23.5M', '$21.5M', '$21.3M', '$17.1M', '$14.8M', '$7.6M', '$-7.3M', '$7.1M', '$-6.6M', '$6.3M', '$-5.4M', '$5.1M', '$-5.0M', '$4.8M', '$-4.5M', '$-4.4M', '$-3.2M', '$-3.1M', '$3.1M', '$-2.8M', '$-2.1M', '$-2.1M', '$-1.8M', '$-1.8M', '$-1.7M', '$-1.7M', '$-1.7M', '$1.5M', '$-1.5M', '$1.4M', '$-1.3M', '$-1.2M', '$-1.1M')
+
+// ===== TEMT DATA =====
+if current_ticker == "TEMT"
+    if year == 2025 and month == 10 and dayofmonth == 13
+        plot_c_wall := 42.0
+        plot_p_wall := 41.0
+        plot_flip   := 34.5
+        plot_c_gex  := 105625.66800272116
+        plot_p_gex  := 37304.95251673901
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 14
+        plot_c_wall := 37.0
+        plot_p_wall := 37.0
+        plot_flip   := 34.5
+        plot_c_gex  := 37661.58917824231
+        plot_p_gex  := 16947.71513020904
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 15
+        plot_c_wall := 40.0
+        plot_p_wall := 39.0
+        plot_flip   := 34.5
+        plot_c_gex  := 26801.794259654773
+        plot_p_gex  := 41624.25789321208
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 16
+        plot_c_wall := 38.0
+        plot_p_wall := 39.0
+        plot_flip   := 34.5
+        plot_c_gex  := 23563.264404322188
+        plot_p_gex  := 26785.589848689942
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 20
+        plot_c_wall := 40.0
+        plot_p_wall := 41.0
+        plot_flip   := na
+        plot_c_gex  := 11825.835967940537
+        plot_p_gex  := 12951.08900634564
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 21
+        plot_c_wall := 36.0
+        plot_p_wall := 38.0
+        plot_flip   := na
+        plot_c_gex  := 4396.088930936391
+        plot_p_gex  := 10844.41334395048
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 22
+        plot_c_wall := 34.0
+        plot_p_wall := 34.0
+        plot_flip   := na
+        plot_c_gex  := 2242.646766214495
+        plot_p_gex  := 19436.27197385896
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 23
+        plot_c_wall := 36.0
+        plot_p_wall := 34.0
+        plot_flip   := na
+        plot_c_gex  := 10782.788029899732
+        plot_p_gex  := 17366.39508938489
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 24
+        plot_c_wall := 36.0
+        plot_p_wall := 38.0
+        plot_flip   := na
+        plot_c_gex  := 9995.201264855988
+        plot_p_gex  := 11024.679086678363
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 27
+        plot_c_wall := 40.0
+        plot_p_wall := 38.0
+        plot_flip   := 35.5
+        plot_c_gex  := 10874.71778498156
+        plot_p_gex  := 15527.02044636244
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 28
+        plot_c_wall := 36.0
+        plot_p_wall := 34.0
+        plot_flip   := na
+        plot_c_gex  := 6629.282914886997
+        plot_p_gex  := 21977.39006552437
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 29
+        plot_c_wall := 36.0
+        plot_p_wall := 34.0
+        plot_flip   := na
+        plot_c_gex  := 11469.66530258354
+        plot_p_gex  := 10812.948014819693
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 30
+        plot_c_wall := 35.0
+        plot_p_wall := 34.0
+        plot_flip   := na
+        plot_c_gex  := 5467.0708237282815
+        plot_p_gex  := 23376.411636191773
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 10 and dayofmonth == 31
+        plot_c_wall := 36.0
+        plot_p_wall := 38.0
+        plot_flip   := 35.5
+        plot_c_gex  := 10654.811481715413
+        plot_p_gex  := 14508.326795748922
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 3
+        plot_c_wall := 36.0
+        plot_p_wall := 34.0
+        plot_flip   := na
+        plot_c_gex  := 12819.83307996012
+        plot_p_gex  := 11510.295320424344
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 4
+        plot_c_wall := 35.0
+        plot_p_wall := 33.0
+        plot_flip   := na
+        plot_c_gex  := 1219.104442168648
+        plot_p_gex  := 26116.796581289826
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 5
+        plot_c_wall := 30.0
+        plot_p_wall := 30.0
+        plot_flip   := na
+        plot_c_gex  := 1871.4335667626096
+        plot_p_gex  := 81407.36015417351
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 6
+        plot_c_wall := 26.0
+        plot_p_wall := 26.0
+        plot_flip   := na
+        plot_c_gex  := 0.0
+        plot_p_gex  := 355.28389108445026
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 7
+        plot_c_wall := 26.0
+        plot_p_wall := 26.0
+        plot_flip   := na
+        plot_c_gex  := 0.3654453031314864
+        plot_p_gex  := 43.122545769515405
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 10
+        plot_c_wall := 23.0
+        plot_p_wall := 22.0
+        plot_flip   := 22.5
+        plot_c_gex  := 7212.496103348995
+        plot_p_gex  := 1431.998838761328
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 11
+        plot_c_wall := 23.0
+        plot_p_wall := 22.0
+        plot_flip   := 20.5
+        plot_c_gex  := 6238.483257744319
+        plot_p_gex  := 1974.519714951021
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 12
+        plot_c_wall := 23.0
+        plot_p_wall := 23.0
+        plot_flip   := 20.5
+        plot_c_gex  := 4285.024623412461
+        plot_p_gex  := 10712.561558531152
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 13
+        plot_c_wall := 22.0
+        plot_p_wall := 21.0
+        plot_flip   := 18.5
+        plot_c_gex  := 26.107699593457088
+        plot_p_gex  := 6161.550446798149
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 14
+        plot_c_wall := 20.0
+        plot_p_wall := 21.0
+        plot_flip   := 18.5
+        plot_c_gex  := 953.1416034261632
+        plot_p_gex  := 12355.784062189889
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 17
+        plot_c_wall := 20.0
+        plot_p_wall := 19.0
+        plot_flip   := 18.5
+        plot_c_gex  := 1650.2247446592894
+        plot_p_gex  := 1655.0873258721606
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 18
+        plot_c_wall := 20.0
+        plot_p_wall := 19.0
+        plot_flip   := na
+        plot_c_gex  := 2720.439219466037
+        plot_p_gex  := 3119.6596673686886
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 19
+        plot_c_wall := 21.0
+        plot_p_wall := 21.0
+        plot_flip   := 19.5
+        plot_c_gex  := 1946.66444007924
+        plot_p_gex  := 23359.97328095089
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 20
+        plot_c_wall := 18.0
+        plot_p_wall := 19.0
+        plot_flip   := 16.5
+        plot_c_gex  := 0.9858687722895312
+        plot_p_gex  := 8079.584479650511
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 24
+        plot_c_wall := 25.0
+        plot_p_wall := 25.0
+        plot_flip   := 20.5
+        plot_c_gex  := 24520.787972941114
+        plot_p_gex  := 24520.787972941114
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 25
+        plot_c_wall := 25.0
+        plot_p_wall := 25.0
+        plot_flip   := 22.5
+        plot_c_gex  := 24847.50906915574
+        plot_p_gex  := 23244.443967919888
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 26
+        plot_c_wall := 25.0
+        plot_p_wall := 25.0
+        plot_flip   := 22.5
+        plot_c_gex  := 23420.577549594112
+        plot_p_gex  := 21909.57254639449
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 11 and dayofmonth == 28
+        plot_c_wall := 28.0
+        plot_p_wall := 25.0
+        plot_flip   := 22.5
+        plot_c_gex  := 17217.837799276927
+        plot_p_gex  := 19480.817938709897
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 1
+        plot_c_wall := 24.0
+        plot_p_wall := 24.0
+        plot_flip   := 19.5
+        plot_c_gex  := 10601.75564740976
+        plot_p_gex  := 15902.633471114636
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 2
+        plot_c_wall := 24.0
+        plot_p_wall := 24.0
+        plot_flip   := 19.5
+        plot_c_gex  := 9497.627873606843
+        plot_p_gex  := 14246.441810410266
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 3
+        plot_c_wall := 25.0
+        plot_p_wall := 24.0
+        plot_flip   := 20.5
+        plot_c_gex  := 17966.46612528322
+        plot_p_gex  := 19052.061396049576
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 4
+        plot_c_wall := 25.0
+        plot_p_wall := 25.0
+        plot_flip   := 20.5
+        plot_c_gex  := 29350.44039673232
+        plot_p_gex  := 31524.54709278657
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 5
+        plot_c_wall := 25.0
+        plot_p_wall := 25.0
+        plot_flip   := 22.5
+        plot_c_gex  := 30279.620060044024
+        plot_p_gex  := 32522.554879306543
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 8
+        plot_c_wall := 25.0
+        plot_p_wall := 25.0
+        plot_flip   := 22.5
+        plot_c_gex  := 31452.33358687097
+        plot_p_gex  := 33782.13607478733
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 9
+        plot_c_wall := 25.0
+        plot_p_wall := 25.0
+        plot_flip   := 20.5
+        plot_c_gex  := 28215.90215156703
+        plot_p_gex  := 30305.968977609034
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 10
+        plot_c_wall := 24.0
+        plot_p_wall := 24.0
+        plot_flip   := 20.5
+        plot_c_gex  := 18348.44302254393
+        plot_p_gex  := 25405.536492753134
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 11
+        plot_c_wall := 23.0
+        plot_p_wall := 24.0
+        plot_flip   := 19.5
+        plot_c_gex  := 11707.509343554711
+        plot_p_gex  := 10342.13433859169
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 12
+        plot_c_wall := 20.0
+        plot_p_wall := 22.0
+        plot_flip   := 19.5
+        plot_c_gex  := 8987.365396433066
+        plot_p_gex  := 12726.02106053385
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 15
+        plot_c_wall := 20.0
+        plot_p_wall := 20.0
+        plot_flip   := 19.5
+        plot_c_gex  := 110946.34784822862
+        plot_p_gex  := 62799.81953673318
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 16
+        plot_c_wall := 20.0
+        plot_p_wall := 20.0
+        plot_flip   := 19.5
+        plot_c_gex  := 67293.14609283254
+        plot_p_gex  := 38090.460052546725
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 17
+        plot_c_wall := 18.0
+        plot_p_wall := 18.0
+        plot_flip   := na
+        plot_c_gex  := 9237.036313989409
+        plot_p_gex  := 16626.665365180932
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 18
+        plot_c_wall := 17.0
+        plot_p_wall := 16.0
+        plot_flip   := na
+        plot_c_gex  := 0.809835619664991
+        plot_p_gex  := 4653.415309087979
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 22
+        plot_c_wall := 18.0
+        plot_p_wall := 17.0
+        plot_flip   := na
+        plot_c_gex  := 5408.614049051366
+        plot_p_gex  := 23991.575836378408
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 23
+        plot_c_wall := 16.0
+        plot_p_wall := 15.0
+        plot_flip   := na
+        plot_c_gex  := 6.701362628921723
+        plot_p_gex  := 12617.086593247152
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 24
+        plot_c_wall := 16.0
+        plot_p_wall := 15.0
+        plot_flip   := na
+        plot_c_gex  := 2.9023653632290207
+        plot_p_gex  := 8386.933250500546
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 26
+        plot_c_wall := 15.0
+        plot_p_wall := 12.0
+        plot_flip   := 11.5
+        plot_c_gex  := 45.90162228962861
+        plot_p_gex  := 786.2729757703611
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 27
+        plot_c_wall := 11.0
+        plot_p_wall := 14.0
+        plot_flip   := 13.5
+        plot_c_gex  := 0.0
+        plot_p_gex  := 116.01
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 28
+        plot_c_wall := 11.0
+        plot_p_wall := 14.0
+        plot_flip   := 13.5
+        plot_c_gex  := 0.0
+        plot_p_gex  := 116.01
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 29
+        plot_c_wall := 11.0
+        plot_p_wall := 14.0
+        plot_flip   := 13.5
+        plot_c_gex  := 0.0
+        plot_p_gex  := 116.01
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 30
+        plot_c_wall := 11.0
+        plot_p_wall := 12.0
+        plot_flip   := 11.5
+        plot_c_gex  := 0.0
+        plot_p_gex  := 553.5799999999999
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2025 and month == 12 and dayofmonth == 31
+        plot_c_wall := 11.0
+        plot_p_wall := 13.0
+        plot_flip   := 11.5
+        plot_c_gex  := 0.0
+        plot_p_gex  := 1402.8300000000002
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 1
+        plot_c_wall := 10.0
+        plot_p_wall := 12.0
+        plot_flip   := 11.5
+        plot_c_gex  := 0.0
+        plot_p_gex  := 1532.564
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 2
+        plot_c_wall := 13.0
+        plot_p_wall := 12.0
+        plot_flip   := 10.5
+        plot_c_gex  := 139.68999999999997
+        plot_p_gex  := 2841.89
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 3
+        plot_c_wall := 14.0
+        plot_p_wall := 12.0
+        plot_flip   := na
+        plot_c_gex  := 661.5840000000001
+        plot_p_gex  := 3109.946
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 4
+        plot_c_wall := 14.0
+        plot_p_wall := 12.0
+        plot_flip   := na
+        plot_c_gex  := 1037.4840000000002
+        plot_p_gex  := 2257.906
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 5
+        plot_c_wall := 15.0
+        plot_p_wall := 12.0
+        plot_flip   := 10.5
+        plot_c_gex  := 1526.3270000000002
+        plot_p_gex  := 2293.9460000000004
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 6
+        plot_c_wall := 15.0
+        plot_p_wall := 12.0
+        plot_flip   := na
+        plot_c_gex  := 1633.038
+        plot_p_gex  := 2541.492
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 7
+        plot_c_wall := 15.0
+        plot_p_wall := 14.0
+        plot_flip   := na
+        plot_c_gex  := 2191.893
+        plot_p_gex  := 0.0
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 8
+        plot_c_wall := 14.0
+        plot_p_wall := 14.0
+        plot_flip   := na
+        plot_c_gex  := 3693.404000000001
+        plot_p_gex  := 2095.236
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 9
+        plot_c_wall := 14.0
+        plot_p_wall := 13.0
+        plot_flip   := 13.5
+        plot_c_gex  := 4444.912
+        plot_p_gex  := 3168.4400000000005
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 10
+        plot_c_wall := 14.0
+        plot_p_wall := 13.0
+        plot_flip   := 13.5
+        plot_c_gex  := 6084.200000000001
+        plot_p_gex  := 3027.5999999999995
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+
+    if barstate.islast
+        cur_strikes := array.from(14.0, 15.0, 16.0, 13.0)
+        cur_lengths := array.from(40, 39, 17, 8)
+        cur_signs   := array.from(1, 1, 1, -1)
+        cur_labels  := array.from('$3K', '$3K', '$1K', '$-699')
+
+// ===== TSLL DATA =====
+if current_ticker == "TSLL"
+    if year == 2026 and month == 1 and dayofmonth == 2
+        plot_c_wall := 20.5
+        plot_p_wall := 19.0
+        plot_flip   := na
+        plot_c_gex  := 2011006.452
+        plot_p_gex  := 6370775.228999999
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 3
+        plot_c_wall := 20.43
+        plot_p_wall := 20.0
+        plot_flip   := na
+        plot_c_gex  := 1010229.5161600002
+        plot_p_gex  := 1736193.02022
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 4
+        plot_c_wall := 21.0
+        plot_p_wall := 19.5
+        plot_flip   := na
+        plot_c_gex  := 580563.0936
+        plot_p_gex  := 1076115.16278
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 5
+        plot_c_wall := 20.5
+        plot_p_wall := 19.5
+        plot_flip   := na
+        plot_c_gex  := 343174.68
+        plot_p_gex  := 1066445.3520000002
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 6
+        plot_c_wall := 21.0
+        plot_p_wall := 19.5
+        plot_flip   := na
+        plot_c_gex  := 610273.44
+        plot_p_gex  := 1131185.412
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 7
+        plot_c_wall := 20.0
+        plot_p_wall := 19.5
+        plot_flip   := na
+        plot_c_gex  := 434970.13
+        plot_p_gex  := 2026269.42
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 8
+        plot_c_wall := 20.0
+        plot_p_wall := 19.0
+        plot_flip   := na
+        plot_c_gex  := 2717499.47
+        plot_p_gex  := 4282597.551000001
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 9
+        plot_c_wall := 20.0
+        plot_p_wall := 18.0
+        plot_flip   := 15.75
+        plot_c_gex  := 2644438.23
+        plot_p_gex  := 8737275.120000001
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 10
+        plot_c_wall := 20.0
+        plot_p_wall := 18.0
+        plot_flip   := na
+        plot_c_gex  := 2446302.4875
+        plot_p_gex  := 2702984.7875
+        plot_c_dex  := 0.0
+        plot_p_dex  := 0.0
+
+    if barstate.islast
+        cur_strikes := array.from(17.0, 18.5, 20.0, 16.0, 18.0, 16.5, 17.5, 19.0, 20.43, 21.0, 17.43, 19.43, 20.5, 19.5, 16.43, 18.43)
+        cur_lengths := array.from(40, 39, 34, 27, 23, 19, 19, 16, 13, 11, 11, 8, 6, 6, 4, 2)
+        cur_signs   := array.from(-1, -1, 1, -1, -1, -1, -1, -1, 1, 1, -1, 1, 1, 1, -1, 1)
+        cur_labels  := array.from('$-1.5M', '$-1.5M', '$1.3M', '$-1.0M', '$-892K', '$-757K', '$-756K', '$-614K', '$507K', '$459K', '$-423K', '$341K', '$267K', '$263K', '$-164K', '$50K')
+
+// --- Plotting History (Lines) ---
 plot(plot_c_wall, "Call Wall", color=color.new(color.green, 20), linewidth=2, style=plot.style_stepline)
 plot(plot_p_wall, "Put Wall",  color=color.new(color.red, 20),   linewidth=2, style=plot.style_stepline)
-plot(plot_flip,   "Flip Zone", color=color.new(color.purple, 0), linewidth=2, style=plot.style_cross)
+plot(plot_flip,   "Flip Zone", color=color.new(color.purple, 0), linewidth=1, style=plot.style_circles)
 
-// 4. Smart Offset Labeling (USING BOX LABELS)
-// We initialize labels with empty text, then update position dynamically
-var label l_cw = label.new(na, na, "", style=label.style_label_left, textcolor=color.white, color=color.green, size=sz_wall_txt)
-var label l_pw = label.new(na, na, "", style=label.style_label_left, textcolor=color.white, color=color.red, size=sz_wall_txt)
-var label l_fp = label.new(na, na, "", style=label.style_label_left, textcolor=color.white, color=color.purple, size=sz_wall_txt)
-
-// Logic: Check if walls overlap
-bool walls_overlap = not na(plot_c_wall) and not na(plot_p_wall) and plot_c_wall == plot_p_wall
-
-if walls_overlap
-    // Overlap Mode: Show ONE combined BOX label
-    label.set_xy(l_cw, bar_index + 8, plot_c_wall)
-    string txt = "COMBINED WALL ($" + str.tostring(plot_c_wall) + ")\n" + "C: " + f_fmt_billions_raw(c_gex) + " | D: " + f_fmt_billions_raw(c_dex) + "\n" + "P: " + f_fmt_billions_raw(p_gex) + " | D: " + f_fmt_billions_raw(p_dex)
-    label.set_text(l_cw, txt)
-    label.set_color(l_cw, color.purple)
+// --- Visual Logic (Last Bar Only) ---
+if barstate.islast
+    // 1. WALL LABELS (Box Style)
     
-    // Hide individual Put label
-    label.set_xy(l_pw, na, na)
-
-else
-    // Separate Mode: Show distinct Green/Red BOX labels
-    if not na(plot_c_wall)
-        label.set_xy(l_cw, bar_index + 5, plot_c_wall)
-        string txt = "CW: " + str.tostring(plot_c_wall) + "\nGEX: " + f_fmt_billions_raw(c_gex) + "\nDEX: " + f_fmt_billions_raw(c_dex)
-        label.set_text(l_cw, txt)
-        label.set_color(l_cw, color.green)
+    // Check Overlap
+    bool overlap = not na(plot_c_wall) and not na(plot_p_wall) and plot_c_wall == plot_p_wall
+    
+    if overlap
+        // Combined Label (Purple Box)
+        string txt = "COMBINED WALL ($" + str.tostring(plot_c_wall) + ")\n" +
+                     "C_GEX: " + f_fmt(plot_c_gex) + " | D: " + f_fmt(plot_c_dex) + "\n" +
+                     "P_GEX: " + f_fmt(plot_p_gex) + " | D: " + f_fmt(plot_p_dex)
+                     
+        label.new(bar_index + 8, plot_c_wall, txt, style=label.style_label_left, textcolor=color.white, color=color.purple, size=sz_label)
+    
     else
-        label.set_xy(l_cw, na, na)
+        // Call Wall (Green Box)
+        if not na(plot_c_wall)
+            string c_txt = "CW ($" + str.tostring(plot_c_wall) + ")\nGEX: " + f_fmt(plot_c_gex) + "\nDEX: " + f_fmt(plot_c_dex)
+            label.new(bar_index + 5, plot_c_wall, c_txt, style=label.style_label_left, textcolor=color.white, color=color.green, size=sz_label)
+            
+        // Put Wall (Red Box)
+        if not na(plot_p_wall)
+            string p_txt = "PW ($" + str.tostring(plot_p_wall) + ")\nGEX: " + f_fmt(plot_p_gex) + "\nDEX: " + f_fmt(plot_p_dex)
+            label.new(bar_index + 12, plot_p_wall, p_txt, style=label.style_label_left, textcolor=color.white, color=color.red, size=sz_label)
 
-    if not na(plot_p_wall)
-        // Offset X slightly to stagger
-        label.set_xy(l_pw, bar_index + 12, plot_p_wall)
-        string txt = "PW: " + str.tostring(plot_p_wall) + "\nGEX: " + f_fmt_billions_raw(p_gex) + "\nDEX: " + f_fmt_billions_raw(p_dex)
-        label.set_text(l_pw, txt)
-        label.set_color(l_pw, color.red)
-    else
-        label.set_xy(l_pw, na, na)
+    // Flip Zone Label
+    if not na(plot_flip)
+        label.new(bar_index + 20, plot_flip, "Flip: " + str.tostring(plot_flip, "#.##"), style=label.style_label_left, textcolor=color.white, color=color.blue, size=sz_label)
 
-// Flip Zone
-if not na(plot_flip)
-    label.set_xy(l_fp, bar_index + 20, plot_flip)
-    label.set_text(l_fp, "Flip: " + str.tostring(plot_flip))
-else
-    label.set_xy(l_fp, na, na)
-
-// 5. Draw Profile
-bool new_day = ta.change(time("D")) != 0
-if new_day or barstate.isfirst
-    f_draw_gex(data_str, max_val)
+    // 2. HISTOGRAM LABELS (Consolidated Boxes)
+    if array.size(cur_strikes) > 0
+        for i = 0 to array.size(cur_strikes) - 1
+            float s = array.get(cur_strikes, i)
+            int l   = array.get(cur_lengths, i)
+            int sg  = array.get(cur_signs, i)
+            string t = array.get(cur_labels, i)
+            
+            col = sg > 0 ? color.new(color.green, 40) : color.new(color.red, 40)
+            lbl_col = sg > 0 ? color.green : color.red
+            
+            // Draw Line
+            line.new(bar_index, s, bar_index + l, s, color=col, width=2)
+            
+            // Draw Box Label for Histogram Data
+            label.new(bar_index + l, s, t, style=label.style_label_left, textcolor=color.white, color=lbl_col, size=size.tiny)
