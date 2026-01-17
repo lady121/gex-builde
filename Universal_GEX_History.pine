@@ -2,7 +2,7 @@
 indicator("Universal GEX History (Bar Replay)", overlay=true, max_lines_count=500, max_labels_count=500)
 
 // --- Generated 2026-01-17 ---
-// Mode: V4.8 (Anti-Overlap)
+// Mode: V5.1 (Classic Box Labels)
 
 // --- Settings ---
 show_labels    = input.bool(true, "Show Histogram Values", group="Visuals")
@@ -13,8 +13,8 @@ sz_wall_txt    = input.string("small", "Wall Label Size", options=["auto", "tiny
 
 var string current_ticker = syminfo.ticker
 
-// --- Helper: Format numbers ---
-f_fmt(float v) =>
+// --- Helper: Dynamic Number Formatting (K, M, B) ---
+f_fmt_num(float v) =>
     float av = math.abs(v)
     string s = ""
     if av >= 1000000000
@@ -26,6 +26,11 @@ f_fmt(float v) =>
     else
         s := str.format("${0,number,#}", v)
     s
+
+// --- Helper: Format Billions (for stored compressed values) ---
+f_fmt_billions_raw(float val_b100) =>
+    float raw_val = (val_b100 / 100.0) * 1000000000
+    f_fmt_num(raw_val)
 
 // --- Helper: Parse Monthly Blob for Specific Day ---
 f_parse_day_data(string m_blob, int d_target) =>
@@ -49,10 +54,10 @@ f_parse_day_data(string m_blob, int d_target) =>
                     fl := fl_str == "n" ? na : str.tonumber(fl_str)
                     mv := str.tonumber(array.get(comps, 3))
                     
-                    c_gex := str.tonumber(array.get(comps, 4)) / 100.0
-                    c_dex := str.tonumber(array.get(comps, 5)) / 100.0
-                    p_gex := str.tonumber(array.get(comps, 6)) / 100.0
-                    p_dex := str.tonumber(array.get(comps, 7)) / 100.0
+                    c_gex := str.tonumber(array.get(comps, 4))
+                    c_dex := str.tonumber(array.get(comps, 5))
+                    p_gex := str.tonumber(array.get(comps, 6))
+                    p_dex := str.tonumber(array.get(comps, 7))
                     
                     d_str := array.get(comps, 8)
                 break
@@ -79,7 +84,7 @@ f_draw_gex(string d_str, float max_v) =>
                     
                     if show_labels and math.abs(net_gex) > (max_v * (min_pct / 100.0))
                         color tc = net_gex >= 0 ? color.green : color.red
-                        label.new(bar_index + length, strike, f_fmt(net_gex), style=label.style_label_left, textcolor=tc, color=color.new(color.white, 100), size=sz_hist_txt)
+                        label.new(bar_index + length, strike, f_fmt_num(net_gex), style=label.style_label_left, textcolor=color.white, color=tc, size=sz_hist_txt)
 
 
 // AMZU
@@ -219,47 +224,46 @@ plot(plot_c_wall, "Call Wall", color=color.new(color.green, 20), linewidth=2, st
 plot(plot_p_wall, "Put Wall",  color=color.new(color.red, 20),   linewidth=2, style=plot.style_stepline)
 plot(plot_flip,   "Flip Zone", color=color.new(color.purple, 0), linewidth=2, style=plot.style_cross)
 
-// 4. Smart Offset Labeling
-var label l_cw = label.new(na, na, "", style=label.style_label_left, textcolor=color.green, color=color.new(color.white, 100), size=sz_wall_txt)
-var label l_pw = label.new(na, na, "", style=label.style_label_left, textcolor=color.red, color=color.new(color.white, 100), size=sz_wall_txt)
-var label l_fp = label.new(na, na, "", style=label.style_label_left, textcolor=color.purple, color=color.new(color.white, 100), size=sz_wall_txt)
+// 4. Smart Offset Labeling (USING BOX LABELS)
+// We initialize labels with empty text, then update position dynamically
+var label l_cw = label.new(na, na, "", style=label.style_label_left, textcolor=color.white, color=color.green, size=sz_wall_txt)
+var label l_pw = label.new(na, na, "", style=label.style_label_left, textcolor=color.white, color=color.red, size=sz_wall_txt)
+var label l_fp = label.new(na, na, "", style=label.style_label_left, textcolor=color.white, color=color.purple, size=sz_wall_txt)
 
-// STAGGER LOGIC: If walls are identical, we only show ONE combined label
-if not na(plot_c_wall) and not na(plot_p_wall) and plot_c_wall == plot_p_wall
-    // Overlap Mode
-    label.set_xy(l_cw, bar_index + 5, plot_c_wall)
-    string txt = "COMBINED WALL ($" + str.tostring(plot_c_wall) + ")\n" + "C: $" + str.tostring(c_gex, "#.##") + "B | D: $" + str.tostring(c_dex, "#.##") + "B\n" + "P: $" + str.tostring(p_gex, "#.##") + "B | D: $" + str.tostring(p_dex, "#.##") + "B"
+// Logic: Check if walls overlap
+bool walls_overlap = not na(plot_c_wall) and not na(plot_p_wall) and plot_c_wall == plot_p_wall
+
+if walls_overlap
+    // Overlap Mode: Show ONE combined BOX label
+    label.set_xy(l_cw, bar_index + 8, plot_c_wall)
+    string txt = "COMBINED WALL ($" + str.tostring(plot_c_wall) + ")\n" + "C: " + f_fmt_billions_raw(c_gex) + " | D: " + f_fmt_billions_raw(c_dex) + "\n" + "P: " + f_fmt_billions_raw(p_gex) + " | D: " + f_fmt_billions_raw(p_dex)
     label.set_text(l_cw, txt)
-    label.set_textcolor(l_cw, color.purple)
+    label.set_color(l_cw, color.purple)
     
-    // Hide the other one
+    // Hide individual Put label
     label.set_xy(l_pw, na, na)
 
 else
-    // Separate Mode (Standard)
-    // Call Wall (Green)
+    // Separate Mode: Show distinct Green/Red BOX labels
     if not na(plot_c_wall)
-        // Offset X by +5
         label.set_xy(l_cw, bar_index + 5, plot_c_wall)
-        string txt = "CW: " + str.tostring(plot_c_wall) + "\nGEX: $" + str.tostring(c_gex, "#.##") + "B\nDEX: $" + str.tostring(c_dex, "#.##") + "B"
+        string txt = "CW: " + str.tostring(plot_c_wall) + "\nGEX: " + f_fmt_billions_raw(c_gex) + "\nDEX: " + f_fmt_billions_raw(c_dex)
         label.set_text(l_cw, txt)
-        label.set_textcolor(l_cw, color.green)
+        label.set_color(l_cw, color.green)
     else
         label.set_xy(l_cw, na, na)
 
-    // Put Wall (Red)
     if not na(plot_p_wall)
-        // Offset X by +12 (Different X to prevent horizontal crash)
+        // Offset X slightly to stagger
         label.set_xy(l_pw, bar_index + 12, plot_p_wall)
-        string txt = "PW: " + str.tostring(plot_p_wall) + "\nGEX: $" + str.tostring(p_gex, "#.##") + "B\nDEX: $" + str.tostring(p_dex, "#.##") + "B"
+        string txt = "PW: " + str.tostring(plot_p_wall) + "\nGEX: " + f_fmt_billions_raw(p_gex) + "\nDEX: " + f_fmt_billions_raw(p_dex)
         label.set_text(l_pw, txt)
-        label.set_textcolor(l_pw, color.red)
+        label.set_color(l_pw, color.red)
     else
         label.set_xy(l_pw, na, na)
 
 // Flip Zone
 if not na(plot_flip)
-    // Offset X by +20 (Furthest out)
     label.set_xy(l_fp, bar_index + 20, plot_flip)
     label.set_text(l_fp, "Flip: " + str.tostring(plot_flip))
 else
