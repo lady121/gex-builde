@@ -1,12 +1,10 @@
 # ===========================================================
-# GEX to Pine Script Converter v4.6 (Type Error Fix)
+# GEX to Pine Script Converter v4.8 (Anti-Overlap)
 # ===========================================================
 # Features:
-#   ✅ FIX: "Series Int" to "Bool" Type Mismatch resolved
-#   ✅ FIX: INTRADAY CLUTTER - Draws histogram only ONCE per day
-#   ✅ VISUALS: Smart Threshold - Only labels significant bars (Top 30%)
-#   ✅ VISUALS: Clean separate controls for Text Size and Line Width
-#   ✅ COMPRESSION: Retains Monthly Blob encoding
+#   ✅ VISUALS: Smart Offset logic to prevent label overlap
+#   ✅ VISUALS: Staggers labels horizontally (CW at +5, PW at +12)
+#   ✅ DATA: Includes Delta (DEX) + Clean Visuals + Compression
 # ===========================================================
 
 import os
@@ -16,7 +14,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 
-print("🌲 Starting Historical GEX Converter (v4.6 - Type Error Fix)...")
+print("🌲 Starting Historical GEX Converter (v4.8 - Anti-Overlap)...")
 
 # ===============================================
 # Configuration
@@ -51,6 +49,8 @@ def compute_flip_zone(df):
 def process_file_data(filepath):
     try:
         df = pd.read_csv(filepath)
+        has_dex = 'call_dex' in df.columns and 'put_dex' in df.columns
+        
         required_cols = ['strike', 'call_gex', 'put_gex', 'net_gex']
         if not all(col in df.columns for col in required_cols):
             return None
@@ -58,12 +58,17 @@ def process_file_data(filepath):
         # 1️⃣ Compute metrics
         flip_zone = compute_flip_zone(df)
         
-        # Walls
+        # Walls & Data
         cw_idx = df['call_gex'].idxmax()
         call_wall = df.loc[cw_idx, 'strike']
+        # Store GEX/DEX as integers (Billions * 100) to save space
+        cw_gex = int((df.loc[cw_idx, 'call_gex'] / 1_000_000_000) * 100)
+        cw_dex = int((df.loc[cw_idx, 'call_dex'] / 1_000_000_000) * 100) if has_dex else 0
 
         pw_idx = df['put_gex'].abs().idxmax()
         put_wall = df.loc[pw_idx, 'strike']
+        pw_gex = int((df.loc[pw_idx, 'put_gex'] / 1_000_000_000) * 100)
+        pw_dex = int((df.loc[pw_idx, 'put_dex'] / 1_000_000_000) * 100) if has_dex else 0
 
         # 2️⃣ Prepare Histogram Data (Compressed)
         df['abs_net_gex'] = df['net_gex'].abs()
@@ -71,21 +76,19 @@ def process_file_data(filepath):
         max_val = top_strikes['abs_net_gex'].max()
         if max_val == 0: max_val = 1.0
 
-        # Build Inner Data String: "strike:net_gex;strike:net_gex"
         data_pairs = []
         for _, row in top_strikes.iterrows():
             s = float(row['strike'])
             g = float(row['net_gex'])
-            # Rounding saves string space
             data_pairs.append(f"{s:.2f}:{g:.0f}")
         
         inner_data = ";".join(data_pairs)
 
         # 3️⃣ Format Day Blob for Monthly String
-        # Format: CW~PW~Flip~Max~Data
-        # We use '~' as delimiter
         flip_val = f"{float(flip_zone):.2f}" if flip_zone else "n"
-        day_blob = f"{float(call_wall):.2f}~{float(put_wall):.2f}~{flip_val}~{float(max_val):.0f}~{inner_data}"
+        
+        day_blob = (f"{float(call_wall):.2f}~{float(put_wall):.2f}~{flip_val}~{float(max_val):.0f}~"
+                    f"{cw_gex}~{cw_dex}~{pw_gex}~{pw_dex}~{inner_data}")
         
         return day_blob
 
@@ -99,10 +102,8 @@ def process_file_data(filepath):
 cache_file = ".gex_cache.json"
 if os.path.exists(cache_file):
     try:
-        with open(cache_file, "r") as f:
-            cache = json.load(f)
-    except:
-        cache = {}
+        with open(cache_file, "r") as f: cache = json.load(f)
+    except: cache = {}
 else:
     cache = {}
 
@@ -155,8 +156,8 @@ for f in files:
     data_blob = process_file_data(f)
     if data_blob:
         d_int = int(date_str)
-        ym_int = int(date_str[:6]) # 202501
-        day_part = int(date_str[6:8]) # 02
+        ym_int = int(date_str[:6])
+        day_part = int(date_str[6:8])
         
         history_map.setdefault(symbol, []).append({
             "date_int": d_int,
@@ -171,11 +172,9 @@ final_map = {}
 for sym, records in history_map.items():
     records.sort(key=lambda x: x['date_int'])
     
-    # Truncate
     if len(records) > max_history_days:
         records = records[-max_history_days:]
     
-    # Group by Month
     monthly_data = {}
     for rec in records:
         ym = rec['ym_int']
@@ -184,13 +183,12 @@ for sym, records in history_map.items():
         entry = f"{d}={blob}"
         monthly_data.setdefault(ym, []).append(entry)
     
-    # Join months
     final_map[sym] = {}
     for ym, entries in monthly_data.items():
         final_map[sym][ym] = "|".join(entries)
 
 # ===============================================
-# Generate PineScript Output (Ultra-Compressed)
+# Generate PineScript Output (Ultra-Compressed + Visuals)
 # ===============================================
 output_filename = "Universal_GEX_History.pine"
 
@@ -198,12 +196,12 @@ pine_code = f"""//@version=6
 indicator("Universal GEX History (Bar Replay)", overlay=true, max_lines_count=500, max_labels_count=500)
 
 // --- Generated {datetime.now().strftime('%Y-%m-%d')} ---
-// Mode: V4.6 (Type Mismatch Fix)
+// Mode: V4.8 (Anti-Overlap)
 
 // --- Settings ---
 show_labels    = input.bool(true, "Show Histogram Values", group="Visuals")
 line_width     = input.int(1, "GEX Line Width", minval=1, maxval=4, group="Visuals")
-min_pct        = input.int(30, "Label Threshold % (Hides Clutter)", minval=0, maxval=100, tooltip="Only show labels for bars larger than this % of the day's max.", group="Visuals")
+min_pct        = input.int(30, "Label Threshold %", minval=0, maxval=100, group="Visuals")
 sz_hist_txt    = input.string("tiny", "Histogram Text Size", options=["auto", "tiny", "small", "normal", "large", "huge"], group="Visuals")
 sz_wall_txt    = input.string("small", "Wall Label Size", options=["auto", "tiny", "small", "normal", "large", "huge"], group="Visuals")
 
@@ -226,6 +224,7 @@ f_fmt(float v) =>
 // --- Helper: Parse Monthly Blob for Specific Day ---
 f_parse_day_data(string m_blob, int d_target) =>
     float cw = na, float pw = na, float fl = na, float mv = na, string d_str = ""
+    float c_gex = na, float c_dex = na, float p_gex = na, float p_dex = na
     
     if m_blob != ""
         string[] days = str.split(m_blob, "|")
@@ -237,17 +236,23 @@ f_parse_day_data(string m_blob, int d_target) =>
             if str.startswith(day_entry, target_prefix)
                 string content = str.replace(day_entry, target_prefix, "")
                 string[] comps = str.split(content, "~")
-                if array.size(comps) >= 5
+                if array.size(comps) >= 9
                     cw := str.tonumber(array.get(comps, 0))
                     pw := str.tonumber(array.get(comps, 1))
                     string fl_str = array.get(comps, 2)
                     fl := fl_str == "n" ? na : str.tonumber(fl_str)
                     mv := str.tonumber(array.get(comps, 3))
-                    d_str := array.get(comps, 4)
+                    
+                    c_gex := str.tonumber(array.get(comps, 4)) / 100.0
+                    c_dex := str.tonumber(array.get(comps, 5)) / 100.0
+                    p_gex := str.tonumber(array.get(comps, 6)) / 100.0
+                    p_dex := str.tonumber(array.get(comps, 7)) / 100.0
+                    
+                    d_str := array.get(comps, 8)
                 break
-    [cw, pw, fl, mv, d_str]
+    [cw, pw, fl, mv, d_str, c_gex, c_dex, p_gex, p_dex]
 
-// --- Helper: Draw Histogram (FIXED: Only called once per day) ---
+// --- Helper: Draw Histogram ---
 f_draw_gex(string d_str, float max_v) =>
     if d_str != ""
         string[] pairs = str.split(d_str, ";")
@@ -264,15 +269,11 @@ f_draw_gex(string d_str, float max_v) =>
                         length := 2
                     
                     color c = net_gex >= 0 ? color.new(color.green, 40) : color.new(color.red, 40)
-                    
-                    // Draw line
                     line.new(bar_index, strike, bar_index + length, strike, color=c, width=line_width)
                     
-                    // Smart Labeling: Only label if value > Threshold % of Max
                     if show_labels and math.abs(net_gex) > (max_v * (min_pct / 100.0))
                         color tc = net_gex >= 0 ? color.green : color.red
-                        string txt = f_fmt(net_gex)
-                        label.new(bar_index + length, strike, txt, style=label.style_label_left, textcolor=tc, color=color.new(color.white, 100), size=sz_hist_txt)
+                        label.new(bar_index + length, strike, f_fmt(net_gex), style=label.style_label_left, textcolor=tc, color=color.new(color.white, 100), size=sz_hist_txt)
 
 """
 
@@ -308,38 +309,60 @@ pine_code += '    => ""\n'
 
 pine_code += """
 // 2. Parse Daily Data
-[plot_c_wall, plot_p_wall, plot_flip, max_val, data_str] = f_parse_day_data(month_blob, d)
+[plot_c_wall, plot_p_wall, plot_flip, max_val, data_str, c_gex, c_dex, p_gex, p_dex] = f_parse_day_data(month_blob, d)
 
-// 3. Draw Lines (Continuous for Wall visibility)
+// 3. Draw Lines
 plot(plot_c_wall, "Call Wall", color=color.new(color.green, 20), linewidth=2, style=plot.style_stepline)
 plot(plot_p_wall, "Put Wall",  color=color.new(color.red, 20),   linewidth=2, style=plot.style_stepline)
 plot(plot_flip,   "Flip Zone", color=color.new(color.purple, 0), linewidth=2, style=plot.style_cross)
 
-// 4. Draw Identification Labels (Right Aligned - always visible)
-var label l_cw = label.new(na, na, "CW", style=label.style_label_left, textcolor=color.green, color=color.new(color.white, 100), size=sz_wall_txt)
-var label l_pw = label.new(na, na, "PW", style=label.style_label_left, textcolor=color.red, color=color.new(color.white, 100), size=sz_wall_txt)
-var label l_fp = label.new(na, na, "Flip", style=label.style_label_left, textcolor=color.purple, color=color.new(color.white, 100), size=sz_wall_txt)
+// 4. Smart Offset Labeling
+var label l_cw = label.new(na, na, "", style=label.style_label_left, textcolor=color.green, color=color.new(color.white, 100), size=sz_wall_txt)
+var label l_pw = label.new(na, na, "", style=label.style_label_left, textcolor=color.red, color=color.new(color.white, 100), size=sz_wall_txt)
+var label l_fp = label.new(na, na, "", style=label.style_label_left, textcolor=color.purple, color=color.new(color.white, 100), size=sz_wall_txt)
 
-if not na(plot_c_wall)
-    label.set_xy(l_cw, bar_index + 3, plot_c_wall)
-    label.set_text(l_cw, "CW: " + str.tostring(plot_c_wall))
-else
-    label.set_xy(l_cw, na, na)
-
-if not na(plot_p_wall)
-    label.set_xy(l_pw, bar_index + 3, plot_p_wall)
-    label.set_text(l_pw, "PW: " + str.tostring(plot_p_wall))
-else
+// STAGGER LOGIC: If walls are identical, we only show ONE combined label
+if not na(plot_c_wall) and not na(plot_p_wall) and plot_c_wall == plot_p_wall
+    // Overlap Mode
+    label.set_xy(l_cw, bar_index + 5, plot_c_wall)
+    string txt = "COMBINED WALL ($" + str.tostring(plot_c_wall) + ")\\n" + "C: $" + str.tostring(c_gex, "#.##") + "B | D: $" + str.tostring(c_dex, "#.##") + "B\\n" + "P: $" + str.tostring(p_gex, "#.##") + "B | D: $" + str.tostring(p_dex, "#.##") + "B"
+    label.set_text(l_cw, txt)
+    label.set_textcolor(l_cw, color.purple)
+    
+    // Hide the other one
     label.set_xy(l_pw, na, na)
 
+else
+    // Separate Mode (Standard)
+    // Call Wall (Green)
+    if not na(plot_c_wall)
+        // Offset X by +5
+        label.set_xy(l_cw, bar_index + 5, plot_c_wall)
+        string txt = "CW: " + str.tostring(plot_c_wall) + "\\nGEX: $" + str.tostring(c_gex, "#.##") + "B\\nDEX: $" + str.tostring(c_dex, "#.##") + "B"
+        label.set_text(l_cw, txt)
+        label.set_textcolor(l_cw, color.green)
+    else
+        label.set_xy(l_cw, na, na)
+
+    // Put Wall (Red)
+    if not na(plot_p_wall)
+        // Offset X by +12 (Different X to prevent horizontal crash)
+        label.set_xy(l_pw, bar_index + 12, plot_p_wall)
+        string txt = "PW: " + str.tostring(plot_p_wall) + "\\nGEX: $" + str.tostring(p_gex, "#.##") + "B\\nDEX: $" + str.tostring(p_dex, "#.##") + "B"
+        label.set_text(l_pw, txt)
+        label.set_textcolor(l_pw, color.red)
+    else
+        label.set_xy(l_pw, na, na)
+
+// Flip Zone
 if not na(plot_flip)
-    label.set_xy(l_fp, bar_index + 3, plot_flip)
+    // Offset X by +20 (Furthest out)
+    label.set_xy(l_fp, bar_index + 20, plot_flip)
     label.set_text(l_fp, "Flip: " + str.tostring(plot_flip))
 else
     label.set_xy(l_fp, na, na)
 
-// 5. Draw Profile (CRITICAL FIX: Only on New Day or First Bar)
-// This prevents the "repeating numbers" mess on lower timeframes
+// 5. Draw Profile
 bool new_day = ta.change(time("D")) != 0
 if new_day or barstate.isfirst
     f_draw_gex(data_str, max_val)
@@ -354,5 +377,5 @@ with open(output_filename, "w") as f:
 with open(cache_file, "w") as f:
     json.dump(current_state, f, indent=2)
 
-print(f"✅ Created {output_filename} (v4.6 - Type Error Fix)")
+print(f"✅ Created {output_filename} (v4.8 - Anti-Overlap)")
 print(f"📊 Processed {len(final_map)} symbols.")
