@@ -1,7 +1,7 @@
 //@version=6
 indicator("Universal GEX History (Bar Replay)", overlay=true, max_lines_count=500, max_labels_count=500)
 
-// --- Generated 2026-01-17 ---
+// --- Generated 2026-01-22 ---
 // Mode: V6.1 (Clean Box Labels)
 
 // --- Settings ---
@@ -112,12 +112,52 @@ if current_ticker == "AMZU"
         plot_p_gex  := 192184.845
         plot_c_dex  := 0.0
         plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 18
+        plot_c_wall := 42.0
+        plot_p_wall := 32.0
+        plot_flip   := 39.5
+        plot_c_gex  := 178174.65600000002
+        plot_p_gex  := 74350.08000000002
+        plot_c_dex  := 1295815.6800000002
+        plot_p_dex  := -488586.2400000001
+    if year == 2026 and month == 1 and dayofmonth == 19
+        plot_c_wall := 42.0
+        plot_p_wall := 32.0
+        plot_flip   := 39.5
+        plot_c_gex  := 178174.65600000002
+        plot_p_gex  := 74350.08000000002
+        plot_c_dex  := 1295815.6800000002
+        plot_p_dex  := -488586.2400000001
+    if year == 2026 and month == 1 and dayofmonth == 20
+        plot_c_wall := 42.0
+        plot_p_wall := 32.0
+        plot_flip   := 39.5
+        plot_c_gex  := 179624.016
+        plot_p_gex  := 74954.88000000002
+        plot_c_dex  := 1306356.48
+        plot_p_dex  := -492560.6400000001
+    if year == 2026 and month == 1 and dayofmonth == 21
+        plot_c_wall := 37.0
+        plot_p_wall := 32.0
+        plot_flip   := na
+        plot_c_gex  := 53760.936
+        plot_p_gex  := 69914.88000000002
+        plot_c_dex  := 640456.368
+        plot_p_dex  := -459440.6400000001
+    if year == 2026 and month == 1 and dayofmonth == 22
+        plot_c_wall := 37.0
+        plot_p_wall := 32.0
+        plot_flip   := na
+        plot_c_gex  := 58080.48399999999
+        plot_p_gex  := 87741.19200000001
+        plot_c_dex  := 519168.408
+        plot_p_dex  := -681038.7760000001
 
     if barstate.islast
-        cur_strikes := array.from(40.0, 38.8, 39.8, 40.8, 42.0, 35.0, 45.0, 36.8, 37.8, 41.0, 39.0, 42.8, 43.8, 44.0, 43.0, 41.8, 34.0, 38.0, 34.8, 44.8, 37.0, 35.8, 36.0)
-        cur_lengths := array.from(40, 31, 26, 17, 9, 5, 5, 5, 4, 4, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2)
-        cur_signs   := array.from(1, 1, 1, 1, 1, -1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, -1, 1, 1, 1, -1, 1, -1)
-        cur_labels  := array.from('$1.2M', '$918K', '$761K', '$515K', '$280K', '$-174K', '$156K', '$149K', '$142K', '$118K', '$108K', '$62K', '$60K', '$37K', '$37K', '$35K', '$-28K', '$25K', '$20K', '$19K', '$-16K', '$10K', '$-259')
+        cur_strikes := array.from(32.0, 33.0, 34.0, 37.0, 39.0, 30.0, 38.0, 31.0, 35.0, 36.0)
+        cur_lengths := array.from(40, 35, 22, 21, 19, 17, 14, 10, 8, 4)
+        cur_signs   := array.from(-1, -1, -1, 1, 1, -1, 1, -1, -1, 1)
+        cur_labels  := array.from('$-85K | D: $728K', '$-76K | D: $825K', '$-47K | D: $604K', '$46K | D: $669K', '$42K | D: $527K', '$-37K | D: $484K', '$31K | D: $470K', '$-22K | D: $366K', '$-17K | D: $586K', '$9K | D: $484K')
 
 // ===== BBAI DATA =====
 if current_ticker == "BBAI"
@@ -673,12 +713,52 @@ if current_ticker == "BBAI"
         plot_p_gex  := 7097273.01112
         plot_c_dex  := 0.0
         plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 18
+        plot_c_wall := 7.0
+        plot_p_wall := 6.0
+        plot_flip   := 6.25
+        plot_c_gex  := 5502335.36129
+        plot_p_gex  := 3817181.3817
+        plot_c_dex  := 5379396.14907
+        plot_p_dex  := -4209770.136599999
+    if year == 2026 and month == 1 and dayofmonth == 19
+        plot_c_wall := 7.0
+        plot_p_wall := 6.0
+        plot_flip   := 6.25
+        plot_c_gex  := 5502335.36129
+        plot_p_gex  := 3817181.3817
+        plot_c_dex  := 5379396.14907
+        plot_p_dex  := -4209770.136599999
+    if year == 2026 and month == 1 and dayofmonth == 20
+        plot_c_wall := 7.0
+        plot_p_wall := 6.0
+        plot_flip   := 6.25
+        plot_c_gex  := 5364967.644
+        plot_p_gex  := 3721884.12
+        plot_c_dex  := 5245097.652
+        plot_p_dex  := -4104671.76
+    if year == 2026 and month == 1 and dayofmonth == 21
+        plot_c_wall := 6.5
+        plot_p_wall := 6.0
+        plot_flip   := 6.25
+        plot_c_gex  := 4432468.392
+        plot_p_gex  := 3612416.94
+        plot_c_dex  := 3590645.652
+        plot_p_dex  := -3983946.12
+    if year == 2026 and month == 1 and dayofmonth == 22
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := 6.25
+        plot_c_gex  := 5035531.374
+        plot_p_gex  := 4778570.525
+        plot_c_dex  := 5694943.872
+        plot_p_dex  := -5198751.153
 
     if barstate.islast
-        cur_strikes := array.from(7.0, 6.5, 6.0, 5.5)
-        cur_lengths := array.from(40, 18, 7, 2)
-        cur_signs   := array.from(1, 1, 1, 1)
-        cur_labels  := array.from('$9.4M', '$4.3M', '$1.8M', '$137K')
+        cur_strikes := array.from(6.5, 5.0, 5.5, 6.0)
+        cur_lengths := array.from(40, 17, 11, 2)
+        cur_signs   := array.from(1, -1, -1, 1)
+        cur_labels  := array.from('$4.2M | D: $4.4M', '$-1.8M | D: $2.3M', '$-1.2M | D: $3.2M', '$257K | D: $10.9M')
 
 // ===== BITO DATA =====
 if current_ticker == "BITO"
@@ -850,12 +930,52 @@ if current_ticker == "BITO"
         plot_p_gex  := 3589997.6816
         plot_c_dex  := 0.0
         plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 18
+        plot_c_wall := 14.0
+        plot_p_wall := 13.0
+        plot_flip   := 13.25
+        plot_c_gex  := 1948507.4025
+        plot_p_gex  := 1258519.4775
+        plot_c_dex  := 1910415.8425
+        plot_p_dex  := -3617920.875
+    if year == 2026 and month == 1 and dayofmonth == 19
+        plot_c_wall := 14.0
+        plot_p_wall := 13.0
+        plot_flip   := 13.25
+        plot_c_gex  := 1948507.4025
+        plot_p_gex  := 1258519.4775
+        plot_c_dex  := 1910415.8425
+        plot_p_dex  := -3617920.875
+    if year == 2026 and month == 1 and dayofmonth == 20
+        plot_c_wall := 14.0
+        plot_p_wall := 13.0
+        plot_flip   := 13.25
+        plot_c_gex  := 1961078.418
+        plot_p_gex  := 1266638.958
+        plot_c_dex  := 1922741.106
+        plot_p_dex  := -3641262.3
+    if year == 2026 and month == 1 and dayofmonth == 21
+        plot_c_wall := 14.0
+        plot_p_wall := 13.0
+        plot_flip   := 13.25
+        plot_c_gex  := 1836847.206
+        plot_p_gex  := 1186399.386
+        plot_c_dex  := 1800938.502
+        plot_p_dex  := -3410594.1
+    if year == 2026 and month == 1 and dayofmonth == 22
+        plot_c_wall := 13.0
+        plot_p_wall := 12.0
+        plot_flip   := 13.25
+        plot_c_gex  := 1461141.401
+        plot_p_gex  := 1765681.324
+        plot_c_dex  := 1419467.267
+        plot_p_dex  := -1684510.063
 
     if barstate.islast
         cur_strikes := array.from(12.0, 13.0, 14.0, 13.5, 12.5, 11.0, 11.5)
-        cur_lengths := array.from(40, 34, 25, 15, 5, 2, 2)
-        cur_signs   := array.from(-1, 1, 1, 1, -1, -1, -1)
-        cur_labels  := array.from('$-3.1M', '$2.6M', '$1.9M', '$1.2M', '$-441K', '$-217K', '$-216K')
+        cur_lengths := array.from(40, 31, 24, 24, 6, 6, 2)
+        cur_signs   := array.from(-1, 1, 1, 1, 1, -1, -1)
+        cur_labels  := array.from('$-1.6M | D: $2.0M', '$1.3M | D: $6.5M', '$1.0M | D: $1.7M', '$983K | D: $1.8M', '$282K | D: $3.4M', '$-272K | D: $400K', '$-68K | D: $66K')
 
 // ===== BMNU DATA =====
 if current_ticker == "BMNU"
@@ -1411,12 +1531,52 @@ if current_ticker == "BMNU"
         plot_p_gex  := 502189.656
         plot_c_dex  := 1393234.4815000002
         plot_p_dex  := -977054.702
+    if year == 2026 and month == 1 and dayofmonth == 18
+        plot_c_wall := 6.0
+        plot_p_wall := 5.0
+        plot_flip   := na
+        plot_c_gex  := 95126.724
+        plot_p_gex  := 195000.939
+        plot_c_dex  := 421584.345
+        plot_p_dex  := -537672.492
+    if year == 2026 and month == 1 and dayofmonth == 19
+        plot_c_wall := 6.0
+        plot_p_wall := 5.0
+        plot_flip   := na
+        plot_c_gex  := 95126.724
+        plot_p_gex  := 195000.939
+        plot_c_dex  := 421584.345
+        plot_p_dex  := -537672.492
+    if year == 2026 and month == 1 and dayofmonth == 20
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := na
+        plot_c_gex  := 99153.252
+        plot_p_gex  := 63296.1
+        plot_c_dex  := 439429.185
+        plot_p_dex  := -214887.6
+    if year == 2026 and month == 1 and dayofmonth == 21
+        plot_c_wall := 5.0
+        plot_p_wall := 5.0
+        plot_flip   := na
+        plot_c_gex  := 27751.248000000003
+        plot_p_gex  := 166111.911
+        plot_c_dex  := 177657.543
+        plot_p_dex  := -458017.308
+    if year == 2026 and month == 1 and dayofmonth == 22
+        plot_c_wall := 5.0
+        plot_p_wall := 5.0
+        plot_flip   := na
+        plot_c_gex  := 42394.0
+        plot_p_gex  := 362013.74
+        plot_c_dex  := 147086.5
+        plot_p_dex  := -982279.32
 
     if barstate.islast
-        cur_strikes := array.from(6.0, 5.0)
-        cur_lengths := array.from(40, 38)
-        cur_signs   := array.from(1, -1)
-        cur_labels  := array.from('$374K | D: $2.4M', '$-359K | D: $1.2M')
+        cur_strikes := array.from(5.0)
+        cur_lengths := array.from(40)
+        cur_signs   := array.from(-1)
+        cur_labels  := array.from('$-320K | D: $1.1M')
 
 // ===== CLF DATA =====
 if current_ticker == "CLF"
@@ -1589,12 +1749,52 @@ if current_ticker == "MSTU"
         plot_p_gex  := 724297.8600000001
         plot_c_dex  := 0.0
         plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 18
+        plot_c_wall := 9.5
+        plot_p_wall := 10.5
+        plot_flip   := na
+        plot_c_gex  := 130182.334
+        plot_p_gex  := 146287.832
+        plot_c_dex  := 484639.18400000007
+        plot_p_dex  := -330856.592
+    if year == 2026 and month == 1 and dayofmonth == 19
+        plot_c_wall := 10.0
+        plot_p_wall := 10.5
+        plot_flip   := na
+        plot_c_gex  := 190559.4205
+        plot_p_gex  := 146287.832
+        plot_c_dex  := 787646.7715
+        plot_p_dex  := -330856.592
+    if year == 2026 and month == 1 and dayofmonth == 20
+        plot_c_wall := 10.0
+        plot_p_wall := 10.5
+        plot_flip   := na
+        plot_c_gex  := 278408.83
+        plot_p_gex  := 150751.512
+        plot_c_dex  := 1216506.774
+        plot_p_dex  := -343392.14599999995
+    if year == 2026 and month == 1 and dayofmonth == 21
+        plot_c_wall := 10.0
+        plot_p_wall := 10.5
+        plot_flip   := na
+        plot_c_gex  := 234824.90500000003
+        plot_p_gex  := 127151.892
+        plot_c_dex  := 1026066.909
+        plot_p_dex  := -289635.31100000005
+    if year == 2026 and month == 1 and dayofmonth == 22
+        plot_c_wall := 9.5
+        plot_p_wall := 9.0
+        plot_flip   := 9.25
+        plot_c_gex  := 168463.68000000005
+        plot_p_gex  := 104781.6
+        plot_c_dex  := 221227.776
+        plot_p_dex  := -137962.44
 
     if barstate.islast
-        cur_strikes := array.from(8.5, 10.0, 9.0, 10.5, 11.0, 9.5)
-        cur_lengths := array.from(40, 14, 12, 7, 6, 2)
-        cur_signs   := array.from(-1, 1, -1, 1, 1, -1)
-        cur_labels  := array.from('$-706K', '$252K', '$-227K', '$128K', '$107K', '$-18K')
+        cur_strikes := array.from(9.5, 10.0, 10.5, 9.0, 8.0, 8.5)
+        cur_lengths := array.from(40, 22, 20, 6, 6, 2)
+        cur_signs   := array.from(1, 1, 1, -1, -1, -1)
+        cur_labels  := array.from('$129K | D: $315K', '$73K | D: $300K', '$66K | D: $684K', '$-22K | D: $293K', '$-20K | D: $135K', '$-2K | D: $78K')
 
 // ===== NOK DATA =====
 if current_ticker == "NOK"
@@ -1750,12 +1950,52 @@ if current_ticker == "NOK"
         plot_p_gex  := 1579177.9250000005
         plot_c_dex  := 4112265.4495000006
         plot_p_dex  := -994789.8545
+    if year == 2026 and month == 1 and dayofmonth == 18
+        plot_c_wall := 7.0
+        plot_p_wall := 6.5
+        plot_flip   := 6.75
+        plot_c_gex  := 5844664.566000001
+        plot_p_gex  := 2131753.975
+        plot_c_dex  := 3858009.5645
+        plot_p_dex  := -1218801.441
+    if year == 2026 and month == 1 and dayofmonth == 19
+        plot_c_wall := 7.0
+        plot_p_wall := 6.5
+        plot_flip   := 6.75
+        plot_c_gex  := 5844664.566000001
+        plot_p_gex  := 2131753.975
+        plot_c_dex  := 3858009.5645
+        plot_p_dex  := -1218801.441
+    if year == 2026 and month == 1 and dayofmonth == 20
+        plot_c_wall := 7.0
+        plot_p_wall := 6.5
+        plot_flip   := 6.75
+        plot_c_gex  := 5831310.42
+        plot_p_gex  := 2126883.25
+        plot_c_dex  := 3849194.615
+        plot_p_dex  := -1216016.67
+    if year == 2026 and month == 1 and dayofmonth == 21
+        plot_c_wall := 7.0
+        plot_p_wall := 6.5
+        plot_flip   := 6.75
+        plot_c_gex  := 5706671.723999999
+        plot_p_gex  := 2081423.15
+        plot_c_dex  := 3766921.753
+        plot_p_dex  := -1190025.474
+    if year == 2026 and month == 1 and dayofmonth == 22
+        plot_c_wall := 7.0
+        plot_p_wall := 6.5
+        plot_flip   := 5.75
+        plot_c_gex  := 4554389.896
+        plot_p_gex  := 2726089.996
+        plot_c_dex  := 3099213.9360000007
+        plot_p_dex  := -2092791.3440000005
 
     if barstate.islast
-        cur_strikes := array.from(7.0, 7.5, 6.0, 6.5)
-        cur_lengths := array.from(40, 10, 6, 2)
-        cur_signs   := array.from(1, 1, -1, 1)
-        cur_labels  := array.from('$5.2M | D: $4.9M', '$1.4M | D: $844K', '$-823K | D: $2.5M', '$291K | D: $2.6M')
+        cur_strikes := array.from(7.0, 6.0, 6.5, 5.5)
+        cur_lengths := array.from(40, 14, 9, 2)
+        cur_signs   := array.from(1, -1, 1, 1)
+        cur_labels  := array.from('$4.1M | D: $4.0M', '$-1.5M | D: $3.5M', '$1.0M | D: $3.8M', '$51K | D: $215K')
 
 // ===== OPEN DATA =====
 if current_ticker == "OPEN"
@@ -2393,12 +2633,52 @@ if current_ticker == "RR"
         plot_p_gex  := 489800.147
         plot_c_dex  := 4452863.271500001
         plot_p_dex  := -408386.084
+    if year == 2026 and month == 1 and dayofmonth == 18
+        plot_c_wall := 4.0
+        plot_p_wall := 3.5
+        plot_flip   := 3.75
+        plot_c_gex  := 3099421.626
+        plot_p_gex  := 864960.978
+        plot_c_dex  := 4275745.446
+        plot_p_dex  := -591061.044
+    if year == 2026 and month == 1 and dayofmonth == 19
+        plot_c_wall := 4.0
+        plot_p_wall := 3.5
+        plot_flip   := 3.75
+        plot_c_gex  := 3099421.626
+        plot_p_gex  := 864960.978
+        plot_c_dex  := 4275745.446
+        plot_p_dex  := -591061.044
+    if year == 2026 and month == 1 and dayofmonth == 20
+        plot_c_wall := 4.0
+        plot_p_wall := 3.5
+        plot_flip   := 3.75
+        plot_c_gex  := 3013973.912
+        plot_p_gex  := 841114.936
+        plot_c_dex  := 4157867.752
+        plot_p_dex  := -574766.128
+    if year == 2026 and month == 1 and dayofmonth == 21
+        plot_c_wall := 4.0
+        plot_p_wall := 3.5
+        plot_flip   := 3.75
+        plot_c_gex  := 2998437.964
+        plot_p_gex  := 836779.2919999999
+        plot_c_dex  := 4136435.444
+        plot_p_dex  := -571803.416
+    if year == 2026 and month == 1 and dayofmonth == 22
+        plot_c_wall := 4.0
+        plot_p_wall := 4.0
+        plot_flip   := na
+        plot_c_gex  := 3341950.464
+        plot_p_gex  := 569051.9400000001
+        plot_c_dex  := 3510439.612
+        plot_p_dex  := -539849.532
 
     if barstate.islast
-        cur_strikes := array.from(4.0, 3.5)
-        cur_lengths := array.from(40, 14)
-        cur_signs   := array.from(1, 1)
-        cur_labels  := array.from('$2.8M | D: $5.1M', '$1.0M | D: $3.0M')
+        cur_strikes := array.from(4.0, 4.5, 5.0)
+        cur_lengths := array.from(40, 10, 6)
+        cur_signs   := array.from(1, 1, 1)
+        cur_labels  := array.from('$2.8M | D: $4.1M', '$757K | D: $377K', '$473K | D: $468K')
 
 // ===== SOFI DATA =====
 if current_ticker == "SOFI"
@@ -2538,12 +2818,52 @@ if current_ticker == "SOFI"
         plot_p_gex  := 24291168.4785
         plot_c_dex  := 0.0
         plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 18
+        plot_c_wall := 30.0
+        plot_p_wall := 25.0
+        plot_flip   := na
+        plot_c_gex  := 14553668.448539998
+        plot_p_gex  := 23260814.43126
+        plot_c_dex  := 49377280.9026
+        plot_p_dex  := -74890587.08945999
+    if year == 2026 and month == 1 and dayofmonth == 19
+        plot_c_wall := 30.0
+        plot_p_wall := 25.0
+        plot_flip   := na
+        plot_c_gex  := 14553668.448539998
+        plot_p_gex  := 23260814.43126
+        plot_c_dex  := 49377280.9026
+        plot_p_dex  := -74890587.08945999
+    if year == 2026 and month == 1 and dayofmonth == 20
+        plot_c_wall := 30.0
+        plot_p_wall := 25.0
+        plot_flip   := na
+        plot_c_gex  := 14464985.301
+        plot_p_gex  := 23119074.069
+        plot_c_dex  := 49076399.19
+        plot_p_dex  := -74434239.399
+    if year == 2026 and month == 1 and dayofmonth == 21
+        plot_c_wall := 27.0
+        plot_p_wall := 25.0
+        plot_flip   := na
+        plot_c_gex  := 11763749.705
+        plot_p_gex  := 22552820.436999995
+        plot_c_dex  := 35825068.342
+        plot_p_dex  := -72611127.527
+    if year == 2026 and month == 1 and dayofmonth == 22
+        plot_c_wall := 27.0
+        plot_p_wall := 25.0
+        plot_flip   := na
+        plot_c_gex  := 11444578.096
+        plot_p_gex  := 30641435.832
+        plot_c_dex  := 33205110.204000004
+        plot_p_dex  := -95491949.4
 
     if barstate.islast
-        cur_strikes := array.from(30.0, 25.0, 26.0, 28.0, 29.0, 31.0, 24.0, 25.5, 28.5, 29.5, 26.5, 24.5, 30.5, 27.5, 23.5, 27.0)
-        cur_lengths := array.from(40, 18, 18, 14, 12, 11, 9, 3, 2, 2, 2, 2, 2, 2, 2, 2)
-        cur_signs   := array.from(1, -1, -1, 1, 1, 1, -1, -1, 1, 1, -1, -1, 1, 1, -1, -1)
-        cur_labels  := array.from('$26.9M', '$-12.4M', '$-12.1M', '$9.8M', '$8.7M', '$7.4M', '$-6.5M', '$-2.3M', '$1.6M', '$1.4M', '$-1.2M', '$-1.1M', '$854K', '$838K', '$-308K', '$-290K')
+        cur_strikes := array.from(25.0, 26.0, 24.0, 23.0, 28.0, 25.5, 29.0, 24.5, 22.0, 27.5, 26.5, 23.5, 28.5, 27.0)
+        cur_lengths := array.from(40, 30, 20, 13, 10, 8, 6, 4, 4, 4, 2, 2, 2, 2)
+        cur_signs   := array.from(-1, -1, -1, -1, 1, -1, 1, -1, -1, 1, 1, -1, 1, 1)
+        cur_labels  := array.from('$-27.6M | D: $112.2M', '$-20.7M | D: $118.9M', '$-14.4M | D: $53.5M', '$-9.5M | D: $44.3M', '$7.0M | D: $54.5M', '$-5.7M | D: $13.2M', '$4.5M | D: $27.1M', '$-3.0M | D: $6.7M', '$-3.0M | D: $15.2M', '$3.0M | D: $9.8M', '$2.1M | D: $21.1M', '$-1.3M | D: $2.5M', '$1.1M | D: $3.1M', '$460K | D: $99.3M')
 
 // ===== SOXL DATA =====
 if current_ticker == "SOXL"
@@ -2619,12 +2939,52 @@ if current_ticker == "SOXL"
         plot_p_gex  := 991668.522
         plot_c_dex  := 0.0
         plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 18
+        plot_c_wall := 60.0
+        plot_p_wall := 55.0
+        plot_flip   := 52.75
+        plot_c_gex  := 2340457.13316
+        plot_p_gex  := 769101.88812
+        plot_c_dex  := 37877186.30136
+        plot_p_dex  := -5662411.0335
+    if year == 2026 and month == 1 and dayofmonth == 19
+        plot_c_wall := 60.0
+        plot_p_wall := 55.0
+        plot_flip   := 52.75
+        plot_c_gex  := 2340457.13316
+        plot_p_gex  := 769101.88812
+        plot_c_dex  := 37877186.30136
+        plot_p_dex  := -5662411.0335
+    if year == 2026 and month == 1 and dayofmonth == 20
+        plot_c_wall := 60.0
+        plot_p_wall := 55.0
+        plot_flip   := 52.75
+        plot_c_gex  := 2333152.35
+        plot_p_gex  := 766701.45
+        plot_c_dex  := 37758968.1
+        plot_p_dex  := -5644738.125
+    if year == 2026 and month == 1 and dayofmonth == 21
+        plot_c_wall := 60.0
+        plot_p_wall := 55.0
+        plot_flip   := 49.75
+        plot_c_gex  := 2225232.052
+        plot_p_gex  := 731237.5639999999
+        plot_c_dex  := 36012421.592
+        plot_p_dex  := -5383639.95
+    if year == 2026 and month == 1 and dayofmonth == 22
+        plot_c_wall := 60.0
+        plot_p_wall := 55.0
+        plot_flip   := 56.75
+        plot_c_gex  := 2905644.648
+        plot_p_gex  := 1436450.832
+        plot_c_dex  := 38278598.7
+        plot_p_dex  := -11453086.992
 
     if barstate.islast
-        cur_strikes := array.from(50.0, 60.0, 55.0, 53.0, 49.0, 56.0, 58.0, 52.0, 54.0, 51.0, 57.0, 51.5, 61.0, 47.5, 47.0, 50.5, 49.5, 62.0, 52.5, 59.0, 48.5, 48.0, 46.5, 53.5, 57.5, 54.5, 59.5, 55.5, 58.5, 61.5, 60.5, 56.5)
-        cur_lengths := array.from(40, 25, 22, 15, 14, 13, 13, 9, 6, 6, 4, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2)
-        cur_signs   := array.from(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, -1, 1, 1, 1, 1, 1)
-        cur_labels  := array.from('$4.3M', '$2.8M', '$2.4M', '$1.6M', '$1.5M', '$1.5M', '$1.5M', '$982K', '$725K', '$684K', '$459K', '$269K', '$269K', '$264K', '$261K', '$137K', '$118K', '$117K', '$114K', '$105K', '$91K', '$31K', '$27K', '$9K', '$7K', '$7K', '$-5K', '$3K', '$2K', '$1K', '$553', '$433')
+        cur_strikes := array.from(60.0, 65.0, 58.0, 70.0, 64.0, 63.0, 62.0, 59.0, 67.0, 66.0, 57.0, 68.0, 61.5, 61.0, 55.5, 63.5, 56.0, 59.5, 62.5, 71.0, 55.0, 69.0, 73.0, 72.0, 60.5, 54.0, 64.5, 58.5, 56.5, 57.5, 54.5)
+        cur_lengths := array.from(40, 24, 19, 15, 7, 5, 5, 5, 5, 4, 4, 4, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2)
+        cur_signs   := array.from(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, -1, 1, 1, 1, 1, 1, -1, 1, 1, 1, 1, -1, 1, -1, -1, 1, 1)
+        cur_labels  := array.from('$2.0M | D: $50.3M', '$1.2M | D: $16.2M', '$953K | D: $28.4M', '$755K | D: $10.8M', '$390K | D: $7.2M', '$290K | D: $4.9M', '$279K | D: $19.1M', '$275K | D: $12.3M', '$259K | D: $2.5M', '$247K | D: $2.0M', '$234K | D: $11.5M', '$207K | D: $2.7M', '$186K | D: $3.7M', '$154K | D: $16.7M', '$-127K | D: $1.8M', '$88K | D: $643K', '$87K | D: $15.6M', '$71K | D: $1.4M', '$57K | D: $2.1M', '$52K | D: $723K', '$-52K | D: $42.2M', '$45K | D: $806K', '$39K | D: $297K', '$38K | D: $942K', '$34K | D: $2.4M', '$-33K | D: $16.1M', '$29K | D: $335K', '$-25K | D: $1.2M', '$-22K | D: $3.1M', '$21K | D: $1.8M', '$1K | D: $2.3M')
 
 // ===== SPY DATA =====
 if current_ticker == "SPY"
@@ -3189,12 +3549,52 @@ if current_ticker == "TEMT"
         plot_p_gex  := 3027.5999999999995
         plot_c_dex  := 0.0
         plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 18
+        plot_c_wall := 16.0
+        plot_p_wall := 15.0
+        plot_flip   := na
+        plot_c_gex  := 3434.508
+        plot_p_gex  := 724.4160000000002
+        plot_c_dex  := 32482.29600000001
+        plot_p_dex  := -4369.134
+    if year == 2026 and month == 1 and dayofmonth == 19
+        plot_c_wall := 16.0
+        plot_p_wall := 15.0
+        plot_flip   := na
+        plot_c_gex  := 3434.508
+        plot_p_gex  := 724.4160000000002
+        plot_c_dex  := 32482.29600000001
+        plot_p_dex  := -4369.134
+    if year == 2026 and month == 1 and dayofmonth == 20
+        plot_c_wall := 16.0
+        plot_p_wall := 15.0
+        plot_flip   := na
+        plot_c_gex  := 3375.036
+        plot_p_gex  := 711.8720000000001
+        plot_c_dex  := 31919.83200000001
+        plot_p_dex  := -4293.478
+    if year == 2026 and month == 1 and dayofmonth == 21
+        plot_c_wall := 16.0
+        plot_p_wall := 13.0
+        plot_flip   := 15.5
+        plot_c_gex  := 3022.452
+        plot_p_gex  := 2817.54
+        plot_c_dex  := 28585.224
+        plot_p_dex  := -12653.316
+    if year == 2026 and month == 1 and dayofmonth == 22
+        plot_c_wall := 14.0
+        plot_p_wall := 14.0
+        plot_flip   := na
+        plot_c_gex  := 1101.884
+        plot_p_gex  := 10269.776
+        plot_c_dex  := 11303.81
+        plot_p_dex  := -51587.712
 
     if barstate.islast
-        cur_strikes := array.from(14.0, 15.0, 16.0, 13.0)
-        cur_lengths := array.from(40, 39, 17, 8)
-        cur_signs   := array.from(1, 1, 1, -1)
-        cur_labels  := array.from('$3K', '$3K', '$1K', '$-699')
+        cur_strikes := array.from(14.0, 12.0, 13.0, 15.0)
+        cur_lengths := array.from(40, 24, 16, 2)
+        cur_signs   := array.from(-1, -1, -1, -1)
+        cur_labels  := array.from('$-9K | D: $63K', '$-6K | D: $25K', '$-4K | D: $24K', '$-665 | D: $6K')
 
 // ===== TSLL DATA =====
 if current_ticker == "TSLL"
@@ -3270,12 +3670,52 @@ if current_ticker == "TSLL"
         plot_p_gex  := 2702984.7875
         plot_c_dex  := 0.0
         plot_p_dex  := 0.0
+    if year == 2026 and month == 1 and dayofmonth == 18
+        plot_c_wall := 20.0
+        plot_p_wall := 18.0
+        plot_flip   := na
+        plot_c_gex  := 2639094.644
+        plot_p_gex  := 4292488.7355
+        plot_c_dex  := 7385673.896
+        plot_p_dex  := -12265050.589999998
+    if year == 2026 and month == 1 and dayofmonth == 19
+        plot_c_wall := 20.0
+        plot_p_wall := 18.0
+        plot_flip   := na
+        plot_c_gex  := 2639094.644
+        plot_p_gex  := 4292488.7355
+        plot_c_dex  := 7385673.896
+        plot_p_dex  := -12265050.589999998
+    if year == 2026 and month == 1 and dayofmonth == 20
+        plot_c_wall := 20.0
+        plot_p_wall := 18.0
+        plot_flip   := na
+        plot_c_gex  := 2609229.096
+        plot_p_gex  := 4243912.407
+        plot_c_dex  := 7302093.264
+        plot_p_dex  := -12126252.06
+    if year == 2026 and month == 1 and dayofmonth == 21
+        plot_c_wall := 18.0
+        plot_p_wall := 18.0
+        plot_flip   := na
+        plot_c_gex  := 1096842.759
+        plot_p_gex  := 3888475.857
+        plot_c_dex  := 4338912.306
+        plot_p_dex  := -11110653.06
+    if year == 2026 and month == 1 and dayofmonth == 22
+        plot_c_wall := 18.0
+        plot_p_wall := 18.0
+        plot_flip   := na
+        plot_c_gex  := 1887469.222
+        plot_p_gex  := 4306867.197
+        plot_c_dex  := 4683746.173
+        plot_p_dex  := -22114993.232
 
     if barstate.islast
-        cur_strikes := array.from(17.0, 18.5, 20.0, 16.0, 18.0, 16.5, 17.5, 19.0, 20.43, 21.0, 17.43, 19.43, 20.5, 19.5, 16.43, 18.43)
-        cur_lengths := array.from(40, 39, 34, 27, 23, 19, 19, 16, 13, 11, 11, 8, 6, 6, 4, 2)
-        cur_signs   := array.from(-1, -1, 1, -1, -1, -1, -1, -1, 1, 1, -1, 1, 1, 1, -1, 1)
-        cur_labels  := array.from('$-1.5M', '$-1.5M', '$1.3M', '$-1.0M', '$-892K', '$-757K', '$-756K', '$-614K', '$507K', '$459K', '$-423K', '$341K', '$267K', '$263K', '$-164K', '$50K')
+        cur_strikes := array.from(17.0, 18.0, 16.0, 15.0, 16.5, 17.5, 19.0, 15.5, 19.5, 18.5)
+        cur_lengths := array.from(40, 38, 31, 28, 27, 23, 16, 7, 7, 2)
+        cur_signs   := array.from(-1, -1, -1, -1, -1, -1, 1, -1, 1, 1)
+        cur_labels  := array.from('$-2.5M | D: $13.7M', '$-2.4M | D: $26.8M', '$-1.9M | D: $8.7M', '$-1.8M | D: $5.8M', '$-1.7M | D: $5.7M', '$-1.5M | D: $9.2M', '$1.0M | D: $13.5M', '$-493K | D: $2.3M', '$446K | D: $4.1M', '$38K | D: $8.4M')
 
 // --- Plotting History (Lines) ---
 plot(plot_c_wall, "Call Wall", color=color.new(color.green, 20), linewidth=2, style=plot.style_stepline)
