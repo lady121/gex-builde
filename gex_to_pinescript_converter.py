@@ -1,7 +1,8 @@
 # ===========================================================
-# GEX to Pine Script Converter v7.4 (Scenarios 1, 2, 3)
+# GEX to Pine Script Converter v7.5 (Indentation Fix)
 # ===========================================================
 # FEATURES:
+#   ✅ FIX: Corrected Pine Script indentation to prevent Syntax Errors.
 #   ✅ SCENARIO 1: Separate Green/Red Wall Labels (Normal)
 #   ✅ SCENARIO 2: Combined Purple Wall Label (Overlap)
 #   ✅ SCENARIO 3: Visual Histogram Lines with Tiny Labels (Last Bar)
@@ -14,7 +15,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 
-print("🌲 Starting GEX Converter v7.4 (Visual Scenarios)...")
+print("🌲 Starting GEX Converter v7.5 (Indentation Fix)...")
 
 # ===============================================
 # Configuration
@@ -298,9 +299,7 @@ if show_hist
     if not na(cw)
         if is_combined
             // SCENARIO 2: COMBINED WALL
-            string txt = "COMBINED: " + str.tostring(cw) + "\\n" +
-                         "C: " + cw_info + "\\n" +
-                         "P: " + pw_info
+            string txt = "COMBINED: " + str.tostring(cw) + "\\n" + "C: " + cw_info + "\\n" + "P: " + pw_info
             
             // Add compact history data if not last bar (Last bar gets visual lines)
             if not barstate.islast and d_str != ""
@@ -315,7 +314,7 @@ if show_hist
             string c_txt = "CW: " + str.tostring(cw) + " | " + cw_info
             // Only add history to CW label if NOT last bar
             if not barstate.islast and d_str != ""
-                 c_txt := c_txt + "\\n----------------\\n" + d_str
+                c_txt := c_txt + "\\n----------------\\n" + d_str
             
             label.new(bar_index, cw, c_txt, color=color.green, textcolor=color.white, style=label.style_label_left, size=sz_label)
             
@@ -363,4 +362,4 @@ pine_code += """
 with open(output_filename, "w") as f:
     f.write(pine_code)
 
-print(f"✅ Created {output_filename} (v7.4 Visual Scenarios)")
+print(f"✅ Created {output_filename} (v7.5 Indentation Fix)")
