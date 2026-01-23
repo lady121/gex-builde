@@ -181,17 +181,17 @@ if current_ticker == "AMZU"
         plot_c_wall := 40.0
         plot_p_wall := 32.0
         plot_flip   := na
-        plot_c_gex  := 131302.56329999998
-        plot_p_gex  := 132482.09835
-        plot_c_delta := 830631.43305
-        plot_p_delta := -890730.7037999999
-        plot_is_greek := 0
+        plot_c_gex  := 131355.98999999996
+        plot_p_gex  := 132536.00499999998
+        plot_c_delta := 0.2400011848341232
+        plot_p_delta := -0.2914870530209618
+        plot_is_greek := 1
 
     if barstate.islast
         cur_strikes := array.from(32.0, 40.0, 33.0, 34.0, 39.0, 37.0, 38.0, 31.0, 35.0, 36.0)
         cur_lengths := array.from(40, 38, 34, 19, 18, 13, 12, 10, 6, 2)
         cur_signs   := array.from(-1, 1, -1, -1, 1, 1, 1, -1, -1, -1)
-        cur_labels  := array.from('$-129K | D: $939K', '$124K | D: $939K', '$-112K | D: $1.1M', '$-65K | D: $703K', '$61K | D: $644K', '$45K | D: $684K', '$41K | D: $550K', '$-35K | D: $440K', '$-21K | D: $778K', '$-3K | D: $577K')
+        cur_labels  := array.from('$-129K | Δ: -0.29', '$124K | Δ: 0.24', '$-112K | Δ: -0.30', '$-65K | Δ: -0.30', '$61K | Δ: 0.22', '$45K | Δ: 0.23', '$41K | Δ: 0.20', '$-35K | Δ: -0.10', '$-21K | Δ: -0.10', '$-3K | Δ: -0.03')
 
 // ===== BBAI DATA =====
 if current_ticker == "BBAI"
@@ -865,17 +865,17 @@ if current_ticker == "BBAI"
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := 6.25
-        plot_c_gex  := 7420861.730520001
-        plot_p_gex  := 6503735.867880001
-        plot_c_delta := 5516704.4299800005
-        plot_p_delta := -8229938.68092
-        plot_is_greek := 0
+        plot_c_gex  := 7403134.158
+        plot_p_gex  := 6488199.202
+        plot_c_delta := -0.0962306200324668
+        plot_p_delta := -0.0962306200324668
+        plot_is_greek := 1
 
     if barstate.islast
         cur_strikes := array.from(6.5, 5.5, 6.0)
         cur_lengths := array.from(40, 28, 8)
         cur_signs   := array.from(1, -1, 1)
-        cur_labels  := array.from('$4.4M | D: $3.9M', '$-3.1M | D: $5.0M', '$917K | D: $13.7M')
+        cur_labels  := array.from('$4.4M | Δ: 0.05', '$-3.1M | Δ: -0.08', '$915K | Δ: -0.10')
 
 // ===== BITO DATA =====
 if current_ticker == "BITO"
@@ -1117,17 +1117,17 @@ if current_ticker == "BITO"
         plot_c_wall := 13.0
         plot_p_wall := 12.5
         plot_flip   := na
-        plot_c_gex  := 3457971.86304
-        plot_p_gex  := 4476155.619840001
-        plot_c_delta := 1884207.43296
-        plot_p_delta := -4651232.79968
-        plot_is_greek := 0
+        plot_c_gex  := 3442744.872
+        plot_p_gex  := 4456445.112000001
+        plot_c_delta := -0.2187907338308457
+        plot_p_delta := -0.32345843859016
+        plot_is_greek := 1
 
     if barstate.islast
         cur_strikes := array.from(13.0, 12.5, 12.0, 13.5, 14.0, 11.0, 11.5)
         cur_lengths := array.from(40, 38, 26, 14, 13, 3, 3)
         cur_signs   := array.from(1, -1, -1, 1, 1, -1, -1)
-        cur_labels  := array.from('$2.9M | D: $7.3M', '$-2.8M | D: $6.0M', '$-1.9M | D: $1.9M', '$1.1M | D: $1.7M', '$1.0M | D: $1.8M', '$-254K | D: $433K', '$-219K | D: $187K')
+        cur_labels  := array.from('$2.9M | Δ: -0.22', '$-2.8M | Δ: -0.32', '$-1.9M | Δ: -0.22', '$1.1M | Δ: -0.05', '$1.0M | Δ: -0.03', '$-253K | Δ: -0.03', '$-218K | Δ: -0.18')
 
 // ===== BMNU DATA =====
 if current_ticker == "BMNU"
@@ -1801,17 +1801,17 @@ if current_ticker == "BMNU"
         plot_c_wall := 5.0
         plot_p_wall := 5.0
         plot_flip   := na
-        plot_c_gex  := 135790.05
-        plot_p_gex  := 581972.424
-        plot_c_delta := 547686.535
-        plot_p_delta := -1337228.772
-        plot_is_greek := 0
+        plot_c_gex  := 130537.04999999996
+        plot_p_gex  := 559458.9839999999
+        plot_c_delta := -0.1891221052631578
+        plot_p_delta := -0.1891221052631578
+        plot_is_greek := 1
 
     if barstate.islast
         cur_strikes := array.from(5.0)
         cur_lengths := array.from(40)
         cur_signs   := array.from(-1)
-        cur_labels  := array.from('$-446K | D: $1.9M')
+        cur_labels  := array.from('$-429K | Δ: -0.19')
 
 // ===== CLF DATA =====
 if current_ticker == "CLF"
@@ -2287,17 +2287,17 @@ if current_ticker == "NOK"
         plot_c_wall := 6.5
         plot_p_wall := 6.5
         plot_flip   := 6.25
-        plot_c_gex  := 7200323.359720001
-        plot_p_gex  := 4139815.145920001
-        plot_c_delta := 1993274.77964
-        plot_p_delta := -2570009.4517600005
-        plot_is_greek := 0
+        plot_c_gex  := 7161321.7
+        plot_p_gex  := 4117391.2
+        plot_c_delta := -0.0599631718420874
+        plot_p_delta := -0.0599631718420874
+        plot_is_greek := 1
 
     if barstate.islast
-        cur_strikes := array.from(7.0, 6.5, 6.0, 7.5)
-        cur_lengths := array.from(40, 24, 9, 9)
-        cur_signs   := array.from(1, 1, -1, 1)
-        cur_labels  := array.from('$5.0M | D: $4.4M', '$3.1M | D: $4.6M', '$-1.2M | D: $3.5M', '$1.2M | D: $537K')
+        cur_strikes := array.from(7.0, 6.5, 6.0)
+        cur_lengths := array.from(40, 24, 9)
+        cur_signs   := array.from(1, 1, -1)
+        cur_labels  := array.from('$5.0M | Δ: 0.17', '$3.0M | Δ: -0.06', '$-1.2M | Δ: 0.06')
 
 // ===== OPEN DATA =====
 if current_ticker == "OPEN"
@@ -3061,17 +3061,17 @@ if current_ticker == "RR"
         plot_c_wall := 4.0
         plot_p_wall := 4.0
         plot_flip   := na
-        plot_c_gex  := 5018627.7020000005
-        plot_p_gex  := 1065505.694
-        plot_c_delta := 8601782.937
-        plot_p_delta := -623806.337
-        plot_is_greek := 0
+        plot_c_gex  := 4804250.396
+        plot_p_gex  := 1019991.212
+        plot_c_delta := 0.5405629446334674
+        plot_p_delta := 0.5405629446334674
+        plot_is_greek := 1
 
     if barstate.islast
         cur_strikes := array.from(4.0, 4.5, 5.0)
         cur_lengths := array.from(40, 35, 17)
         cur_signs   := array.from(1, 1, 1)
-        cur_labels  := array.from('$4.0M | D: $9.2M', '$3.5M | D: $2.6M', '$1.8M | D: $1.5M')
+        cur_labels  := array.from('$3.8M | Δ: 0.54', '$3.4M | Δ: 0.38', '$1.7M | Δ: 0.26')
 
 // ===== SOFI DATA =====
 if current_ticker == "SOFI"
@@ -3277,17 +3277,17 @@ if current_ticker == "SOFI"
         plot_c_wall := 27.0
         plot_p_wall := 25.0
         plot_flip   := na
-        plot_c_gex  := 15876683.168
-        plot_p_gex  := 36527743.232
-        plot_c_delta := 37990741.524
-        plot_p_delta := -95157039.444
-        plot_is_greek := 0
+        plot_c_gex  := 15846314.608
+        plot_p_gex  := 36457873.792
+        plot_c_delta := -0.1155811335813801
+        plot_p_delta := -0.2370029662109879
+        plot_is_greek := 1
 
     if barstate.islast
         cur_strikes := array.from(25.0, 26.0, 24.0, 30.0, 23.0, 28.0, 25.5, 29.0, 26.5, 24.5, 27.5, 27.0, 23.5, 28.5, 29.5)
         cur_lengths := array.from(40, 21, 19, 15, 12, 9, 9, 6, 6, 5, 5, 5, 2, 2, 2)
         cur_signs   := array.from(-1, -1, -1, 1, -1, 1, -1, 1, 1, -1, 1, 1, -1, 1, 1)
-        cur_labels  := array.from('$-32.2M | D: $118.3M', '$-17.4M | D: $121.4M', '$-15.5M | D: $53.2M', '$12.4M | D: $55.7M', '$-9.8M | D: $45.5M', '$7.9M | D: $53.7M', '$-7.6M | D: $20.3M', '$5.1M | D: $27.5M', '$4.9M | D: $22.4M', '$-4.5M | D: $9.2M', '$4.4M | D: $12.9M', '$4.2M | D: $101.7M', '$-2.0M | D: $4.5M', '$1.8M | D: $4.3M', '$731K | D: $1.5M')
+        cur_labels  := array.from('$-32.2M | Δ: -0.24', '$-17.4M | Δ: -0.27', '$-15.4M | Δ: -0.20', '$12.4M | Δ: 0.10', '$-9.8M | Δ: -0.10', '$7.8M | Δ: 0.02', '$-7.6M | Δ: -0.23', '$5.1M | Δ: 0.03', '$4.9M | Δ: -0.06', '$-4.5M | Δ: -0.15', '$4.4M | Δ: 0.01', '$4.2M | Δ: -0.12', '$-2.0M | Δ: -0.11', '$1.8M | Δ: 0.02', '$730K | Δ: 0.05')
 
 // ===== SOXL DATA =====
 if current_ticker == "SOXL"
@@ -3421,17 +3421,17 @@ if current_ticker == "SOXL"
         plot_c_wall := 60.0
         plot_p_wall := 60.0
         plot_flip   := 60.75
-        plot_c_gex  := 2794991.04
-        plot_p_gex  := 1201543.92
-        plot_c_delta := 59209596.6
-        plot_p_delta := -10297876.68
-        plot_is_greek := 0
+        plot_c_gex  := 2800264.608
+        plot_p_gex  := 1203810.984
+        plot_c_delta := 0.4085270650730412
+        plot_p_delta := 0.4085270650730412
+        plot_is_greek := 1
 
     if barstate.islast
         cur_strikes := array.from(65.0, 60.0, 70.0, 64.0, 67.0, 63.0, 66.0, 62.0, 68.0, 61.0, 56.0, 59.5, 61.5, 59.0, 55.0, 60.5, 57.0, 69.0, 56.5, 62.5, 71.0, 63.5, 58.5, 72.0, 55.5, 57.5, 64.5, 58.0, 73.0, 54.5)
         cur_lengths := array.from(40, 24, 18, 16, 14, 12, 9, 9, 9, 7, 6, 6, 5, 4, 4, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2)
         cur_signs   := array.from(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, -1, -1, 1, -1, -1, 1, -1, 1, -1, 1, 1, 1, -1, 1, -1, -1, 1, 1, 1, -1)
-        cur_labels  := array.from('$2.6M | D: $27.5M', '$1.6M | D: $69.5M', '$1.2M | D: $15.6M', '$1.1M | D: $11.9M', '$940K | D: $6.1M', '$813K | D: $10.4M', '$636K | D: $4.9M', '$610K | D: $24.9M', '$586K | D: $5.2M', '$510K | D: $23.8M', '$-388K | D: $18.8M', '$-386K | D: $16.7M', '$381K | D: $6.5M', '$-291K | D: $20.1M', '$-268K | D: $45.0M', '$217K | D: $6.5M', '$-195K | D: $16.5M', '$182K | D: $1.7M', '$-178K | D: $4.0M', '$158K | D: $2.9M', '$127K | D: $1.3M', '$124K | D: $1.5M', '$-123K | D: $1.7M', '$122K | D: $1.5M', '$-109K | D: $1.7M', '$-108K | D: $2.8M', '$100K | D: $732K', '$84K | D: $39.6M', '$66K | D: $573K', '$-63K | D: $2.8M')
+        cur_labels  := array.from('$2.6M | Δ: 0.41', '$1.6M | Δ: 0.41', '$1.2M | Δ: 0.34', '$1.1M | Δ: 0.30', '$942K | Δ: 0.34', '$815K | Δ: 0.47', '$637K | Δ: 0.35', '$611K | Δ: 0.23', '$587K | Δ: 0.31', '$511K | Δ: 0.35', '$-389K | Δ: 0.25', '$-387K | Δ: -0.05', '$381K | Δ: 0.45', '$-292K | Δ: 0.27', '$-269K | Δ: 0.35', '$217K | Δ: 0.43', '$-195K | Δ: 0.26', '$182K | Δ: 0.23', '$-178K | Δ: 0.19', '$158K | Δ: 0.29', '$128K | Δ: 0.24', '$124K | Δ: 0.46', '$-123K | Δ: 0.21', '$123K | Δ: 0.11', '$-109K | Δ: 0.08', '$-109K | Δ: 0.25', '$100K | Δ: 0.31', '$84K | Δ: 0.54', '$66K | Δ: 0.19', '$-63K | Δ: 0.24')
 
 // ===== SPY DATA =====
 if current_ticker == "SPY"
@@ -4114,17 +4114,17 @@ if current_ticker == "TEMT"
         plot_c_wall := 16.0
         plot_p_wall := 14.0
         plot_flip   := na
-        plot_c_gex  := 4181.444
-        plot_p_gex  := 11322.017999999998
-        plot_c_delta := 21512.429
-        plot_p_delta := -65835.438
-        plot_is_greek := 0
+        plot_c_gex  := 4170.196
+        plot_p_gex  := 11291.562
+        plot_c_delta := -0.0130317460317459
+        plot_p_delta := -0.3433148148148148
+        plot_is_greek := 1
 
     if barstate.islast
         cur_strikes := array.from(14.0, 13.0, 16.0, 17.0, 15.0)
         cur_lengths := array.from(40, 17, 6, 2, 2)
         cur_signs   := array.from(-1, -1, 1, 1, 1)
-        cur_labels  := array.from('$-9K | D: $77K', '$-4K | D: $31K', '$1K | D: $44K', '$669 | D: $9K', '$54 | D: $4K')
+        cur_labels  := array.from('$-9K | Δ: -0.34', '$-4K | Δ: -0.29', '$1K | Δ: -0.01', '$667 | Δ: 0.05', '$53 | Δ: -0.04')
 
 // ===== TSLL DATA =====
 if current_ticker == "TSLL"
@@ -4258,17 +4258,17 @@ if current_ticker == "TSLL"
         plot_c_wall := 18.0
         plot_p_wall := 18.0
         plot_flip   := na
-        plot_c_gex  := 4912065.970000001
-        plot_p_gex  := 5975307.449999999
-        plot_c_delta := 8287162.415
-        plot_p_delta := -18028642.975
-        plot_is_greek := 0
+        plot_c_gex  := 4970322.278
+        plot_p_gex  := 6046173.629999999
+        plot_c_delta := -0.1863281294351405
+        plot_p_delta := -0.1863281294351405
+        plot_is_greek := 1
 
     if barstate.islast
-        cur_strikes := array.from(16.0, 20.0, 16.5, 17.0, 18.5, 19.0, 18.0, 20.5, 19.5, 21.0, 17.5)
-        cur_lengths := array.from(40, 37, 30, 29, 17, 16, 15, 12, 9, 6, 2)
-        cur_signs   := array.from(-1, 1, -1, -1, 1, 1, -1, 1, 1, 1, -1)
-        cur_labels  := array.from('$-2.7M | D: $8.9M', '$2.5M | D: $14.5M', '$-2.1M | D: $6.9M', '$-2.0M | D: $17.2M', '$1.2M | D: $8.6M', '$1.1M | D: $13.7M', '$-1.1M | D: $26.3M', '$854K | D: $2.6M', '$661K | D: $4.4M', '$417K | D: $9.1M', '$-9K | D: $10.2M')
+        cur_strikes := array.from(16.0, 20.0, 16.5, 17.0, 18.5, 19.0, 18.0, 20.5, 19.5, 21.0, 21.5, 17.5)
+        cur_lengths := array.from(40, 37, 30, 29, 17, 16, 15, 12, 9, 6, 2, 2)
+        cur_signs   := array.from(-1, 1, -1, -1, 1, 1, -1, 1, 1, 1, 1, -1)
+        cur_labels  := array.from('$-2.8M | Δ: -0.12', '$2.6M | Δ: 0.03', '$-2.1M | Δ: -0.12', '$-2.0M | Δ: -0.07', '$1.2M | Δ: -0.12', '$1.1M | Δ: -0.13', '$-1.1M | Δ: -0.19', '$864K | Δ: 0.04', '$669K | Δ: -0.09', '$422K | Δ: -0.16', '$194K | Δ: -0.11', '$-9K | Δ: -0.11')
 
 // --- Plotting History (Lines) ---
 plot(plot_c_wall, "Call Wall", color=color.new(color.green, 20), linewidth=2, style=plot.style_stepline)
