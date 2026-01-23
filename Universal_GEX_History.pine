@@ -628,9 +628,7 @@ if show_hist
     if not na(cw)
         if is_combined
             // SCENARIO 2: COMBINED WALL
-            string txt = "COMBINED: " + str.tostring(cw) + "\n" +
-                         "C: " + cw_info + "\n" +
-                         "P: " + pw_info
+            string txt = "COMBINED: " + str.tostring(cw) + "\n" + "C: " + cw_info + "\n" + "P: " + pw_info
             
             // Add compact history data if not last bar (Last bar gets visual lines)
             if not barstate.islast and d_str != ""
@@ -645,7 +643,7 @@ if show_hist
             string c_txt = "CW: " + str.tostring(cw) + " | " + cw_info
             // Only add history to CW label if NOT last bar
             if not barstate.islast and d_str != ""
-                 c_txt := c_txt + "\n----------------\n" + d_str
+                c_txt := c_txt + "\n----------------\n" + d_str
             
             label.new(bar_index, cw, c_txt, color=color.green, textcolor=color.white, style=label.style_label_left, size=sz_label)
             
