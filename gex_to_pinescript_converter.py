@@ -1,13 +1,13 @@
 # ===========================================================
-# GEX to Pine Script Converter v7.0 (Architecture Overhaul)
+# GEX to Pine Script Converter v7.1 (Type Safety Fix)
 # ===========================================================
 # FEATURES:
+#   ✅ FIX: "Value with NA type" error resolved using float(na)
 #   ✅ Auto-detect current chart symbol (syminfo.ticker)
 #   ✅ Compressed daily data (ymd => [CW, PW, Flip, DataStr, Max])
 #   ✅ Bar replay support (Date-keyed lookup)
 #   ✅ Token-safe compression (Top levels only)
 #   ✅ Configurable history length (Max 250 days)
-#   ✅ Unlimited symbols (Dynamic function generation)
 # ===========================================================
 
 import os
@@ -16,7 +16,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 
-print("🌲 Starting GEX Converter v7.0 (Optimized Architecture)...")
+print("🌲 Starting GEX Converter v7.1 (Type Safety Fix)...")
 
 # ===============================================
 # Configuration
@@ -174,7 +174,7 @@ pine_code = f"""//@version=6
 indicator("Universal GEX History (Optimized)", overlay=true, max_labels_count=500, max_lines_count=500)
 
 // --- Generated {datetime.now().strftime('%Y-%m-%d')} ---
-// Architecture: Date-Keyed Lookup (YMD)
+// Architecture: Date-Keyed Lookup (YMD) with Type Safety
 
 // --- Settings ---
 sz_label = input.string("normal", "Label Size", options=["auto", "tiny", "small", "normal", "large", "huge"])
@@ -201,15 +201,15 @@ f_data_{safe_sym}(int ymd) =>
 """
     for rec in records:
         d = rec['data']
-        f_val = d['flip'] if d['flip'] is not None else "na"
+        f_val = d['flip'] if d['flip'] is not None else "float(na)"
         # Escape string for Pine
         safe_str = d['data_str'].replace('"', '\\"')
         
         # Pine Switch Line: case => [return tuple]
         pine_code += f"        {rec['ymd']} => [{d['cw']}, {d['pw']}, {f_val}, \"{safe_str}\", {d['max']}]\n"
 
-    # Default Case
-    pine_code += "        => [na, na, na, \"\", na]\n"
+    # Default Case (Fixed: Explicit casting)
+    pine_code += "        => [float(na), float(na), float(na), \"\", float(na)]\n"
 
 # Main Dispatcher
 pine_code += """
@@ -226,8 +226,8 @@ for symbol in history_map:
     safe_sym = symbol.replace("-", "_").replace(".", "")
     pine_code += f'    "{symbol}" => f_data_{safe_sym}(cur_ymd)\n'
 
-# Default dispatch
-pine_code += '    => [na, na, na, "", na]\n'
+# Default dispatch (Fixed: Explicit casting)
+pine_code += '    => [float(na), float(na), float(na), "", float(na)]\n'
 
 pine_code += """
 // ==========================================
@@ -276,4 +276,4 @@ if not na(cw) and show_hist
 with open(output_filename, "w") as f:
     f.write(pine_code)
 
-print(f"✅ Created {output_filename} (v7.0 Optimized)")
+print(f"✅ Created {output_filename} (v7.1 Type Safe)")
