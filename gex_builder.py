@@ -1,11 +1,11 @@
 # ===========================================================
-# MarketData.app GEX Builder v9.0 — Delta Added
+# MarketData.app GEX Builder v9.1 — Greek Delta Added
 # Author: PulsR | Maintained by Code GPT
 # ===========================================================
-# Fixes from v8.9:
-#  ✅ Calculates Net Delta Exposure (DEX) for every strike.
-#  ✅ Saves 'call_dex' and 'put_dex' to the robust CSV files.
-#  ✅ Maintains Cumulative Summary functionality.
+# Updates in v9.1:
+#  ✅ Calculates 'Net Greek Delta' (Weighted Avg Delta per Strike).
+#  ✅ This provides the -1.0 to 1.0 metric the user requested.
+#  ✅ Saves 'net_greek_delta' to the CSV.
 # ===========================================================
 
 import os
@@ -34,7 +34,7 @@ if os.path.exists("tickers.txt"):
 else:
     TICKERS = DEFAULT_TICKERS
 
-print("🚀 Starting MarketData GEX Builder (v9.0)")
+print("🚀 Starting MarketData GEX Builder (v9.1)")
 print(f"Tickers: {', '.join(TICKERS)}")
 
 # ===============================================
@@ -178,15 +178,24 @@ def build_gex(symbol):
 
             if any(v is None for v in [strike, gamma, delta, oi, underlying]): continue 
 
+            f_oi = float(oi)
+            f_delta = float(delta)
+
             # Calculate GEX ($ Gamma) and DEX ($ Delta)
-            gex = float(gamma) * float(oi) * 100 * float(underlying)
-            dex = float(delta) * float(oi) * 100 * float(underlying)
+            gex = float(gamma) * f_oi * 100 * float(underlying)
+            dex = f_delta * f_oi * 100 * float(underlying)
             
+            # Helper for Greek Delta Calculation
+            # We want: (Sum of Delta * OI) / Total OI per strike
+            weighted_delta = f_delta * f_oi
+
             otype = infer_option_type(opt)
             rows.append({
                 "strike": float(strike), 
                 "GEX": gex, 
                 "DEX": dex,
+                "weighted_delta": weighted_delta,
+                "OI": f_oi,
                 "type": otype
             })
         except: continue
@@ -196,12 +205,20 @@ def build_gex(symbol):
     if df.empty: return None, {}
 
     # 4. Aggregation (GEX & DEX)
-    # Group by Strike/Type and sum both metrics
+    # Group by Strike/Type and sum metrics
     grouped = df.groupby(["strike", "type"])[["GEX", "DEX"]].sum().unstack(fill_value=0)
     
     # Flatten MultiIndex columns (e.g., GEX_C, DEX_P)
     grouped.columns = ['_'.join(col).strip() for col in grouped.columns.values]
     
+    # Calculate Net Greek Delta (Aggregated by Strike only)
+    # This gives us the average delta coefficient (-1.0 to 1.0) for the strike
+    strike_stats = df.groupby("strike")[["weighted_delta", "OI"]].sum()
+    strike_stats["net_greek_delta"] = strike_stats["weighted_delta"] / strike_stats["OI"].replace(0, 1) # Avoid div/0
+    
+    # Join the net_greek_delta back to the grouped dataframe
+    grouped = grouped.join(strike_stats["net_greek_delta"])
+
     # Rename to standard friendly names
     rename_map = {
         "GEX_C": "call_gex", "GEX_P": "put_gex",
@@ -238,7 +255,7 @@ def build_gex(symbol):
         "regime": regime
     }
 
-    # Save CSV (Now includes DEX columns)
+    # Save CSV (Includes Net Greek Delta)
     date_tag = datetime.now().strftime("%Y%m%d")
     fname = f"{symbol}_GEX_robust_{date_tag}.csv"
     grouped.reset_index().to_csv(fname, index=False)
