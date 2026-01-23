@@ -1,8 +1,8 @@
 //@version=6
-indicator("Universal GEX History (Visual Scenarios)", overlay=true, max_labels_count=500, max_lines_count=500)
+indicator("Universal GEX History (Smart Labels)", overlay=true, max_labels_count=500, max_lines_count=500)
 
 // --- Generated 2026-01-23 ---
-// Architecture: Date-Keyed Lookup + Visual Histogram for Last Bar
+// Architecture: Date-Keyed Lookup + Smart Label Persistence
 
 // --- Settings ---
 sz_label = input.string("normal", "Label Size", options=["auto", "tiny", "small", "normal", "large", "huge"])
@@ -15,7 +15,6 @@ f_ymd() =>
 // ==========================================
 // DATA FUNCTIONS (One per Ticker)
 // ==========================================
-// Returns: [CW, CW_Info, PW, PW_Info, Flip, FlipDelta, DataStr]
 
 f_data_AMZU(int ymd) =>
     switch ymd
@@ -531,7 +530,7 @@ f_data_TSLL(int ymd) =>
         20260123 => [18.0, "GEX: $5.0M | D: Δ-0.19", 18.0, "GEX: $6.0M | D: Δ-0.19", float(na), 0.0, "16.0: $-2.8M, Δ-0.12\n20.0: $2.6M, Δ0.03\n16.5: $-2.1M, Δ-0.12\n17.0: $-2.0M, Δ-0.07\n18.5: $1.2M, Δ-0.12\n19.0: $1.1M, Δ-0.13\n18.0: $-1.1M, Δ-0.19\n20.5: $864K, Δ0.04"]
         => [float(na), "", float(na), "", float(na), 0.0, ""]
 
-// --- Array Functions for Last Bar (Scenario 3) ---
+// --- Array Functions ---
 
 f_arrays_AMZU() =>
     [array.from(32.0, 40.0, 33.0, 34.0, 39.0, 37.0, 38.0, 31.0), array.from(30, 28, 25, 14, 14, 10, 9, 8), array.from(-1, 1, -1, -1, 1, 1, 1, -1), array.from('[$-129K, Δ-0.29]', '[$124K, Δ0.24]', '[$-112K, Δ-0.30]', '[$-65K, Δ-0.30]', '[$61K, Δ0.22]', '[$45K, Δ0.23]', '[$41K, Δ0.20]', '[$-35K, Δ-0.10]')]
@@ -583,7 +582,7 @@ f_arrays_TSLL() =>
 // ==========================================
 int cur_ymd = f_ymd()
 
-// Dispatch Data (History + Current)
+// Dispatch Data
 [cw, cw_info, pw, pw_info, flip, flip_d, d_str] = switch syminfo.ticker
     "AMZU" => f_data_AMZU(cur_ymd)
     "BBAI" => f_data_BBAI(cur_ymd)
@@ -606,50 +605,55 @@ int cur_ymd = f_ymd()
 // VISUALIZATION
 // ==========================================
 
-// 1. Plot Walls & Flip (Lines)
-// Check for overlap (Scenario 2)
+// 1. Plot Walls & Flip
 bool is_combined = not na(cw) and not na(pw) and cw == pw
 
-// Plot Lines
+// Plot Walls (Stepline)
 plot(cw, "Call Wall", color=is_combined ? color.purple : color.green, linewidth=2, style=plot.style_stepline)
 plot(pw, "Put Wall",  color=is_combined ? color.purple : color.red,   linewidth=2, style=plot.style_stepline)
-plot(flip, "Flip Zone", color=color.new(color.blue, 0), linewidth=1, style=plot.style_circles)
 
-// 2. Labels Logic
+// Plot Flip Zone (Stepline) - Changed from circles to line
+plot(flip, "Flip Zone", color=color.new(color.blue, 0), linewidth=1, style=plot.style_stepline)
+
+// 2. Smart Label Logic
 if show_hist
-    // --- FLIP LABEL (Always Separate) ---
-    if not na(flip)
+    // Detect Changes: only true if current value != previous value
+    bool cw_changed = (cw != cw[1])
+    bool pw_changed = (pw != pw[1])
+    bool flip_changed = (flip != flip[1])
+    
+    // Also check if we just started having data
+    bool new_data_cw = not na(cw) and na(cw[1])
+    bool new_data_pw = not na(pw) and na(pw[1])
+    bool new_data_flip = not na(flip) and na(flip[1])
+
+    // --- FLIP LABEL ---
+    // Only draw label if Flip Zone changes or starts new
+    if not na(flip) and (flip_changed or new_data_flip)
         string f_txt = "Flip: " + str.tostring(flip, "#.##")
         if flip_d != 0.0
             f_txt := f_txt + "\nΔ: " + str.tostring(flip_d, "#.2f")
         label.new(bar_index, flip, f_txt, color=color.blue, textcolor=color.white, style=label.style_label_left, size=sz_label)
 
     // --- WALL LABELS ---
-    if not na(cw)
+    if not na(cw) and (cw_changed or pw_changed or new_data_cw or new_data_pw)
         if is_combined
-            // SCENARIO 2: COMBINED WALL
             string txt = "COMBINED: " + str.tostring(cw) + "\n" + "C: " + cw_info + "\n" + "P: " + pw_info
-            
-            // Add compact history data if not last bar (Last bar gets visual lines)
             if not barstate.islast and d_str != ""
                 txt := txt + "\n----------------\n" + d_str
-
             label.new(bar_index, cw, txt, color=color.purple, textcolor=color.white, style=label.style_label_left, size=sz_label)
-        
         else
-            // SCENARIO 1: SEPARATE WALLS
+            // Call Wall
+            if not na(cw)
+                string c_txt = "CW: " + str.tostring(cw) + " | " + cw_info
+                if not barstate.islast and d_str != ""
+                    c_txt := c_txt + "\n----------------\n" + d_str
+                label.new(bar_index, cw, c_txt, color=color.green, textcolor=color.white, style=label.style_label_left, size=sz_label)
             
-            // CW Label (Green)
-            string c_txt = "CW: " + str.tostring(cw) + " | " + cw_info
-            // Only add history to CW label if NOT last bar
-            if not barstate.islast and d_str != ""
-                c_txt := c_txt + "\n----------------\n" + d_str
-            
-            label.new(bar_index, cw, c_txt, color=color.green, textcolor=color.white, style=label.style_label_left, size=sz_label)
-            
-            // PW Label (Red)
-            string p_txt = "PW: " + str.tostring(pw) + " | " + pw_info
-            label.new(bar_index, pw, p_txt, color=color.red, textcolor=color.white, style=label.style_label_left, size=sz_label)
+            // Put Wall
+            if not na(pw)
+                string p_txt = "PW: " + str.tostring(pw) + " | " + pw_info
+                label.new(bar_index, pw, p_txt, color=color.red, textcolor=color.white, style=label.style_label_left, size=sz_label)
 
 // 3. SCENARIO 3: VISUAL HISTOGRAM (Last Bar Only)
 if barstate.islast
@@ -658,7 +662,6 @@ if barstate.islast
     int[]   a_sgn = array.new<int>()
     string[] a_lbl = array.new<string>()
     
-    // Fetch Arrays
     [t1, t2, t3, t4] = switch syminfo.ticker
         "AMZU" => f_arrays_AMZU()
         "BBAI" => f_arrays_BBAI()
@@ -686,12 +689,8 @@ if barstate.islast
             int sg  = array.get(a_sgn, i)
             string txt = array.get(a_lbl, i)
             
-            // Color Logic
             col_line = sg > 0 ? color.new(color.green, 40) : color.new(color.red, 40)
             col_lbl  = sg > 0 ? color.green : color.red
             
-            // Draw Line (Bar)
             line.new(bar_index, s, bar_index + l, s, color=col_line, width=2)
-            
-            // Draw Tiny Label at End
             label.new(bar_index + l, s, txt, style=label.style_label_left, textcolor=color.white, color=col_lbl, size=size.tiny)
