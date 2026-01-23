@@ -1,6 +1,11 @@
 name: GEX to PineScript Converter 🧩
 
 on:
+  # ✅ Automatic Schedule (Runs 30 mins after the Builder to ensure data is ready)
+  schedule:
+    - cron: '30 1,13 * * *' # Runs at 1:30 AM and 1:30 PM UTC
+  
+  # ✅ Manual Trigger (Maintains the True/False force option)
   workflow_dispatch:
     inputs:
       force:
@@ -8,6 +13,7 @@ on:
         required: false
         default: "false"
 
+  # ✅ Automatic Trigger on File Changes
   push:
     paths:
       - '**.csv'
@@ -34,11 +40,13 @@ jobs:
 
       - name: 🧠 Run GEX → PineScript Converter
         run: |
+          # Check if triggered by workflow_dispatch with force=true
           if [ "${{ github.event.inputs.force }}" = "true" ]; then
             echo "⚙️ Force rebuild triggered via workflow dispatch."
             python gex_to_pinescript_converter.py --force
           else
             echo "🌲 Smart rebuild mode (using cache)."
+            # Scheduled runs and Push events default to this
             python gex_to_pinescript_converter.py
           fi
 
