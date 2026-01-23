@@ -1,8 +1,8 @@
 //@version=6
 indicator("Universal GEX History (Bar Replay)", overlay=true, max_lines_count=500, max_labels_count=500)
 
-// --- Generated 2026-01-22 ---
-// Mode: V6.1 (Clean Box Labels)
+// --- Generated 2026-01-23 ---
+// Mode: V6.2 (Greek Delta Support)
 
 // --- Settings ---
 sz_label = input.string("normal", "Label Size", options=["auto", "tiny", "small", "normal", "large", "huge"], group="Visuals")
@@ -15,8 +15,9 @@ var float plot_p_wall = na
 var float plot_flip   = na
 var float plot_c_gex  = na
 var float plot_p_gex  = na
-var float plot_c_dex  = na
-var float plot_p_dex  = na
+var float plot_c_delta = na
+var float plot_p_delta = na
+var int   plot_is_greek = 0
 
 // --- Arrays for Current Day Histogram ---
 var float[] cur_strikes = array.new<float>()
@@ -38,6 +39,16 @@ f_fmt(float v) =>
         s := str.format("${0,number,#}", v)
     s
 
+// --- Helper: Format Delta (Greek vs Dollars) ---
+f_delta(float v, int is_g) =>
+    string s = ""
+    if is_g == 1
+        s := "Δ: " + str.tostring(v, "#.##")
+    else
+        // Fallback for old data
+        s := "D: " + f_fmt(v)
+    s
+
 // ===== AMZU DATA =====
 if current_ticker == "AMZU"
     if year == 2026 and month == 1 and dayofmonth == 2
@@ -46,118 +57,141 @@ if current_ticker == "AMZU"
         plot_flip   := 29.9
         plot_c_gex  := 531379.8000000002
         plot_p_gex  := 404916.72
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 3
         plot_c_wall := 36.8
         plot_p_wall := 33.8
         plot_flip   := 36.4
         plot_c_gex  := 447182.112
         plot_p_gex  := 388581.0239999999
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 4
         plot_c_wall := 36.8
         plot_p_wall := 35.0
         plot_flip   := na
         plot_c_gex  := 357536.4
         plot_p_gex  := 549640.104
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 5
         plot_c_wall := 36.8
         plot_p_wall := 35.0
         plot_flip   := na
         plot_c_gex  := 358389.19999999995
         plot_p_gex  := 550951.1120000001
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 6
         plot_c_wall := 36.8
         plot_p_wall := 35.0
         plot_flip   := 39.4
         plot_c_gex  := 378749.8
         plot_p_gex  := 587808.3200000001
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 7
         plot_c_wall := 38.8
         plot_p_wall := 33.8
         plot_flip   := 36.4
         plot_c_gex  := 638116.284
         plot_p_gex  := 438501.179
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 8
         plot_c_wall := 38.8
         plot_p_wall := 35.0
         plot_flip   := 36.9
         plot_c_gex  := 990567.831
         plot_p_gex  := 235986.57
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 9
         plot_c_wall := 38.8
         plot_p_wall := 35.0
         plot_flip   := 36.4
         plot_c_gex  := 1100206.8
         plot_p_gex  := 241354.08
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 10
         plot_c_wall := 40.0
         plot_p_wall := 35.0
         plot_flip   := 37.4
         plot_c_gex  := 1173788.0924999998
         plot_p_gex  := 192184.845
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 18
         plot_c_wall := 42.0
         plot_p_wall := 32.0
         plot_flip   := 39.5
         plot_c_gex  := 178174.65600000002
         plot_p_gex  := 74350.08000000002
-        plot_c_dex  := 1295815.6800000002
-        plot_p_dex  := -488586.2400000001
+        plot_c_delta := 1295815.6800000002
+        plot_p_delta := -488586.2400000001
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 19
         plot_c_wall := 42.0
         plot_p_wall := 32.0
         plot_flip   := 39.5
         plot_c_gex  := 178174.65600000002
         plot_p_gex  := 74350.08000000002
-        plot_c_dex  := 1295815.6800000002
-        plot_p_dex  := -488586.2400000001
+        plot_c_delta := 1295815.6800000002
+        plot_p_delta := -488586.2400000001
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 20
         plot_c_wall := 42.0
         plot_p_wall := 32.0
         plot_flip   := 39.5
         plot_c_gex  := 179624.016
         plot_p_gex  := 74954.88000000002
-        plot_c_dex  := 1306356.48
-        plot_p_dex  := -492560.6400000001
+        plot_c_delta := 1306356.48
+        plot_p_delta := -492560.6400000001
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 21
         plot_c_wall := 37.0
         plot_p_wall := 32.0
         plot_flip   := na
         plot_c_gex  := 53760.936
         plot_p_gex  := 69914.88000000002
-        plot_c_dex  := 640456.368
-        plot_p_dex  := -459440.6400000001
+        plot_c_delta := 640456.368
+        plot_p_delta := -459440.6400000001
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 22
         plot_c_wall := 37.0
         plot_p_wall := 32.0
         plot_flip   := na
         plot_c_gex  := 58080.48399999999
         plot_p_gex  := 87741.19200000001
-        plot_c_dex  := 519168.408
-        plot_p_dex  := -681038.7760000001
+        plot_c_delta := 519168.408
+        plot_p_delta := -681038.7760000001
+        plot_is_greek := 0
+    if year == 2026 and month == 1 and dayofmonth == 23
+        plot_c_wall := 40.0
+        plot_p_wall := 32.0
+        plot_flip   := na
+        plot_c_gex  := 131302.56329999998
+        plot_p_gex  := 132482.09835
+        plot_c_delta := 830631.43305
+        plot_p_delta := -890730.7037999999
+        plot_is_greek := 0
 
     if barstate.islast
-        cur_strikes := array.from(32.0, 33.0, 34.0, 37.0, 39.0, 30.0, 38.0, 31.0, 35.0, 36.0)
-        cur_lengths := array.from(40, 35, 22, 21, 19, 17, 14, 10, 8, 4)
-        cur_signs   := array.from(-1, -1, -1, 1, 1, -1, 1, -1, -1, 1)
-        cur_labels  := array.from('$-85K | D: $728K', '$-76K | D: $825K', '$-47K | D: $604K', '$46K | D: $669K', '$42K | D: $527K', '$-37K | D: $484K', '$31K | D: $470K', '$-22K | D: $366K', '$-17K | D: $586K', '$9K | D: $484K')
+        cur_strikes := array.from(32.0, 40.0, 33.0, 34.0, 39.0, 37.0, 38.0, 31.0, 35.0, 36.0)
+        cur_lengths := array.from(40, 38, 34, 19, 18, 13, 12, 10, 6, 2)
+        cur_signs   := array.from(-1, 1, -1, -1, 1, 1, 1, -1, -1, -1)
+        cur_labels  := array.from('$-129K | D: $939K', '$124K | D: $939K', '$-112K | D: $1.1M', '$-65K | D: $703K', '$61K | D: $644K', '$45K | D: $684K', '$41K | D: $550K', '$-35K | D: $440K', '$-21K | D: $778K', '$-3K | D: $577K')
 
 // ===== BBAI DATA =====
 if current_ticker == "BBAI"
@@ -167,598 +201,681 @@ if current_ticker == "BBAI"
         plot_flip   := na
         plot_c_gex  := 12115383.375690136
         plot_p_gex  := 524435.288815547
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 14
         plot_c_wall := 9.0
         plot_p_wall := 9.0
         plot_flip   := 7.75
         plot_c_gex  := 27195912.199730285
         plot_p_gex  := 4701240.181788086
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 15
         plot_c_wall := 8.5
         plot_p_wall := 8.5
         plot_flip   := 7.25
         plot_c_gex  := 38475382.81061415
         plot_p_gex  := 11600706.39264666
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 16
         plot_c_wall := 7.5
         plot_p_wall := 7.5
         plot_flip   := 6.75
         plot_c_gex  := 569602.8673256541
         plot_p_gex  := 456643.30527522776
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 20
         plot_c_wall := 8.0
         plot_p_wall := 8.0
         plot_flip   := 6.5
         plot_c_gex  := 5666775.898907316
         plot_p_gex  := 3773893.604737932
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 21
         plot_c_wall := 7.0
         plot_p_wall := 7.0
         plot_flip   := 6.75
         plot_c_gex  := 4924371.418320469
         plot_p_gex  := 1917364.716213524
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 22
         plot_c_wall := 7.0
         plot_p_wall := 7.0
         plot_flip   := na
         plot_c_gex  := 3222993.63509659
         plot_p_gex  := 2401863.492668508
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 23
         plot_c_wall := 7.0
         plot_p_wall := 7.0
         plot_flip   := 6.75
         plot_c_gex  := 4917048.3760076575
         plot_p_gex  := 3538774.4830934447
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 24
         plot_c_wall := 7.0
         plot_p_wall := 7.0
         plot_flip   := 6.75
         plot_c_gex  := 5830026.444882926
         plot_p_gex  := 4042037.552537942
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 27
         plot_c_wall := 7.0
         plot_p_wall := 7.0
         plot_flip   := 6.75
         plot_c_gex  := 5932462.56020887
         plot_p_gex  := 4108538.3652193984
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 28
         plot_c_wall := 7.0
         plot_p_wall := 7.0
         plot_flip   := 6.75
         plot_c_gex  := 5631959.94638036
         plot_p_gex  := 3832871.629110192
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 29
         plot_c_wall := 7.0
         plot_p_wall := 7.0
         plot_flip   := 6.75
         plot_c_gex  := 7218595.812512216
         plot_p_gex  := 4556625.829514615
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 30
         plot_c_wall := 7.0
         plot_p_wall := 7.0
         plot_flip   := 6.75
         plot_c_gex  := 5944623.858958882
         plot_p_gex  := 3602396.5263796784
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 31
         plot_c_wall := 7.0
         plot_p_wall := 7.0
         plot_flip   := 6.75
         plot_c_gex  := 8252655.717485843
         plot_p_gex  := 4953410.195646704
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 3
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := na
         plot_c_gex  := 814821.10170922
         plot_p_gex  := 3863829.0952017847
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 4
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := na
         plot_c_gex  := 1103062.2578546908
         plot_p_gex  := 5133971.652714556
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 5
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := na
         plot_c_gex  := 2066699.2915400765
         plot_p_gex  := 8745519.247464458
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 6
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := na
         plot_c_gex  := 968015.8352227284
         plot_p_gex  := 3477460.320784348
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 7
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := na
         plot_c_gex  := 1212395.3235274064
         plot_p_gex  := 3886620.788840325
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 10
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := na
         plot_c_gex  := 2216763.5723423543
         plot_p_gex  := 4129648.128210182
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 11
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := na
         plot_c_gex  := 9802584.299367394
         plot_p_gex  := 13487859.662547288
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 12
         plot_c_wall := 7.0
         plot_p_wall := 7.0
         plot_flip   := 6.25
         plot_c_gex  := 15900542.377289984
         plot_p_gex  := 5265422.428495236
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 13
         plot_c_wall := 6.5
         plot_p_wall := 6.5
         plot_flip   := na
         plot_c_gex  := 5228102.471115401
         plot_p_gex  := 4938664.355215478
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 14
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := na
         plot_c_gex  := 9377699.837283151
         plot_p_gex  := 17283478.92148741
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 17
         plot_c_wall := 5.5
         plot_p_wall := 5.5
         plot_flip   := na
         plot_c_gex  := 1878498.4459815987
         plot_p_gex  := 11287483.199559314
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 18
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := 5.75
         plot_c_gex  := 33698255.87459246
         plot_p_gex  := 32202856.63934007
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 19
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := 5.75
         plot_c_gex  := 5998215.224077866
         plot_p_gex  := 5423065.955124819
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 20
         plot_c_wall := 5.5
         plot_p_wall := 5.5
         plot_flip   := na
         plot_c_gex  := 9947774.63499621
         plot_p_gex  := 40118273.47594017
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 24
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := na
         plot_c_gex  := 4912175.883727246
         plot_p_gex  := 4694458.937900282
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 25
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := 5.25
         plot_c_gex  := 6387999.652380751
         plot_p_gex  := 6078454.702103524
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 26
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := 5.25
         plot_c_gex  := 8636322.980542043
         plot_p_gex  := 8307644.021964983
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 28
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := na
         plot_c_gex  := 3706782.840911339
         plot_p_gex  := 3588489.0773064382
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 1
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := 5.25
         plot_c_gex  := 9688035.00843378
         plot_p_gex  := 9615163.80290716
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 2
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := 5.25
         plot_c_gex  := 7255829.134317092
         plot_p_gex  := 7488194.076849752
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 3
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := 5.25
         plot_c_gex  := 9994023.6226852
         plot_p_gex  := 9978220.590261646
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 4
         plot_c_wall := 7.0
         plot_p_wall := 7.0
         plot_flip   := 6.25
         plot_c_gex  := 26976616.598359924
         plot_p_gex  := 7650747.136142328
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 5
         plot_c_wall := 7.0
         plot_p_wall := 7.0
         plot_flip   := 5.75
         plot_c_gex  := 22952249.2867365
         plot_p_gex  := 6742324.782609726
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 8
         plot_c_wall := 7.0
         plot_p_wall := 6.5
         plot_flip   := 6.25
         plot_c_gex  := 4194449.163711248
         plot_p_gex  := 1900085.895691693
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 9
         plot_c_wall := 7.0
         plot_p_wall := 7.0
         plot_flip   := 6.25
         plot_c_gex  := 13860585.141506871
         plot_p_gex  := 4276986.595481177
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 10
         plot_c_wall := 7.0
         plot_p_wall := 6.5
         plot_flip   := 6.25
         plot_c_gex  := 5429406.265333654
         plot_p_gex  := 2787601.986048053
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 11
         plot_c_wall := 7.0
         plot_p_wall := 7.0
         plot_flip   := 5.75
         plot_c_gex  := 15874952.05092622
         plot_p_gex  := 4831889.113452917
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 12
         plot_c_wall := 6.5
         plot_p_wall := 6.5
         plot_flip   := 5.75
         plot_c_gex  := 4270213.903594941
         plot_p_gex  := 3820651.7946827463
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 15
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := na
         plot_c_gex  := 23470364.980320618
         plot_p_gex  := 29401868.84964444
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 16
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := na
         plot_c_gex  := 11341360.708175438
         plot_p_gex  := 13402039.83700624
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 17
         plot_c_wall := 5.5
         plot_p_wall := 5.5
         plot_flip   := na
         plot_c_gex  := 18892213.271243032
         plot_p_gex  := 26075870.66887221
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 18
         plot_c_wall := 5.5
         plot_p_wall := 5.5
         plot_flip   := na
         plot_c_gex  := 1787995.7061610967
         plot_p_gex  := 2422699.5343982344
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 22
         plot_c_wall := 7.0
         plot_p_wall := 6.0
         plot_flip   := na
         plot_c_gex  := 6058993.626450071
         plot_p_gex  := 4218760.347678346
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 23
         plot_c_wall := 7.0
         plot_p_wall := 6.0
         plot_flip   := 2.25
         plot_c_gex  := 5995422.576000001
         plot_p_gex  := 2643941.1900000004
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 23
         plot_c_wall := 7.0
         plot_p_wall := 6.0
         plot_flip   := 2.25
         plot_c_gex  := 5995422.576000001
         plot_p_gex  := 2643941.1900000004
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 23
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := na
         plot_c_gex  := 14049843.91862863
         plot_p_gex  := 10367925.42024582
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 24
         plot_c_wall := 7.0
         plot_p_wall := 6.0
         plot_flip   := 2.25
         plot_c_gex  := 5995422.576000001
         plot_p_gex  := 2643941.1900000004
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 24
         plot_c_wall := 7.0
         plot_p_wall := 6.0
         plot_flip   := 6.25
         plot_c_gex  := 11081861.323500002
         plot_p_gex  := 6821368.026000001
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 25
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := 6.25
         plot_c_gex  := 5245552.4084600005
         plot_p_gex  := 4767455.732
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 26
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := 6.25
         plot_c_gex  := 5245552.4084600005
         plot_p_gex  := 4767455.732
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 27
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := 5.25
         plot_c_gex  := 5271508.78386
         plot_p_gex  := 4256739.46878
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 28
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := 5.25
         plot_c_gex  := 5271508.78386
         plot_p_gex  := 4256739.46878
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 29
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := 5.25
         plot_c_gex  := 5271508.78386
         plot_p_gex  := 4256739.46878
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 30
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := 5.25
         plot_c_gex  := 5880830.445
         plot_p_gex  := 4788787.878
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 31
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := 5.25
         plot_c_gex  := 7730148.800000001
         plot_p_gex  := 5466659.000000001
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 1
         plot_c_wall := 6.0
         plot_p_wall := 5.5
         plot_flip   := 5.75
         plot_c_gex  := 8229307.824539999
         plot_p_gex  := 6486696.292079999
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 2
         plot_c_wall := 6.0
         plot_p_wall := 5.5
         plot_flip   := na
         plot_c_gex  := 8495798.4
         plot_p_gex  := 5508920.7
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 3
         plot_c_wall := 6.0
         plot_p_wall := 5.5
         plot_flip   := na
         plot_c_gex  := 6830229.569999999
         plot_p_gex  := 3528328.95
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 4
         plot_c_wall := 6.0
         plot_p_wall := 5.5
         plot_flip   := 5.75
         plot_c_gex  := 2142474.1925
         plot_p_gex  := 1292534.3949999998
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 5
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := na
         plot_c_gex  := 6714449.48
         plot_p_gex  := 6394985.128
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 6
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := na
         plot_c_gex  := 7358016.204
         plot_p_gex  := 6714546.635999999
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 7
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := 5.75
         plot_c_gex  := 10618988.044
         plot_p_gex  := 6394124.353
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 8
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := 5.75
         plot_c_gex  := 12171421.831
         plot_p_gex  := 5017846.361
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 9
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := 5.75
         plot_c_gex  := 16635829.799
         plot_p_gex  := 8682823.816
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 10
         plot_c_wall := 7.0
         plot_p_wall := 6.0
         plot_flip   := na
         plot_c_gex  := 11065549.8352
         plot_p_gex  := 7097273.01112
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 18
         plot_c_wall := 7.0
         plot_p_wall := 6.0
         plot_flip   := 6.25
         plot_c_gex  := 5502335.36129
         plot_p_gex  := 3817181.3817
-        plot_c_dex  := 5379396.14907
-        plot_p_dex  := -4209770.136599999
+        plot_c_delta := 5379396.14907
+        plot_p_delta := -4209770.136599999
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 19
         plot_c_wall := 7.0
         plot_p_wall := 6.0
         plot_flip   := 6.25
         plot_c_gex  := 5502335.36129
         plot_p_gex  := 3817181.3817
-        plot_c_dex  := 5379396.14907
-        plot_p_dex  := -4209770.136599999
+        plot_c_delta := 5379396.14907
+        plot_p_delta := -4209770.136599999
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 20
         plot_c_wall := 7.0
         plot_p_wall := 6.0
         plot_flip   := 6.25
         plot_c_gex  := 5364967.644
         plot_p_gex  := 3721884.12
-        plot_c_dex  := 5245097.652
-        plot_p_dex  := -4104671.76
+        plot_c_delta := 5245097.652
+        plot_p_delta := -4104671.76
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 21
         plot_c_wall := 6.5
         plot_p_wall := 6.0
         plot_flip   := 6.25
         plot_c_gex  := 4432468.392
         plot_p_gex  := 3612416.94
-        plot_c_dex  := 3590645.652
-        plot_p_dex  := -3983946.12
+        plot_c_delta := 3590645.652
+        plot_p_delta := -3983946.12
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 22
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := 6.25
         plot_c_gex  := 5035531.374
         plot_p_gex  := 4778570.525
-        plot_c_dex  := 5694943.872
-        plot_p_dex  := -5198751.153
+        plot_c_delta := 5694943.872
+        plot_p_delta := -5198751.153
+        plot_is_greek := 0
+    if year == 2026 and month == 1 and dayofmonth == 23
+        plot_c_wall := 6.0
+        plot_p_wall := 6.0
+        plot_flip   := 6.25
+        plot_c_gex  := 7420861.730520001
+        plot_p_gex  := 6503735.867880001
+        plot_c_delta := 5516704.4299800005
+        plot_p_delta := -8229938.68092
+        plot_is_greek := 0
 
     if barstate.islast
-        cur_strikes := array.from(6.5, 5.0, 5.5, 6.0)
-        cur_lengths := array.from(40, 17, 11, 2)
-        cur_signs   := array.from(1, -1, -1, 1)
-        cur_labels  := array.from('$4.2M | D: $4.4M', '$-1.8M | D: $2.3M', '$-1.2M | D: $3.2M', '$257K | D: $10.9M')
+        cur_strikes := array.from(6.5, 5.5, 6.0)
+        cur_lengths := array.from(40, 28, 8)
+        cur_signs   := array.from(1, -1, 1)
+        cur_labels  := array.from('$4.4M | D: $3.9M', '$-3.1M | D: $5.0M', '$917K | D: $13.7M')
 
 // ===== BITO DATA =====
 if current_ticker == "BITO"
@@ -768,214 +885,249 @@ if current_ticker == "BITO"
         plot_flip   := 17.5
         plot_c_gex  := 1544687.4300000002
         plot_p_gex  := 1262927.6
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 23
         plot_c_wall := 14.0
         plot_p_wall := 12.0
         plot_flip   := 17.5
         plot_c_gex  := 1544687.4300000002
         plot_p_gex  := 1262927.6
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 24
         plot_c_wall := 14.0
         plot_p_wall := 12.0
         plot_flip   := 17.5
         plot_c_gex  := 1544687.4300000002
         plot_p_gex  := 1262927.6
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 24
         plot_c_wall := 13.0
         plot_p_wall := 12.0
         plot_flip   := 12.75
         plot_c_gex  := 5795738.025
         plot_p_gex  := 2733815.865
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 25
         plot_c_wall := 13.0
         plot_p_wall := 12.5
         plot_flip   := 12.75
         plot_c_gex  := 5407029.449999999
         plot_p_gex  := 1221777.27
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 26
         plot_c_wall := 13.0
         plot_p_wall := 12.5
         plot_flip   := 12.75
         plot_c_gex  := 5407029.449999999
         plot_p_gex  := 1221777.27
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 27
         plot_c_wall := 13.0
         plot_p_wall := 12.0
         plot_flip   := na
         plot_c_gex  := 1831093.695
         plot_p_gex  := 6086089.305
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 28
         plot_c_wall := 13.0
         plot_p_wall := 12.0
         plot_flip   := na
         plot_c_gex  := 1831093.695
         plot_p_gex  := 6086089.305
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 29
         plot_c_wall := 13.0
         plot_p_wall := 12.0
         plot_flip   := na
         plot_c_gex  := 1831093.695
         plot_p_gex  := 6086089.305
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 30
         plot_c_wall := 13.0
         plot_p_wall := 12.0
         plot_flip   := 10.75
         plot_c_gex  := 2177882.6300000004
         plot_p_gex  := 5420654.8
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 31
         plot_c_wall := 13.0
         plot_p_wall := 12.0
         plot_flip   := na
         plot_c_gex  := 2996639.724
         plot_p_gex  := 5843308.276000001
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 1
         plot_c_wall := 13.0
         plot_p_wall := 12.0
         plot_flip   := 13.25
         plot_c_gex  := 2605299.91866
         plot_p_gex  := 4294167.7578300005
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 2
         plot_c_wall := 13.0
         plot_p_wall := 12.0
         plot_flip   := na
         plot_c_gex  := 2284221.40713
         plot_p_gex  := 5104468.23012
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 3
         plot_c_wall := 13.0
         plot_p_wall := 12.0
         plot_flip   := na
         plot_c_gex  := 1827563.029
         plot_p_gex  := 4158505.5320000006
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 4
         plot_c_wall := 13.0
         plot_p_wall := 12.0
         plot_flip   := 13.25
         plot_c_gex  := 2421438.7980000004
         plot_p_gex  := 3593330.5340000005
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 5
         plot_c_wall := 13.0
         plot_p_wall := 12.0
         plot_flip   := 13.25
         plot_c_gex  := 2417561.3940000003
         plot_p_gex  := 3587576.6020000004
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 6
         plot_c_wall := 13.0
         plot_p_wall := 12.0
         plot_flip   := 13.25
         plot_c_gex  := 2597732.753
         plot_p_gex  := 3765948.494
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 7
         plot_c_wall := 13.0
         plot_p_wall := 13.0
         plot_flip   := 13.25
         plot_c_gex  := 2810053.4199999995
         plot_p_gex  := 2998855.9
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 8
         plot_c_wall := 13.0
         plot_p_wall := 12.0
         plot_flip   := 13.25
         plot_c_gex  := 3206539.764
         plot_p_gex  := 3230460.984
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 9
         plot_c_wall := 13.0
         plot_p_wall := 12.0
         plot_flip   := 13.25
         plot_c_gex  := 3687026.551
         plot_p_gex  := 3523681.6550000003
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 10
         plot_c_wall := 13.0
         plot_p_wall := 12.0
         plot_flip   := 13.75
         plot_c_gex  := 2612109.9968
         plot_p_gex  := 3589997.6816
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 18
         plot_c_wall := 14.0
         plot_p_wall := 13.0
         plot_flip   := 13.25
         plot_c_gex  := 1948507.4025
         plot_p_gex  := 1258519.4775
-        plot_c_dex  := 1910415.8425
-        plot_p_dex  := -3617920.875
+        plot_c_delta := 1910415.8425
+        plot_p_delta := -3617920.875
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 19
         plot_c_wall := 14.0
         plot_p_wall := 13.0
         plot_flip   := 13.25
         plot_c_gex  := 1948507.4025
         plot_p_gex  := 1258519.4775
-        plot_c_dex  := 1910415.8425
-        plot_p_dex  := -3617920.875
+        plot_c_delta := 1910415.8425
+        plot_p_delta := -3617920.875
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 20
         plot_c_wall := 14.0
         plot_p_wall := 13.0
         plot_flip   := 13.25
         plot_c_gex  := 1961078.418
         plot_p_gex  := 1266638.958
-        plot_c_dex  := 1922741.106
-        plot_p_dex  := -3641262.3
+        plot_c_delta := 1922741.106
+        plot_p_delta := -3641262.3
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 21
         plot_c_wall := 14.0
         plot_p_wall := 13.0
         plot_flip   := 13.25
         plot_c_gex  := 1836847.206
         plot_p_gex  := 1186399.386
-        plot_c_dex  := 1800938.502
-        plot_p_dex  := -3410594.1
+        plot_c_delta := 1800938.502
+        plot_p_delta := -3410594.1
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 22
         plot_c_wall := 13.0
         plot_p_wall := 12.0
         plot_flip   := 13.25
         plot_c_gex  := 1461141.401
         plot_p_gex  := 1765681.324
-        plot_c_dex  := 1419467.267
-        plot_p_dex  := -1684510.063
+        plot_c_delta := 1419467.267
+        plot_p_delta := -1684510.063
+        plot_is_greek := 0
+    if year == 2026 and month == 1 and dayofmonth == 23
+        plot_c_wall := 13.0
+        plot_p_wall := 12.5
+        plot_flip   := na
+        plot_c_gex  := 3457971.86304
+        plot_p_gex  := 4476155.619840001
+        plot_c_delta := 1884207.43296
+        plot_p_delta := -4651232.79968
+        plot_is_greek := 0
 
     if barstate.islast
-        cur_strikes := array.from(12.0, 13.0, 14.0, 13.5, 12.5, 11.0, 11.5)
-        cur_lengths := array.from(40, 31, 24, 24, 6, 6, 2)
-        cur_signs   := array.from(-1, 1, 1, 1, 1, -1, -1)
-        cur_labels  := array.from('$-1.6M | D: $2.0M', '$1.3M | D: $6.5M', '$1.0M | D: $1.7M', '$983K | D: $1.8M', '$282K | D: $3.4M', '$-272K | D: $400K', '$-68K | D: $66K')
+        cur_strikes := array.from(13.0, 12.5, 12.0, 13.5, 14.0, 11.0, 11.5)
+        cur_lengths := array.from(40, 38, 26, 14, 13, 3, 3)
+        cur_signs   := array.from(1, -1, -1, 1, 1, -1, -1)
+        cur_labels  := array.from('$2.9M | D: $7.3M', '$-2.8M | D: $6.0M', '$-1.9M | D: $1.9M', '$1.1M | D: $1.7M', '$1.0M | D: $1.8M', '$-254K | D: $433K', '$-219K | D: $187K')
 
 // ===== BMNU DATA =====
 if current_ticker == "BMNU"
@@ -985,598 +1137,681 @@ if current_ticker == "BMNU"
         plot_flip   := na
         plot_c_gex  := 76922.08028171572
         plot_p_gex  := 670527.0428667199
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 14
         plot_c_wall := 27.0
         plot_p_wall := 26.0
         plot_flip   := na
         plot_c_gex  := 12225.740627525664
         plot_p_gex  := 154312.796746758
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 15
         plot_c_wall := 27.0
         plot_p_wall := 27.0
         plot_flip   := na
         plot_c_gex  := 54814.93814615717
         plot_p_gex  := 221869.9877344457
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 16
         plot_c_wall := 25.0
         plot_p_wall := 25.0
         plot_flip   := na
         plot_c_gex  := 703248.4965827618
         plot_p_gex  := 1121120.7916536783
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 20
         plot_c_wall := 27.0
         plot_p_wall := 28.0
         plot_flip   := na
         plot_c_gex  := 65823.00613235131
         plot_p_gex  := 91840.24719652152
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 21
         plot_c_wall := 27.0
         plot_p_wall := 25.0
         plot_flip   := na
         plot_c_gex  := 62805.01137295608
         plot_p_gex  := 212971.8626129996
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 22
         plot_c_wall := 20.0
         plot_p_wall := 22.0
         plot_flip   := na
         plot_c_gex  := 8078.063352616085
         plot_p_gex  := 156291.18249015207
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 23
         plot_c_wall := 23.0
         plot_p_wall := 22.0
         plot_flip   := na
         plot_c_gex  := 16827.3578919975
         plot_p_gex  := 266820.4427503548
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 24
         plot_c_wall := 25.0
         plot_p_wall := 25.0
         plot_flip   := na
         plot_c_gex  := 59694.30215334648
         plot_p_gex  := 135700.4194299911
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 27
         plot_c_wall := 27.0
         plot_p_wall := 25.0
         plot_flip   := 27.5
         plot_c_gex  := 248126.86519589945
         plot_p_gex  := 171406.5309936181
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 28
         plot_c_wall := 25.0
         plot_p_wall := 25.0
         plot_flip   := na
         plot_c_gex  := 155429.21450556265
         plot_p_gex  := 344284.0665392033
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 29
         plot_c_wall := 23.0
         plot_p_wall := 22.0
         plot_flip   := na
         plot_c_gex  := 38439.61547944796
         plot_p_gex  := 263711.4398620423
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 30
         plot_c_wall := 20.0
         plot_p_wall := 18.0
         plot_flip   := 15.5
         plot_c_gex  := 6630.94990712186
         plot_p_gex  := 91159.62459294371
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 31
         plot_c_wall := 20.0
         plot_p_wall := 20.0
         plot_flip   := 16.5
         plot_c_gex  := 165805.75962810166
         plot_p_gex  := 459388.4349329055
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 3
         plot_c_wall := 16.0
         plot_p_wall := 17.0
         plot_flip   := 15.5
         plot_c_gex  := 62748.47056232468
         plot_p_gex  := 271214.27966778865
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 4
         plot_c_wall := 15.0
         plot_p_wall := 15.0
         plot_flip   := na
         plot_c_gex  := 2750.713788415938
         plot_p_gex  := 20602.28490507448
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 5
         plot_c_wall := 15.0
         plot_p_wall := 15.0
         plot_flip   := na
         plot_c_gex  := 55788.6644962088
         plot_p_gex  := 404204.6635197015
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 6
         plot_c_wall := 13.0
         plot_p_wall := 12.0
         plot_flip   := na
         plot_c_gex  := 120.07922504082148
         plot_p_gex  := 41370.79594995718
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 7
         plot_c_wall := 14.0
         plot_p_wall := 13.0
         plot_flip   := na
         plot_c_gex  := 19654.011457256744
         plot_p_gex  := 71402.22432968114
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 10
         plot_c_wall := 15.0
         plot_p_wall := 15.0
         plot_flip   := na
         plot_c_gex  := 78915.51842182313
         plot_p_gex  := 240177.66476207043
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 11
         plot_c_wall := 14.0
         plot_p_wall := 13.0
         plot_flip   := na
         plot_c_gex  := 9144.085638068938
         plot_p_gex  := 278585.0320607527
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 12
         plot_c_wall := 14.0
         plot_p_wall := 14.0
         plot_flip   := na
         plot_c_gex  := 51969.33353179028
         plot_p_gex  := 67013.08797520325
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 13
         plot_c_wall := 11.0
         plot_p_wall := 11.0
         plot_flip   := na
         plot_c_gex  := 12045.226715873596
         plot_p_gex  := 34931.157476033426
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 14
         plot_c_wall := 10.0
         plot_p_wall := 10.0
         plot_flip   := na
         plot_c_gex  := 13090.794809217175
         plot_p_gex  := 251634.16688828572
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 17
         plot_c_wall := 9.0
         plot_p_wall := 8.0
         plot_flip   := 7.5
         plot_c_gex  := 1.868826368215846e-08
         plot_p_gex  := 86604.4664532882
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 18
         plot_c_wall := 8.0
         plot_p_wall := 8.0
         plot_flip   := na
         plot_c_gex  := 131.99191012635973
         plot_p_gex  := 1309.765877407723
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 19
         plot_c_wall := 7.0
         plot_p_wall := 7.0
         plot_flip   := na
         plot_c_gex  := 4216.867712059027
         plot_p_gex  := 80120.48652912152
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 20
         plot_c_wall := 6.0
         plot_p_wall := 5.0
         plot_flip   := na
         plot_c_gex  := 4.116549357367381e-27
         plot_p_gex  := 1.0088185645790912e-08
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 24
         plot_c_wall := 8.0
         plot_p_wall := 7.0
         plot_flip   := 6.5
         plot_c_gex  := 49476.97894008652
         plot_p_gex  := 76190.27662714117
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 25
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := na
         plot_c_gex  := 44749.91967447281
         plot_p_gex  := 51298.688407322494
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 26
         plot_c_wall := 8.0
         plot_p_wall := 8.0
         plot_flip   := 7.5
         plot_c_gex  := 1682224.9914273643
         plot_p_gex  := 62333.30808280912
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 28
         plot_c_wall := 8.0
         plot_p_wall := 8.0
         plot_flip   := na
         plot_c_gex  := 4214996.90419621
         plot_p_gex  := 124195.9800799902
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 1
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := na
         plot_c_gex  := 162137.40815834017
         plot_p_gex  := 208116.67315846647
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 2
         plot_c_wall := 8.0
         plot_p_wall := 7.0
         plot_flip   := 7.5
         plot_c_gex  := 600433.5761882963
         plot_p_gex  := 211985.76934109995
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 3
         plot_c_wall := 8.0
         plot_p_wall := 8.0
         plot_flip   := 7.5
         plot_c_gex  := 7485572.58771584
         plot_p_gex  := 201149.74466990423
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 4
         plot_c_wall := 9.0
         plot_p_wall := 9.0
         plot_flip   := na
         plot_c_gex  := 597195.4659594197
         plot_p_gex  := 116856.62631205942
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 5
         plot_c_wall := 8.0
         plot_p_wall := 8.0
         plot_flip   := 7.5
         plot_c_gex  := 5879941.488682581
         plot_p_gex  := 444386.35131563066
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 8
         plot_c_wall := 9.0
         plot_p_wall := 9.0
         plot_flip   := na
         plot_c_gex  := 1118988.597224568
         plot_p_gex  := 253620.422377778
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 9
         plot_c_wall := 11.0
         plot_p_wall := 11.0
         plot_flip   := na
         plot_c_gex  := 1241563.412111892
         plot_p_gex  := 50791.23049548649
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 10
         plot_c_wall := 11.0
         plot_p_wall := 11.0
         plot_flip   := na
         plot_c_gex  := 846189.048918485
         plot_p_gex  := 43660.860017907085
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 11
         plot_c_wall := 10.0
         plot_p_wall := 10.0
         plot_flip   := na
         plot_c_gex  := 3636345.975854912
         plot_p_gex  := 271415.1364505786
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 12
         plot_c_wall := 8.0
         plot_p_wall := 8.0
         plot_flip   := 7.5
         plot_c_gex  := 2198376.1779045262
         plot_p_gex  := 412414.7696410817
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 15
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := na
         plot_c_gex  := 368.3648789362807
         plot_p_gex  := 2213.392446478
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 16
         plot_c_wall := 7.0
         plot_p_wall := 7.0
         plot_flip   := 6.5
         plot_c_gex  := 7157.3061811385405
         plot_p_gex  := 3074.5348828887504
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 17
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := na
         plot_c_gex  := 2208.318101437819
         plot_p_gex  := 10533.260680065674
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 18
         plot_c_wall := 5.0
         plot_p_wall := 5.0
         plot_flip   := na
         plot_c_gex  := 7.175222040568787e-07
         plot_p_gex  := 9.117197777383538e-07
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 22
         plot_c_wall := 7.0
         plot_p_wall := 6.0
         plot_flip   := na
         plot_c_gex  := 267448.601450803
         plot_p_gex  := 380062.3506360491
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 23
         plot_c_wall := 11.0
         plot_p_wall := 8.0
         plot_flip   := 2.5
         plot_c_gex  := 471050.211
         plot_p_gex  := 160179.105
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 23
         plot_c_wall := 11.0
         plot_p_wall := 8.0
         plot_flip   := 2.5
         plot_c_gex  := 471050.211
         plot_p_gex  := 160179.105
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 23
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := na
         plot_c_gex  := 221737.837095483
         plot_p_gex  := 1349802.1733870665
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 24
         plot_c_wall := 11.0
         plot_p_wall := 8.0
         plot_flip   := 2.5
         plot_c_gex  := 471050.211
         plot_p_gex  := 160179.105
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 24
         plot_c_wall := 5.0
         plot_p_wall := 6.0
         plot_flip   := na
         plot_c_gex  := 39024.25
         plot_p_gex  := 64078.37999999999
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 26
         plot_c_wall := 5.0
         plot_p_wall := 5.0
         plot_flip   := na
         plot_c_gex  := 464429.5281123398
         plot_p_gex  := 1481690.3427915063
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 27
         plot_c_wall := 5.0
         plot_p_wall := 5.0
         plot_flip   := na
         plot_c_gex  := 56751.156
         plot_p_gex  := 164219.832
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 28
         plot_c_wall := 5.0
         plot_p_wall := 5.0
         plot_flip   := na
         plot_c_gex  := 56751.156
         plot_p_gex  := 164219.832
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 29
         plot_c_wall := 5.0
         plot_p_wall := 5.0
         plot_flip   := na
         plot_c_gex  := 56751.156
         plot_p_gex  := 164219.832
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 30
         plot_c_wall := 5.0
         plot_p_wall := 5.0
         plot_flip   := na
         plot_c_gex  := 71312.44999999998
         plot_p_gex  := 210478.37399999995
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 31
         plot_c_wall := 5.0
         plot_p_wall := 5.0
         plot_flip   := na
         plot_c_gex  := 75773.61000000002
         plot_p_gex  := 212398.56
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 1
         plot_c_wall := 5.0
         plot_p_wall := 5.0
         plot_flip   := na
         plot_c_gex  := 87425.67599999999
         plot_p_gex  := 257017.67
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 2
         plot_c_wall := 5.0
         plot_p_wall := 5.0
         plot_flip   := na
         plot_c_gex  := 108945.76
         plot_p_gex  := 294376.3
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 3
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := na
         plot_c_gex  := 493012.716
         plot_p_gex  := 260681.652
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 4
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := na
         plot_c_gex  := 454181.91
         plot_p_gex  := 219002.784
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 5
         plot_c_wall := 7.0
         plot_p_wall := 6.0
         plot_flip   := na
         plot_c_gex  := 469260.83100000006
         plot_p_gex  := 222276.912
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 6
         plot_c_wall := 7.0
         plot_p_wall := 8.0
         plot_flip   := na
         plot_c_gex  := 545159.247
         plot_p_gex  := 275064.08
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 7
         plot_c_wall := 7.0
         plot_p_wall := 6.0
         plot_flip   := na
         plot_c_gex  := 522507.92999999993
         plot_p_gex  := 205637.502
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 8
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := 5.5
         plot_c_gex  := 491956.992
         plot_p_gex  := 253037.952
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 9
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := na
         plot_c_gex  := 632786.9440000001
         plot_p_gex  := 362436.096
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 10
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := 5.5
         plot_c_gex  := 740763.457
         plot_p_gex  := 334895.61400000006
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 11
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := 5.5
         plot_c_gex  := 876618.2514999999
         plot_p_gex  := 502189.656
-        plot_c_dex  := 1393234.4815000002
-        plot_p_dex  := -977054.702
+        plot_c_delta := 1393234.4815000002
+        plot_p_delta := -977054.702
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 18
         plot_c_wall := 6.0
         plot_p_wall := 5.0
         plot_flip   := na
         plot_c_gex  := 95126.724
         plot_p_gex  := 195000.939
-        plot_c_dex  := 421584.345
-        plot_p_dex  := -537672.492
+        plot_c_delta := 421584.345
+        plot_p_delta := -537672.492
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 19
         plot_c_wall := 6.0
         plot_p_wall := 5.0
         plot_flip   := na
         plot_c_gex  := 95126.724
         plot_p_gex  := 195000.939
-        plot_c_dex  := 421584.345
-        plot_p_dex  := -537672.492
+        plot_c_delta := 421584.345
+        plot_p_delta := -537672.492
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 20
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := na
         plot_c_gex  := 99153.252
         plot_p_gex  := 63296.1
-        plot_c_dex  := 439429.185
-        plot_p_dex  := -214887.6
+        plot_c_delta := 439429.185
+        plot_p_delta := -214887.6
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 21
         plot_c_wall := 5.0
         plot_p_wall := 5.0
         plot_flip   := na
         plot_c_gex  := 27751.248000000003
         plot_p_gex  := 166111.911
-        plot_c_dex  := 177657.543
-        plot_p_dex  := -458017.308
+        plot_c_delta := 177657.543
+        plot_p_delta := -458017.308
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 22
         plot_c_wall := 5.0
         plot_p_wall := 5.0
         plot_flip   := na
         plot_c_gex  := 42394.0
         plot_p_gex  := 362013.74
-        plot_c_dex  := 147086.5
-        plot_p_dex  := -982279.32
+        plot_c_delta := 147086.5
+        plot_p_delta := -982279.32
+        plot_is_greek := 0
+    if year == 2026 and month == 1 and dayofmonth == 23
+        plot_c_wall := 5.0
+        plot_p_wall := 5.0
+        plot_flip   := na
+        plot_c_gex  := 135790.05
+        plot_p_gex  := 581972.424
+        plot_c_delta := 547686.535
+        plot_p_delta := -1337228.772
+        plot_is_greek := 0
 
     if barstate.islast
         cur_strikes := array.from(5.0)
         cur_lengths := array.from(40)
         cur_signs   := array.from(-1)
-        cur_labels  := array.from('$-320K | D: $1.1M')
+        cur_labels  := array.from('$-446K | D: $1.9M')
 
 // ===== CLF DATA =====
 if current_ticker == "CLF"
@@ -1586,24 +1821,27 @@ if current_ticker == "CLF"
         plot_flip   := na
         plot_c_gex  := 6941221.29
         plot_p_gex  := 0.0
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 26
         plot_c_wall := 14.0
         plot_p_wall := 12.0
         plot_flip   := na
         plot_c_gex  := 6941221.29
         plot_p_gex  := 0.0
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 27
         plot_c_wall := 15.0
         plot_p_wall := 12.0
         plot_flip   := na
         plot_c_gex  := 10433728.0445
         plot_p_gex  := 0.0
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
 
     if barstate.islast
         cur_strikes := array.from(15.0, 12.0, 14.0, 13.0, 14.5, 13.5, 15.5, 12.5)
@@ -1619,182 +1857,213 @@ if current_ticker == "MSTU"
         plot_flip   := na
         plot_c_gex  := 132917.16
         plot_p_gex  := 381897.036
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 25
         plot_c_wall := 10.0
         plot_p_wall := 8.5
         plot_flip   := na
         plot_c_gex  := 728640.9984
         plot_p_gex  := 842371.3024999999
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 26
         plot_c_wall := 10.0
         plot_p_wall := 8.5
         plot_flip   := na
         plot_c_gex  := 728640.9984
         plot_p_gex  := 842371.3024999999
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 27
         plot_c_wall := 9.0
         plot_p_wall := 9.0
         plot_flip   := na
         plot_c_gex  := 246080.472
         plot_p_gex  := 122834.574
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 28
         plot_c_wall := 9.0
         plot_p_wall := 9.0
         plot_flip   := na
         plot_c_gex  := 246080.472
         plot_p_gex  := 122834.574
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 29
         plot_c_wall := 9.0
         plot_p_wall := 9.0
         plot_flip   := na
         plot_c_gex  := 246080.472
         plot_p_gex  := 122834.574
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 30
         plot_c_wall := 10.0
         plot_p_wall := 9.0
         plot_flip   := 8.75
         plot_c_gex  := 92948.625
         plot_p_gex  := 50344.0
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 31
         plot_c_wall := 10.0
         plot_p_wall := 9.0
         plot_flip   := 7.75
         plot_c_gex  := 303075.414
         plot_p_gex  := 180332.248
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 1
         plot_c_wall := 10.0
         plot_p_wall := 8.5
         plot_flip   := 2.5
         plot_c_gex  := 104053.95
         plot_p_gex  := 358300.481
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 2
         plot_c_wall := 9.0
         plot_p_wall := 8.5
         plot_flip   := na
         plot_c_gex  := 389602.716
         plot_p_gex  := 738470.643
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 3
         plot_c_wall := 9.0
         plot_p_wall := 9.0
         plot_flip   := 8.75
         plot_c_gex  := 323350.0655
         plot_p_gex  := 113787.63550000002
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 4
         plot_c_wall := 10.0
         plot_p_wall := 8.0
         plot_flip   := na
         plot_c_gex  := 84356.27200000001
         plot_p_gex  := 69005.24399999999
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 5
         plot_c_wall := 10.0
         plot_p_wall := 8.0
         plot_flip   := na
         plot_c_gex  := 84499.168
         plot_p_gex  := 69122.13599999998
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 6
         plot_c_wall := 10.0
         plot_p_wall := 9.0
         plot_flip   := 9.75
         plot_c_gex  := 92596.60800000002
         plot_p_gex  := 55728.64800000001
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 7
         plot_c_wall := 10.0
         plot_p_wall := 9.0
         plot_flip   := 8.75
         plot_c_gex  := 425610.985
         plot_p_gex  := 114363.995
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 8
         plot_c_wall := 10.0
         plot_p_wall := 8.5
         plot_flip   := na
         plot_c_gex  := 392766.1919999999
         plot_p_gex  := 388009.44
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 9
         plot_c_wall := 10.0
         plot_p_wall := 8.5
         plot_flip   := na
         plot_c_gex  := 277089.12000000005
         plot_p_gex  := 724297.8600000001
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 18
         plot_c_wall := 9.5
         plot_p_wall := 10.5
         plot_flip   := na
         plot_c_gex  := 130182.334
         plot_p_gex  := 146287.832
-        plot_c_dex  := 484639.18400000007
-        plot_p_dex  := -330856.592
+        plot_c_delta := 484639.18400000007
+        plot_p_delta := -330856.592
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 19
         plot_c_wall := 10.0
         plot_p_wall := 10.5
         plot_flip   := na
         plot_c_gex  := 190559.4205
         plot_p_gex  := 146287.832
-        plot_c_dex  := 787646.7715
-        plot_p_dex  := -330856.592
+        plot_c_delta := 787646.7715
+        plot_p_delta := -330856.592
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 20
         plot_c_wall := 10.0
         plot_p_wall := 10.5
         plot_flip   := na
         plot_c_gex  := 278408.83
         plot_p_gex  := 150751.512
-        plot_c_dex  := 1216506.774
-        plot_p_dex  := -343392.14599999995
+        plot_c_delta := 1216506.774
+        plot_p_delta := -343392.14599999995
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 21
         plot_c_wall := 10.0
         plot_p_wall := 10.5
         plot_flip   := na
         plot_c_gex  := 234824.90500000003
         plot_p_gex  := 127151.892
-        plot_c_dex  := 1026066.909
-        plot_p_dex  := -289635.31100000005
+        plot_c_delta := 1026066.909
+        plot_p_delta := -289635.31100000005
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 22
         plot_c_wall := 9.5
         plot_p_wall := 9.0
         plot_flip   := 9.25
         plot_c_gex  := 168463.68000000005
         plot_p_gex  := 104781.6
-        plot_c_dex  := 221227.776
-        plot_p_dex  := -137962.44
+        plot_c_delta := 221227.776
+        plot_p_delta := -137962.44
+        plot_is_greek := 0
+    if year == 2026 and month == 1 and dayofmonth == 23
+        plot_c_wall := 9.5
+        plot_p_wall := 9.0
+        plot_flip   := 9.25
+        plot_c_gex  := 499850.148
+        plot_p_gex  := 194544.90000000005
+        plot_c_delta := 541709.52
+        plot_p_delta := -218715.63
+        plot_is_greek := 0
 
     if barstate.islast
-        cur_strikes := array.from(9.5, 10.0, 10.5, 9.0, 8.0, 8.5)
-        cur_lengths := array.from(40, 22, 20, 6, 6, 2)
-        cur_signs   := array.from(1, 1, 1, -1, -1, -1)
-        cur_labels  := array.from('$129K | D: $315K', '$73K | D: $300K', '$66K | D: $684K', '$-22K | D: $293K', '$-20K | D: $135K', '$-2K | D: $78K')
+        cur_strikes := array.from(9.5, 8.5, 8.0, 10.0, 9.0, 10.5)
+        cur_lengths := array.from(40, 15, 9, 8, 7, 2)
+        cur_signs   := array.from(1, -1, -1, 1, 1, -1)
+        cur_labels  := array.from('$434K | D: $631K', '$-168K | D: $237K', '$-108K | D: $216K', '$92K | D: $481K', '$81K | D: $681K', '$-25K | D: $483K')
 
 // ===== NOK DATA =====
 if current_ticker == "NOK"
@@ -1804,198 +2073,231 @@ if current_ticker == "NOK"
         plot_flip   := na
         plot_c_gex  := 23204749.72845
         plot_p_gex  := 2050665.6461
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 30
         plot_c_wall := 7.0
         plot_p_wall := 7.0
         plot_flip   := na
         plot_c_gex  := 24819232.28400001
         plot_p_gex  := 2213402.1140000005
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 31
         plot_c_wall := 7.0
         plot_p_wall := 7.0
         plot_flip   := na
         plot_c_gex  := 23456287.764
         plot_p_gex  := 2136590.4630000005
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 1
         plot_c_wall := 7.0
         plot_p_wall := 6.0
         plot_flip   := na
         plot_c_gex  := 20160587.195
         plot_p_gex  := 1752984.5199999998
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 2
         plot_c_wall := 7.0
         plot_p_wall := 6.0
         plot_flip   := na
         plot_c_gex  := 18952481.714
         plot_p_gex  := 1830522.162
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 3
         plot_c_wall := 7.0
         plot_p_wall := 6.0
         plot_flip   := na
         plot_c_gex  := 18610693.114
         plot_p_gex  := 1790955.299
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 4
         plot_c_wall := 7.0
         plot_p_wall := 7.0
         plot_flip   := 6.25
         plot_c_gex  := 20200373.305000003
         plot_p_gex  := 1869731.4995
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 5
         plot_c_wall := 7.0
         plot_p_wall := 7.0
         plot_flip   := 6.25
         plot_c_gex  := 20215900.110000003
         plot_p_gex  := 1871168.649
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 6
         plot_c_wall := 7.0
         plot_p_wall := 6.0
         plot_flip   := 6.25
         plot_c_gex  := 21596390.4
         plot_p_gex  := 2796571.05
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 7
         plot_c_wall := 7.0
         plot_p_wall := 6.0
         plot_flip   := na
         plot_c_gex  := 19836328.357
         plot_p_gex  := 2822329.813
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 8
         plot_c_wall := 7.0
         plot_p_wall := 6.5
         plot_flip   := 6.25
         plot_c_gex  := 21827918.924
         plot_p_gex  := 4304080.507999999
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 9
         plot_c_wall := 7.0
         plot_p_wall := 6.5
         plot_flip   := na
         plot_c_gex  := 24024133.595000003
         plot_p_gex  := 4627846.366000001
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 10
         plot_c_wall := 7.0
         plot_p_wall := 6.5
         plot_flip   := 6.75
         plot_c_gex  := 21626298.621000003
         plot_p_gex  := 4495036.246
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 12
         plot_c_wall := 7.0
         plot_p_wall := 6.5
         plot_flip   := 6.25
         plot_c_gex  := 20862536.904
         plot_p_gex  := 6263199.936000001
-        plot_c_dex  := 7741332.0
-        plot_p_dex  := -2914945.0560000003
+        plot_c_delta := 7741332.0
+        plot_p_delta := -2914945.0560000003
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 13
         plot_c_wall := 7.0
         plot_p_wall := 6.5
         plot_flip   := 6.25
         plot_c_gex  := 21184489.634
         plot_p_gex  := 6359854.256
-        plot_c_dex  := 7860797.0
-        plot_p_dex  := -2959928.7760000005
+        plot_c_delta := 7860797.0
+        plot_p_delta := -2959928.7760000005
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 14
         plot_c_wall := 7.0
         plot_p_wall := 6.5
         plot_flip   := 6.75
         plot_c_gex  := 23192104.224
         plot_p_gex  := 5582154.723999999
-        plot_c_dex  := 5695066.128
-        plot_p_dex  := -2409160.2120000003
+        plot_c_delta := 5695066.128
+        plot_p_delta := -2409160.2120000003
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 15
         plot_c_wall := 7.0
         plot_p_wall := 6.5
         plot_flip   := 6.75
         plot_c_gex  := 20207511.612
         plot_p_gex  := 8059258.439999999
-        plot_c_dex  := 5879828.904
-        plot_p_dex  := -2809612.68
+        plot_c_delta := 5879828.904
+        plot_p_delta := -2809612.68
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 16
         plot_c_wall := 7.0
         plot_p_wall := 6.5
         plot_flip   := 6.75
         plot_c_gex  := 27112498.095000003
         plot_p_gex  := 3820911.822
-        plot_c_dex  := 5493978.836999999
-        plot_p_dex  := -2514009.0620000004
+        plot_c_delta := 5493978.836999999
+        plot_p_delta := -2514009.0620000004
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 17
         plot_c_wall := 7.0
         plot_p_wall := 6.5
         plot_flip   := 6.75
         plot_c_gex  := 5732120.771
         plot_p_gex  := 1579177.9250000005
-        plot_c_dex  := 4112265.4495000006
-        plot_p_dex  := -994789.8545
+        plot_c_delta := 4112265.4495000006
+        plot_p_delta := -994789.8545
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 18
         plot_c_wall := 7.0
         plot_p_wall := 6.5
         plot_flip   := 6.75
         plot_c_gex  := 5844664.566000001
         plot_p_gex  := 2131753.975
-        plot_c_dex  := 3858009.5645
-        plot_p_dex  := -1218801.441
+        plot_c_delta := 3858009.5645
+        plot_p_delta := -1218801.441
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 19
         plot_c_wall := 7.0
         plot_p_wall := 6.5
         plot_flip   := 6.75
         plot_c_gex  := 5844664.566000001
         plot_p_gex  := 2131753.975
-        plot_c_dex  := 3858009.5645
-        plot_p_dex  := -1218801.441
+        plot_c_delta := 3858009.5645
+        plot_p_delta := -1218801.441
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 20
         plot_c_wall := 7.0
         plot_p_wall := 6.5
         plot_flip   := 6.75
         plot_c_gex  := 5831310.42
         plot_p_gex  := 2126883.25
-        plot_c_dex  := 3849194.615
-        plot_p_dex  := -1216016.67
+        plot_c_delta := 3849194.615
+        plot_p_delta := -1216016.67
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 21
         plot_c_wall := 7.0
         plot_p_wall := 6.5
         plot_flip   := 6.75
         plot_c_gex  := 5706671.723999999
         plot_p_gex  := 2081423.15
-        plot_c_dex  := 3766921.753
-        plot_p_dex  := -1190025.474
+        plot_c_delta := 3766921.753
+        plot_p_delta := -1190025.474
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 22
         plot_c_wall := 7.0
         plot_p_wall := 6.5
         plot_flip   := 5.75
         plot_c_gex  := 4554389.896
         plot_p_gex  := 2726089.996
-        plot_c_dex  := 3099213.9360000007
-        plot_p_dex  := -2092791.3440000005
+        plot_c_delta := 3099213.9360000007
+        plot_p_delta := -2092791.3440000005
+        plot_is_greek := 0
+    if year == 2026 and month == 1 and dayofmonth == 23
+        plot_c_wall := 6.5
+        plot_p_wall := 6.5
+        plot_flip   := 6.25
+        plot_c_gex  := 7200323.359720001
+        plot_p_gex  := 4139815.145920001
+        plot_c_delta := 1993274.77964
+        plot_p_delta := -2570009.4517600005
+        plot_is_greek := 0
 
     if barstate.islast
-        cur_strikes := array.from(7.0, 6.0, 6.5, 5.5)
-        cur_lengths := array.from(40, 14, 9, 2)
-        cur_signs   := array.from(1, -1, 1, 1)
-        cur_labels  := array.from('$4.1M | D: $4.0M', '$-1.5M | D: $3.5M', '$1.0M | D: $3.8M', '$51K | D: $215K')
+        cur_strikes := array.from(7.0, 6.5, 6.0, 7.5)
+        cur_lengths := array.from(40, 24, 9, 9)
+        cur_signs   := array.from(1, 1, -1, 1)
+        cur_labels  := array.from('$5.0M | D: $4.4M', '$3.1M | D: $4.6M', '$-1.2M | D: $3.5M', '$1.2M | D: $537K')
 
 // ===== OPEN DATA =====
 if current_ticker == "OPEN"
@@ -2005,56 +2307,63 @@ if current_ticker == "OPEN"
         plot_flip   := na
         plot_c_gex  := 0.0
         plot_p_gex  := 867760.2359999999
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 23
         plot_c_wall := 7.0
         plot_p_wall := 6.0
         plot_flip   := 1.25
         plot_c_gex  := 2070840.751
         plot_p_gex  := 867760.2359999999
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 24
         plot_c_wall := 7.0
         plot_p_wall := 6.0
         plot_flip   := 1.25
         plot_c_gex  := 2070840.751
         plot_p_gex  := 867760.2359999999
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 24
         plot_c_wall := 7.0
         plot_p_wall := 6.0
         plot_flip   := 5.75
         plot_c_gex  := 12354992.4675
         plot_p_gex  := 3141040.7805
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 25
         plot_c_wall := 6.5
         plot_p_wall := 6.0
         plot_flip   := 6.25
         plot_c_gex  := 9588240.0
         plot_p_gex  := 4737133.125
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 26
         plot_c_wall := 6.5
         plot_p_wall := 6.0
         plot_flip   := 6.25
         plot_c_gex  := 9588240.0
         plot_p_gex  := 4737133.125
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 27
         plot_c_wall := 6.5
         plot_p_wall := 6.0
         plot_flip   := na
         plot_c_gex  := 1862797.5795
         plot_p_gex  := 2584420.6635000003
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
 
     if barstate.islast
         cur_strikes := array.from(6.0, 6.5, 5.5)
@@ -2070,32 +2379,36 @@ if current_ticker == "QQQ"
         plot_flip   := 467.28
         plot_c_gex  := 31989885.984
         plot_p_gex  := 42177994.11
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 23
         plot_c_wall := 630.0
         plot_p_wall := 600.0
         plot_flip   := 467.28
         plot_c_gex  := 31989885.984
         plot_p_gex  := 42177994.11
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 24
         plot_c_wall := 630.0
         plot_p_wall := 600.0
         plot_flip   := 467.28
         plot_c_gex  := 31989885.984
         plot_p_gex  := 42177994.11
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 24
         plot_c_wall := 625.0
         plot_p_wall := 620.0
         plot_flip   := 562.5
         plot_c_gex  := 45345929.517
         plot_p_gex  := 22312470.411
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
 
     if barstate.islast
         cur_strikes := array.from(625.0, 620.0, 623.0, 617.0, 630.0, 622.0, 618.0, 624.0, 615.0, 613.0, 600.0, 621.0, 628.0, 627.0, 619.0, 616.0, 607.0, 626.0, 611.0, 635.0, 605.0, 606.0, 609.0, 610.0, 595.0, 603.0, 632.0, 608.0, 590.0, 631.0, 629.0, 602.0, 612.0, 633.0, 637.0, 575.0, 604.0, 599.0, 601.0, 640.0)
@@ -2111,574 +2424,654 @@ if current_ticker == "RR"
         plot_flip   := 5.75
         plot_c_gex  := 7986782.522094852
         plot_p_gex  := 4563875.726911345
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 14
         plot_c_wall := 7.0
         plot_p_wall := 6.5
         plot_flip   := 5.75
         plot_c_gex  := 1587726.746819233
         plot_p_gex  := 595553.1673292319
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 15
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := 5.25
         plot_c_gex  := 4200153.133803838
         plot_p_gex  := 1828354.3578021915
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 16
         plot_c_wall := 5.5
         plot_p_wall := 5.5
         plot_flip   := 5.25
         plot_c_gex  := 41623.14329902098
         plot_p_gex  := 47915.265221106754
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 20
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := na
         plot_c_gex  := 1598797.4137469886
         plot_p_gex  := 376388.0755091245
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 21
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := na
         plot_c_gex  := 2184517.714385154
         plot_p_gex  := 497075.887105604
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 22
         plot_c_wall := 5.0
         plot_p_wall := 5.0
         plot_flip   := 4.75
         plot_c_gex  := 3358970.1345566576
         plot_p_gex  := 1552040.4961023894
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 23
         plot_c_wall := 5.0
         plot_p_wall := 5.0
         plot_flip   := 4.75
         plot_c_gex  := 886127.2919266607
         plot_p_gex  := 438029.9110788596
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 24
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := na
         plot_c_gex  := 4875284.565437395
         plot_p_gex  := 919553.6734194224
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 27
         plot_c_wall := 6.0
         plot_p_wall := 6.0
         plot_flip   := na
         plot_c_gex  := 4525292.480951064
         plot_p_gex  := 961871.2352710284
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 28
         plot_c_wall := 5.0
         plot_p_wall := 5.0
         plot_flip   := 4.75
         plot_c_gex  := 2008911.908366356
         plot_p_gex  := 1051329.1384930257
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 29
         plot_c_wall := 5.0
         plot_p_wall := 5.0
         plot_flip   := 4.75
         plot_c_gex  := 3974470.860098037
         plot_p_gex  := 2197687.0538358265
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 30
         plot_c_wall := 5.0
         plot_p_wall := 5.0
         plot_flip   := 4.75
         plot_c_gex  := 4553046.851585355
         plot_p_gex  := 2433771.5117187025
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 31
         plot_c_wall := 5.0
         plot_p_wall := 5.0
         plot_flip   := 4.75
         plot_c_gex  := 3701851.7838224806
         plot_p_gex  := 1860904.8565636715
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 3
         plot_c_wall := 4.5
         plot_p_wall := 4.5
         plot_flip   := na
         plot_c_gex  := 158226.17758485692
         plot_p_gex  := 700440.2739427204
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 4
         plot_c_wall := 4.0
         plot_p_wall := 4.0
         plot_flip   := na
         plot_c_gex  := 2063732.847283144
         plot_p_gex  := 2595113.161254253
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 5
         plot_c_wall := 4.0
         plot_p_wall := 4.0
         plot_flip   := na
         plot_c_gex  := 2473497.256007007
         plot_p_gex  := 2788937.0629018336
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 6
         plot_c_wall := 4.0
         plot_p_wall := 4.0
         plot_flip   := na
         plot_c_gex  := 423634.2308230529
         plot_p_gex  := 475744.53056875744
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 7
         plot_c_wall := 4.0
         plot_p_wall := 4.0
         plot_flip   := na
         plot_c_gex  := 539203.2659435256
         plot_p_gex  := 559196.8980526713
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 10
         plot_c_wall := 4.0
         plot_p_wall := 4.0
         plot_flip   := na
         plot_c_gex  := 745721.0016744527
         plot_p_gex  := 952318.2052709972
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 11
         plot_c_wall := 3.5
         plot_p_wall := 3.5
         plot_flip   := na
         plot_c_gex  := 71974.28199416888
         plot_p_gex  := 296746.4249431717
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 12
         plot_c_wall := 3.5
         plot_p_wall := 3.5
         plot_flip   := na
         plot_c_gex  := 281887.0109125964
         plot_p_gex  := 851710.1102251839
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 13
         plot_c_wall := 3.5
         plot_p_wall := 3.5
         plot_flip   := na
         plot_c_gex  := 16944.793065922517
         plot_p_gex  := 35162.894281307425
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 14
         plot_c_wall := 3.5
         plot_p_wall := 3.5
         plot_flip   := na
         plot_c_gex  := 173178.7549670803
         plot_p_gex  := 264032.7056457413
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 17
         plot_c_wall := 3.0
         plot_p_wall := 3.0
         plot_flip   := na
         plot_c_gex  := 422464.26965661946
         plot_p_gex  := 679861.2100710735
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 18
         plot_c_wall := 3.5
         plot_p_wall := 3.0
         plot_flip   := 3.25
         plot_c_gex  := 118.82027543945796
         plot_p_gex  := 105.82405726184882
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 19
         plot_c_wall := 3.0
         plot_p_wall := 3.0
         plot_flip   := na
         plot_c_gex  := 16.343238501701364
         plot_p_gex  := 25.59888188846612
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 20
         plot_c_wall := 3.0
         plot_p_wall := 3.0
         plot_flip   := na
         plot_c_gex  := 4357536.81440946
         plot_p_gex  := 6011402.638855519
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 24
         plot_c_wall := 3.0
         plot_p_wall := 3.0
         plot_flip   := na
         plot_c_gex  := 354662.8597625272
         plot_p_gex  := 636429.5230930143
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 25
         plot_c_wall := 4.0
         plot_p_wall := 4.0
         plot_flip   := 3.25
         plot_c_gex  := 297370.20279285096
         plot_p_gex  := 168667.4331149113
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 26
         plot_c_wall := 3.5
         plot_p_wall := 3.5
         plot_flip   := 3.25
         plot_c_gex  := 175819.34446997262
         plot_p_gex  := 27852.569420985765
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 28
         plot_c_wall := 3.5
         plot_p_wall := 3.5
         plot_flip   := 3.25
         plot_c_gex  := 210672.4388845133
         plot_p_gex  := 73055.76509704896
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 1
         plot_c_wall := 3.5
         plot_p_wall := 3.0
         plot_flip   := 3.25
         plot_c_gex  := 156564.45945997356
         plot_p_gex  := 75625.97075974842
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 2
         plot_c_wall := 3.5
         plot_p_wall := 3.5
         plot_flip   := 3.25
         plot_c_gex  := 246056.48967000248
         plot_p_gex  := 122577.59192351771
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 3
         plot_c_wall := 4.0
         plot_p_wall := 4.0
         plot_flip   := na
         plot_c_gex  := 2295971.780872718
         plot_p_gex  := 990398.7363855498
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 4
         plot_c_wall := 5.0
         plot_p_wall := 5.0
         plot_flip   := na
         plot_c_gex  := 677675.5041345715
         plot_p_gex  := 73601.51679485539
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 5
         plot_c_wall := 4.5
         plot_p_wall := 4.5
         plot_flip   := na
         plot_c_gex  := 840763.0907275084
         plot_p_gex  := 121221.13345145292
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 8
         plot_c_wall := 4.5
         plot_p_wall := 4.5
         plot_flip   := na
         plot_c_gex  := 892206.7323034023
         plot_p_gex  := 248194.0134329009
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 9
         plot_c_wall := 4.5
         plot_p_wall := 4.5
         plot_flip   := na
         plot_c_gex  := 731393.664536126
         plot_p_gex  := 225781.01898683023
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 10
         plot_c_wall := 4.0
         plot_p_wall := 4.0
         plot_flip   := na
         plot_c_gex  := 3368720.2024402674
         plot_p_gex  := 2046339.8957002629
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 11
         plot_c_wall := 5.0
         plot_p_wall := 4.5
         plot_flip   := na
         plot_c_gex  := 1122572.7548640366
         plot_p_gex  := 316341.3459213811
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 12
         plot_c_wall := 4.0
         plot_p_wall := 4.0
         plot_flip   := na
         plot_c_gex  := 4487028.315554322
         plot_p_gex  := 3039503.2509534783
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 15
         plot_c_wall := 3.5
         plot_p_wall := 3.5
         plot_flip   := 3.25
         plot_c_gex  := 1897644.7087398143
         plot_p_gex  := 1577704.6103221432
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 16
         plot_c_wall := 3.5
         plot_p_wall := 3.5
         plot_flip   := 3.25
         plot_c_gex  := 365346.0853671935
         plot_p_gex  := 317471.855270259
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 17
         plot_c_wall := 3.5
         plot_p_wall := 3.5
         plot_flip   := 3.25
         plot_c_gex  := 2143601.5559189687
         plot_p_gex  := 1540713.618316759
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 18
         plot_c_wall := 3.5
         plot_p_wall := 3.5
         plot_flip   := 3.25
         plot_c_gex  := 270400.5110878029
         plot_p_gex  := 142884.29884459797
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 22
         plot_c_wall := 4.0
         plot_p_wall := 4.0
         plot_flip   := 3.5
         plot_c_gex  := 59148.33021270784
         plot_p_gex  := 17248.703011078454
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 23
         plot_c_wall := 3.0
         plot_p_wall := 3.0
         plot_flip   := na
         plot_c_gex  := 26505.91303986995
         plot_p_gex  := 105243.2163338784
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 24
         plot_c_wall := 3.5
         plot_p_wall := 3.5
         plot_flip   := 3.25
         plot_c_gex  := 784306.31748
         plot_p_gex  := 744506.9074799999
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 25
         plot_c_wall := 4.0
         plot_p_wall := 3.5
         plot_flip   := 3.75
         plot_c_gex  := 1032846.8964
         plot_p_gex  := 1039268.88234
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 26
         plot_c_wall := 4.0
         plot_p_wall := 3.5
         plot_flip   := 3.75
         plot_c_gex  := 1032846.8964
         plot_p_gex  := 1039268.88234
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 27
         plot_c_wall := 3.5
         plot_p_wall := 3.5
         plot_flip   := na
         plot_c_gex  := 264760.215
         plot_p_gex  := 1128547.33
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 28
         plot_c_wall := 3.5
         plot_p_wall := 3.5
         plot_flip   := na
         plot_c_gex  := 264760.215
         plot_p_gex  := 1128547.33
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 29
         plot_c_wall := 3.5
         plot_p_wall := 3.5
         plot_flip   := na
         plot_c_gex  := 264760.215
         plot_p_gex  := 1128547.33
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 30
         plot_c_wall := 3.5
         plot_p_wall := 3.5
         plot_flip   := na
         plot_c_gex  := 461373.8549999999
         plot_p_gex  := 1677118.8199999998
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 31
         plot_c_wall := 3.5
         plot_p_wall := 3.5
         plot_flip   := na
         plot_c_gex  := 633697.2000000001
         plot_p_gex  := 1716390.5579999995
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 1
         plot_c_wall := 3.5
         plot_p_wall := 3.0
         plot_flip   := na
         plot_c_gex  := 1455502.6564999998
         plot_p_gex  := 3801432.2739999993
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 2
         plot_c_wall := 3.5
         plot_p_wall := 3.0
         plot_flip   := na
         plot_c_gex  := 1830687.4490000005
         plot_p_gex  := 2074110.908
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 3
         plot_c_wall := 3.5
         plot_p_wall := 3.0
         plot_flip   := na
         plot_c_gex  := 440726.14068
         plot_p_gex  := 897368.5152599999
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 4
         plot_c_wall := 3.5
         plot_p_wall := 3.0
         plot_flip   := 3.25
         plot_c_gex  := 2858797.1294400003
         plot_p_gex  := 727850.79087
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 5
         plot_c_wall := 4.0
         plot_p_wall := 3.0
         plot_flip   := 3.25
         plot_c_gex  := 4322889.756
         plot_p_gex  := 734116.0920000001
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 6
         plot_c_wall := 4.0
         plot_p_wall := 3.5
         plot_flip   := na
         plot_c_gex  := 5193396.826
         plot_p_gex  := 390692.15
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 7
         plot_c_wall := 4.0
         plot_p_wall := 3.5
         plot_flip   := na
         plot_c_gex  := 6087280.192
         plot_p_gex  := 379120.756
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 8
         plot_c_wall := 3.5
         plot_p_wall := 3.0
         plot_flip   := 3.25
         plot_c_gex  := 3454465.392
         plot_p_gex  := 947578.716
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 9
         plot_c_wall := 4.0
         plot_p_wall := 3.5
         plot_flip   := na
         plot_c_gex  := 8170701.870000001
         plot_p_gex  := 1788991.4130000002
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 11
         plot_c_wall := 4.0
         plot_p_wall := 3.5
         plot_flip   := na
         plot_c_gex  := 3291242.4315000004
         plot_p_gex  := 489800.147
-        plot_c_dex  := 4452863.271500001
-        plot_p_dex  := -408386.084
+        plot_c_delta := 4452863.271500001
+        plot_p_delta := -408386.084
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 18
         plot_c_wall := 4.0
         plot_p_wall := 3.5
         plot_flip   := 3.75
         plot_c_gex  := 3099421.626
         plot_p_gex  := 864960.978
-        plot_c_dex  := 4275745.446
-        plot_p_dex  := -591061.044
+        plot_c_delta := 4275745.446
+        plot_p_delta := -591061.044
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 19
         plot_c_wall := 4.0
         plot_p_wall := 3.5
         plot_flip   := 3.75
         plot_c_gex  := 3099421.626
         plot_p_gex  := 864960.978
-        plot_c_dex  := 4275745.446
-        plot_p_dex  := -591061.044
+        plot_c_delta := 4275745.446
+        plot_p_delta := -591061.044
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 20
         plot_c_wall := 4.0
         plot_p_wall := 3.5
         plot_flip   := 3.75
         plot_c_gex  := 3013973.912
         plot_p_gex  := 841114.936
-        plot_c_dex  := 4157867.752
-        plot_p_dex  := -574766.128
+        plot_c_delta := 4157867.752
+        plot_p_delta := -574766.128
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 21
         plot_c_wall := 4.0
         plot_p_wall := 3.5
         plot_flip   := 3.75
         plot_c_gex  := 2998437.964
         plot_p_gex  := 836779.2919999999
-        plot_c_dex  := 4136435.444
-        plot_p_dex  := -571803.416
+        plot_c_delta := 4136435.444
+        plot_p_delta := -571803.416
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 22
         plot_c_wall := 4.0
         plot_p_wall := 4.0
         plot_flip   := na
         plot_c_gex  := 3341950.464
         plot_p_gex  := 569051.9400000001
-        plot_c_dex  := 3510439.612
-        plot_p_dex  := -539849.532
+        plot_c_delta := 3510439.612
+        plot_p_delta := -539849.532
+        plot_is_greek := 0
+    if year == 2026 and month == 1 and dayofmonth == 23
+        plot_c_wall := 4.0
+        plot_p_wall := 4.0
+        plot_flip   := na
+        plot_c_gex  := 5018627.7020000005
+        plot_p_gex  := 1065505.694
+        plot_c_delta := 8601782.937
+        plot_p_delta := -623806.337
+        plot_is_greek := 0
 
     if barstate.islast
         cur_strikes := array.from(4.0, 4.5, 5.0)
-        cur_lengths := array.from(40, 10, 6)
+        cur_lengths := array.from(40, 35, 17)
         cur_signs   := array.from(1, 1, 1)
-        cur_labels  := array.from('$2.8M | D: $4.1M', '$757K | D: $377K', '$473K | D: $468K')
+        cur_labels  := array.from('$4.0M | D: $9.2M', '$3.5M | D: $2.6M', '$1.8M | D: $1.5M')
 
 // ===== SOFI DATA =====
 if current_ticker == "SOFI"
@@ -2688,182 +3081,213 @@ if current_ticker == "SOFI"
         plot_flip   := 23.5
         plot_c_gex  := 21856281.671971936
         plot_p_gex  := 22968128.80201928
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 23
         plot_c_wall := 27.0
         plot_p_wall := 27.0
         plot_flip   := 23.75
         plot_c_gex  := 23209178.65410035
         plot_p_gex  := 24546409.026411444
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 24
         plot_c_wall := 27.0
         plot_p_wall := 27.0
         plot_flip   := 23.75
         plot_c_gex  := 21893074.241752915
         plot_p_gex  := 23274698.983181886
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 26
         plot_c_wall := 27.0
         plot_p_wall := 27.0
         plot_flip   := 23.75
         plot_c_gex  := 25445100.85181056
         plot_p_gex  := 27018553.07058152
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 29
         plot_c_wall := 30.0
         plot_p_wall := 27.0
         plot_flip   := 29.75
         plot_c_gex  := 22592508.954
         plot_p_gex  := 20727029.577
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 30
         plot_c_wall := 30.0
         plot_p_wall := 27.0
         plot_flip   := 29.75
         plot_c_gex  := 20231610.678
         plot_p_gex  := 24239551.248
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 31
         plot_c_wall := 27.0
         plot_p_wall := 27.0
         plot_flip   := na
         plot_c_gex  := 20243649.536
         plot_p_gex  := 31572196.031999998
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 1
         plot_c_wall := 27.0
         plot_p_wall := 27.0
         plot_flip   := na
         plot_c_gex  := 24419804.287320003
         plot_p_gex  := 36882002.31255
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 2
         plot_c_wall := 27.0
         plot_p_wall := 26.0
         plot_flip   := na
         plot_c_gex  := 25540975.127970003
         plot_p_gex  := 39312593.94312
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 3
         plot_c_wall := 25.0
         plot_p_wall := 25.0
         plot_flip   := na
         plot_c_gex  := 18121222.666
         plot_p_gex  := 29724917.412
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 4
         plot_c_wall := 30.0
         plot_p_wall := 25.0
         plot_flip   := 29.75
         plot_c_gex  := 20967970.092
         plot_p_gex  := 20247705.994
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 5
         plot_c_wall := 30.0
         plot_p_wall := 25.0
         plot_flip   := 29.75
         plot_c_gex  := 21060002.148
         plot_p_gex  := 20336576.686
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 6
         plot_c_wall := 30.0
         plot_p_wall := 25.0
         plot_flip   := 29.75
         plot_c_gex  := 29907464.544
         plot_p_gex  := 25074662.928
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 7
         plot_c_wall := 30.0
         plot_p_wall := 25.0
         plot_flip   := 28.75
         plot_c_gex  := 36435837.084
         plot_p_gex  := 12728198.116
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 8
         plot_c_wall := 30.0
         plot_p_wall := 25.0
         plot_flip   := 29.75
         plot_c_gex  := 28008147.6
         plot_p_gex  := 26878707.9
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 9
         plot_c_wall := 27.0
         plot_p_wall := 25.0
         plot_flip   := 29.75
         plot_c_gex  := 35867362.608
         plot_p_gex  := 34009205.076
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 10
         plot_c_wall := 30.0
         plot_p_wall := 25.0
         plot_flip   := 29.75
         plot_c_gex  := 30333665.901
         plot_p_gex  := 24291168.4785
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 18
         plot_c_wall := 30.0
         plot_p_wall := 25.0
         plot_flip   := na
         plot_c_gex  := 14553668.448539998
         plot_p_gex  := 23260814.43126
-        plot_c_dex  := 49377280.9026
-        plot_p_dex  := -74890587.08945999
+        plot_c_delta := 49377280.9026
+        plot_p_delta := -74890587.08945999
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 19
         plot_c_wall := 30.0
         plot_p_wall := 25.0
         plot_flip   := na
         plot_c_gex  := 14553668.448539998
         plot_p_gex  := 23260814.43126
-        plot_c_dex  := 49377280.9026
-        plot_p_dex  := -74890587.08945999
+        plot_c_delta := 49377280.9026
+        plot_p_delta := -74890587.08945999
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 20
         plot_c_wall := 30.0
         plot_p_wall := 25.0
         plot_flip   := na
         plot_c_gex  := 14464985.301
         plot_p_gex  := 23119074.069
-        plot_c_dex  := 49076399.19
-        plot_p_dex  := -74434239.399
+        plot_c_delta := 49076399.19
+        plot_p_delta := -74434239.399
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 21
         plot_c_wall := 27.0
         plot_p_wall := 25.0
         plot_flip   := na
         plot_c_gex  := 11763749.705
         plot_p_gex  := 22552820.436999995
-        plot_c_dex  := 35825068.342
-        plot_p_dex  := -72611127.527
+        plot_c_delta := 35825068.342
+        plot_p_delta := -72611127.527
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 22
         plot_c_wall := 27.0
         plot_p_wall := 25.0
         plot_flip   := na
         plot_c_gex  := 11444578.096
         plot_p_gex  := 30641435.832
-        plot_c_dex  := 33205110.204000004
-        plot_p_dex  := -95491949.4
+        plot_c_delta := 33205110.204000004
+        plot_p_delta := -95491949.4
+        plot_is_greek := 0
+    if year == 2026 and month == 1 and dayofmonth == 23
+        plot_c_wall := 27.0
+        plot_p_wall := 25.0
+        plot_flip   := na
+        plot_c_gex  := 15876683.168
+        plot_p_gex  := 36527743.232
+        plot_c_delta := 37990741.524
+        plot_p_delta := -95157039.444
+        plot_is_greek := 0
 
     if barstate.islast
-        cur_strikes := array.from(25.0, 26.0, 24.0, 23.0, 28.0, 25.5, 29.0, 24.5, 22.0, 27.5, 26.5, 23.5, 28.5, 27.0)
-        cur_lengths := array.from(40, 30, 20, 13, 10, 8, 6, 4, 4, 4, 2, 2, 2, 2)
-        cur_signs   := array.from(-1, -1, -1, -1, 1, -1, 1, -1, -1, 1, 1, -1, 1, 1)
-        cur_labels  := array.from('$-27.6M | D: $112.2M', '$-20.7M | D: $118.9M', '$-14.4M | D: $53.5M', '$-9.5M | D: $44.3M', '$7.0M | D: $54.5M', '$-5.7M | D: $13.2M', '$4.5M | D: $27.1M', '$-3.0M | D: $6.7M', '$-3.0M | D: $15.2M', '$3.0M | D: $9.8M', '$2.1M | D: $21.1M', '$-1.3M | D: $2.5M', '$1.1M | D: $3.1M', '$460K | D: $99.3M')
+        cur_strikes := array.from(25.0, 26.0, 24.0, 30.0, 23.0, 28.0, 25.5, 29.0, 26.5, 24.5, 27.5, 27.0, 23.5, 28.5, 29.5)
+        cur_lengths := array.from(40, 21, 19, 15, 12, 9, 9, 6, 6, 5, 5, 5, 2, 2, 2)
+        cur_signs   := array.from(-1, -1, -1, 1, -1, 1, -1, 1, 1, -1, 1, 1, -1, 1, 1)
+        cur_labels  := array.from('$-32.2M | D: $118.3M', '$-17.4M | D: $121.4M', '$-15.5M | D: $53.2M', '$12.4M | D: $55.7M', '$-9.8M | D: $45.5M', '$7.9M | D: $53.7M', '$-7.6M | D: $20.3M', '$5.1M | D: $27.5M', '$4.9M | D: $22.4M', '$-4.5M | D: $9.2M', '$4.4M | D: $12.9M', '$4.2M | D: $101.7M', '$-2.0M | D: $4.5M', '$1.8M | D: $4.3M', '$731K | D: $1.5M')
 
 // ===== SOXL DATA =====
 if current_ticker == "SOXL"
@@ -2873,118 +3297,141 @@ if current_ticker == "SOXL"
         plot_flip   := 37.75
         plot_c_gex  := 5485167.180000001
         plot_p_gex  := 6997364.55
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 3
         plot_c_wall := 45.0
         plot_p_wall := 42.0
         plot_flip   := 44.75
         plot_c_gex  := 3283620.78
         plot_p_gex  := 1899005.16
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 4
         plot_c_wall := 50.0
         plot_p_wall := 42.0
         plot_flip   := 43.75
         plot_c_gex  := 4685494.74
         plot_p_gex  := 1010615.4
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 5
         plot_c_wall := 50.0
         plot_p_wall := 42.0
         plot_flip   := 43.75
         plot_c_gex  := 4669678.724
         plot_p_gex  := 1007204.0400000002
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 6
         plot_c_wall := 50.0
         plot_p_wall := 42.0
         plot_flip   := 42.25
         plot_c_gex  := 5529010.572
         plot_p_gex  := 1083632.442
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 7
         plot_c_wall := 50.0
         plot_p_wall := 48.0
         plot_flip   := na
         plot_c_gex  := 6339040.279
         plot_p_gex  := 446430.457
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 8
         plot_c_wall := 50.0
         plot_p_wall := 50.0
         plot_flip   := 44.75
         plot_c_gex  := 5886761.139
         plot_p_gex  := 839855.835
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 9
         plot_c_wall := 50.0
         plot_p_wall := 50.0
         plot_flip   := 44.75
         plot_c_gex  := 6777786.045
         plot_p_gex  := 2311157.85
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 10
         plot_c_wall := 50.0
         plot_p_wall := 48.0
         plot_flip   := na
         plot_c_gex  := 5206343.704
         plot_p_gex  := 991668.522
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 18
         plot_c_wall := 60.0
         plot_p_wall := 55.0
         plot_flip   := 52.75
         plot_c_gex  := 2340457.13316
         plot_p_gex  := 769101.88812
-        plot_c_dex  := 37877186.30136
-        plot_p_dex  := -5662411.0335
+        plot_c_delta := 37877186.30136
+        plot_p_delta := -5662411.0335
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 19
         plot_c_wall := 60.0
         plot_p_wall := 55.0
         plot_flip   := 52.75
         plot_c_gex  := 2340457.13316
         plot_p_gex  := 769101.88812
-        plot_c_dex  := 37877186.30136
-        plot_p_dex  := -5662411.0335
+        plot_c_delta := 37877186.30136
+        plot_p_delta := -5662411.0335
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 20
         plot_c_wall := 60.0
         plot_p_wall := 55.0
         plot_flip   := 52.75
         plot_c_gex  := 2333152.35
         plot_p_gex  := 766701.45
-        plot_c_dex  := 37758968.1
-        plot_p_dex  := -5644738.125
+        plot_c_delta := 37758968.1
+        plot_p_delta := -5644738.125
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 21
         plot_c_wall := 60.0
         plot_p_wall := 55.0
         plot_flip   := 49.75
         plot_c_gex  := 2225232.052
         plot_p_gex  := 731237.5639999999
-        plot_c_dex  := 36012421.592
-        plot_p_dex  := -5383639.95
+        plot_c_delta := 36012421.592
+        plot_p_delta := -5383639.95
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 22
         plot_c_wall := 60.0
         plot_p_wall := 55.0
         plot_flip   := 56.75
         plot_c_gex  := 2905644.648
         plot_p_gex  := 1436450.832
-        plot_c_dex  := 38278598.7
-        plot_p_dex  := -11453086.992
+        plot_c_delta := 38278598.7
+        plot_p_delta := -11453086.992
+        plot_is_greek := 0
+    if year == 2026 and month == 1 and dayofmonth == 23
+        plot_c_wall := 60.0
+        plot_p_wall := 60.0
+        plot_flip   := 60.75
+        plot_c_gex  := 2794991.04
+        plot_p_gex  := 1201543.92
+        plot_c_delta := 59209596.6
+        plot_p_delta := -10297876.68
+        plot_is_greek := 0
 
     if barstate.islast
-        cur_strikes := array.from(60.0, 65.0, 58.0, 70.0, 64.0, 63.0, 62.0, 59.0, 67.0, 66.0, 57.0, 68.0, 61.5, 61.0, 55.5, 63.5, 56.0, 59.5, 62.5, 71.0, 55.0, 69.0, 73.0, 72.0, 60.5, 54.0, 64.5, 58.5, 56.5, 57.5, 54.5)
-        cur_lengths := array.from(40, 24, 19, 15, 7, 5, 5, 5, 5, 4, 4, 4, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2)
-        cur_signs   := array.from(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, -1, 1, 1, 1, 1, 1, -1, 1, 1, 1, 1, -1, 1, -1, -1, 1, 1)
-        cur_labels  := array.from('$2.0M | D: $50.3M', '$1.2M | D: $16.2M', '$953K | D: $28.4M', '$755K | D: $10.8M', '$390K | D: $7.2M', '$290K | D: $4.9M', '$279K | D: $19.1M', '$275K | D: $12.3M', '$259K | D: $2.5M', '$247K | D: $2.0M', '$234K | D: $11.5M', '$207K | D: $2.7M', '$186K | D: $3.7M', '$154K | D: $16.7M', '$-127K | D: $1.8M', '$88K | D: $643K', '$87K | D: $15.6M', '$71K | D: $1.4M', '$57K | D: $2.1M', '$52K | D: $723K', '$-52K | D: $42.2M', '$45K | D: $806K', '$39K | D: $297K', '$38K | D: $942K', '$34K | D: $2.4M', '$-33K | D: $16.1M', '$29K | D: $335K', '$-25K | D: $1.2M', '$-22K | D: $3.1M', '$21K | D: $1.8M', '$1K | D: $2.3M')
+        cur_strikes := array.from(65.0, 60.0, 70.0, 64.0, 67.0, 63.0, 66.0, 62.0, 68.0, 61.0, 56.0, 59.5, 61.5, 59.0, 55.0, 60.5, 57.0, 69.0, 56.5, 62.5, 71.0, 63.5, 58.5, 72.0, 55.5, 57.5, 64.5, 58.0, 73.0, 54.5)
+        cur_lengths := array.from(40, 24, 18, 16, 14, 12, 9, 9, 9, 7, 6, 6, 5, 4, 4, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2)
+        cur_signs   := array.from(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, -1, -1, 1, -1, -1, 1, -1, 1, -1, 1, 1, 1, -1, 1, -1, -1, 1, 1, 1, -1)
+        cur_labels  := array.from('$2.6M | D: $27.5M', '$1.6M | D: $69.5M', '$1.2M | D: $15.6M', '$1.1M | D: $11.9M', '$940K | D: $6.1M', '$813K | D: $10.4M', '$636K | D: $4.9M', '$610K | D: $24.9M', '$586K | D: $5.2M', '$510K | D: $23.8M', '$-388K | D: $18.8M', '$-386K | D: $16.7M', '$381K | D: $6.5M', '$-291K | D: $20.1M', '$-268K | D: $45.0M', '$217K | D: $6.5M', '$-195K | D: $16.5M', '$182K | D: $1.7M', '$-178K | D: $4.0M', '$158K | D: $2.9M', '$127K | D: $1.3M', '$124K | D: $1.5M', '$-123K | D: $1.7M', '$122K | D: $1.5M', '$-109K | D: $1.7M', '$-108K | D: $2.8M', '$100K | D: $732K', '$84K | D: $39.6M', '$66K | D: $573K', '$-63K | D: $2.8M')
 
 // ===== SPY DATA =====
 if current_ticker == "SPY"
@@ -2994,32 +3441,36 @@ if current_ticker == "SPY"
         plot_flip   := 572.5
         plot_c_gex  := 0.0
         plot_p_gex  := 31841839.7325
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 23
         plot_c_wall := 700.0
         plot_p_wall := 660.0
         plot_flip   := 547.5
         plot_c_gex  := 56354653.2255
         plot_p_gex  := 31841839.7325
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 24
         plot_c_wall := 700.0
         plot_p_wall := 660.0
         plot_flip   := 547.5
         plot_c_gex  := 56354653.2255
         plot_p_gex  := 31841839.7325
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 24
         plot_c_wall := 690.0
         plot_p_wall := 680.0
         plot_flip   := 587.5
         plot_c_gex  := 118528834.89300002
         plot_p_gex  := 38182280.766
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
 
     if barstate.islast
         cur_strikes := array.from(690.0, 685.0, 684.0, 687.0, 689.0, 688.0, 681.0, 686.0, 682.0, 691.0, 680.0, 692.0, 695.0, 675.0, 693.0, 670.0, 694.0, 674.0, 683.0, 678.0, 700.0, 677.0, 659.0, 673.0, 665.0, 697.0, 660.0, 671.0, 679.0, 652.0, 669.0, 664.0, 668.0, 662.0, 699.0, 655.0, 696.0, 667.0, 658.0, 650.0)
@@ -3035,566 +3486,645 @@ if current_ticker == "TEMT"
         plot_flip   := 34.5
         plot_c_gex  := 105625.66800272116
         plot_p_gex  := 37304.95251673901
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 14
         plot_c_wall := 37.0
         plot_p_wall := 37.0
         plot_flip   := 34.5
         plot_c_gex  := 37661.58917824231
         plot_p_gex  := 16947.71513020904
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 15
         plot_c_wall := 40.0
         plot_p_wall := 39.0
         plot_flip   := 34.5
         plot_c_gex  := 26801.794259654773
         plot_p_gex  := 41624.25789321208
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 16
         plot_c_wall := 38.0
         plot_p_wall := 39.0
         plot_flip   := 34.5
         plot_c_gex  := 23563.264404322188
         plot_p_gex  := 26785.589848689942
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 20
         plot_c_wall := 40.0
         plot_p_wall := 41.0
         plot_flip   := na
         plot_c_gex  := 11825.835967940537
         plot_p_gex  := 12951.08900634564
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 21
         plot_c_wall := 36.0
         plot_p_wall := 38.0
         plot_flip   := na
         plot_c_gex  := 4396.088930936391
         plot_p_gex  := 10844.41334395048
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 22
         plot_c_wall := 34.0
         plot_p_wall := 34.0
         plot_flip   := na
         plot_c_gex  := 2242.646766214495
         plot_p_gex  := 19436.27197385896
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 23
         plot_c_wall := 36.0
         plot_p_wall := 34.0
         plot_flip   := na
         plot_c_gex  := 10782.788029899732
         plot_p_gex  := 17366.39508938489
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 24
         plot_c_wall := 36.0
         plot_p_wall := 38.0
         plot_flip   := na
         plot_c_gex  := 9995.201264855988
         plot_p_gex  := 11024.679086678363
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 27
         plot_c_wall := 40.0
         plot_p_wall := 38.0
         plot_flip   := 35.5
         plot_c_gex  := 10874.71778498156
         plot_p_gex  := 15527.02044636244
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 28
         plot_c_wall := 36.0
         plot_p_wall := 34.0
         plot_flip   := na
         plot_c_gex  := 6629.282914886997
         plot_p_gex  := 21977.39006552437
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 29
         plot_c_wall := 36.0
         plot_p_wall := 34.0
         plot_flip   := na
         plot_c_gex  := 11469.66530258354
         plot_p_gex  := 10812.948014819693
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 30
         plot_c_wall := 35.0
         plot_p_wall := 34.0
         plot_flip   := na
         plot_c_gex  := 5467.0708237282815
         plot_p_gex  := 23376.411636191773
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 10 and dayofmonth == 31
         plot_c_wall := 36.0
         plot_p_wall := 38.0
         plot_flip   := 35.5
         plot_c_gex  := 10654.811481715413
         plot_p_gex  := 14508.326795748922
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 3
         plot_c_wall := 36.0
         plot_p_wall := 34.0
         plot_flip   := na
         plot_c_gex  := 12819.83307996012
         plot_p_gex  := 11510.295320424344
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 4
         plot_c_wall := 35.0
         plot_p_wall := 33.0
         plot_flip   := na
         plot_c_gex  := 1219.104442168648
         plot_p_gex  := 26116.796581289826
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 5
         plot_c_wall := 30.0
         plot_p_wall := 30.0
         plot_flip   := na
         plot_c_gex  := 1871.4335667626096
         plot_p_gex  := 81407.36015417351
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 6
         plot_c_wall := 26.0
         plot_p_wall := 26.0
         plot_flip   := na
         plot_c_gex  := 0.0
         plot_p_gex  := 355.28389108445026
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 7
         plot_c_wall := 26.0
         plot_p_wall := 26.0
         plot_flip   := na
         plot_c_gex  := 0.3654453031314864
         plot_p_gex  := 43.122545769515405
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 10
         plot_c_wall := 23.0
         plot_p_wall := 22.0
         plot_flip   := 22.5
         plot_c_gex  := 7212.496103348995
         plot_p_gex  := 1431.998838761328
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 11
         plot_c_wall := 23.0
         plot_p_wall := 22.0
         plot_flip   := 20.5
         plot_c_gex  := 6238.483257744319
         plot_p_gex  := 1974.519714951021
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 12
         plot_c_wall := 23.0
         plot_p_wall := 23.0
         plot_flip   := 20.5
         plot_c_gex  := 4285.024623412461
         plot_p_gex  := 10712.561558531152
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 13
         plot_c_wall := 22.0
         plot_p_wall := 21.0
         plot_flip   := 18.5
         plot_c_gex  := 26.107699593457088
         plot_p_gex  := 6161.550446798149
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 14
         plot_c_wall := 20.0
         plot_p_wall := 21.0
         plot_flip   := 18.5
         plot_c_gex  := 953.1416034261632
         plot_p_gex  := 12355.784062189889
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 17
         plot_c_wall := 20.0
         plot_p_wall := 19.0
         plot_flip   := 18.5
         plot_c_gex  := 1650.2247446592894
         plot_p_gex  := 1655.0873258721606
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 18
         plot_c_wall := 20.0
         plot_p_wall := 19.0
         plot_flip   := na
         plot_c_gex  := 2720.439219466037
         plot_p_gex  := 3119.6596673686886
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 19
         plot_c_wall := 21.0
         plot_p_wall := 21.0
         plot_flip   := 19.5
         plot_c_gex  := 1946.66444007924
         plot_p_gex  := 23359.97328095089
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 20
         plot_c_wall := 18.0
         plot_p_wall := 19.0
         plot_flip   := 16.5
         plot_c_gex  := 0.9858687722895312
         plot_p_gex  := 8079.584479650511
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 24
         plot_c_wall := 25.0
         plot_p_wall := 25.0
         plot_flip   := 20.5
         plot_c_gex  := 24520.787972941114
         plot_p_gex  := 24520.787972941114
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 25
         plot_c_wall := 25.0
         plot_p_wall := 25.0
         plot_flip   := 22.5
         plot_c_gex  := 24847.50906915574
         plot_p_gex  := 23244.443967919888
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 26
         plot_c_wall := 25.0
         plot_p_wall := 25.0
         plot_flip   := 22.5
         plot_c_gex  := 23420.577549594112
         plot_p_gex  := 21909.57254639449
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 11 and dayofmonth == 28
         plot_c_wall := 28.0
         plot_p_wall := 25.0
         plot_flip   := 22.5
         plot_c_gex  := 17217.837799276927
         plot_p_gex  := 19480.817938709897
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 1
         plot_c_wall := 24.0
         plot_p_wall := 24.0
         plot_flip   := 19.5
         plot_c_gex  := 10601.75564740976
         plot_p_gex  := 15902.633471114636
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 2
         plot_c_wall := 24.0
         plot_p_wall := 24.0
         plot_flip   := 19.5
         plot_c_gex  := 9497.627873606843
         plot_p_gex  := 14246.441810410266
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 3
         plot_c_wall := 25.0
         plot_p_wall := 24.0
         plot_flip   := 20.5
         plot_c_gex  := 17966.46612528322
         plot_p_gex  := 19052.061396049576
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 4
         plot_c_wall := 25.0
         plot_p_wall := 25.0
         plot_flip   := 20.5
         plot_c_gex  := 29350.44039673232
         plot_p_gex  := 31524.54709278657
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 5
         plot_c_wall := 25.0
         plot_p_wall := 25.0
         plot_flip   := 22.5
         plot_c_gex  := 30279.620060044024
         plot_p_gex  := 32522.554879306543
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 8
         plot_c_wall := 25.0
         plot_p_wall := 25.0
         plot_flip   := 22.5
         plot_c_gex  := 31452.33358687097
         plot_p_gex  := 33782.13607478733
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 9
         plot_c_wall := 25.0
         plot_p_wall := 25.0
         plot_flip   := 20.5
         plot_c_gex  := 28215.90215156703
         plot_p_gex  := 30305.968977609034
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 10
         plot_c_wall := 24.0
         plot_p_wall := 24.0
         plot_flip   := 20.5
         plot_c_gex  := 18348.44302254393
         plot_p_gex  := 25405.536492753134
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 11
         plot_c_wall := 23.0
         plot_p_wall := 24.0
         plot_flip   := 19.5
         plot_c_gex  := 11707.509343554711
         plot_p_gex  := 10342.13433859169
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 12
         plot_c_wall := 20.0
         plot_p_wall := 22.0
         plot_flip   := 19.5
         plot_c_gex  := 8987.365396433066
         plot_p_gex  := 12726.02106053385
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 15
         plot_c_wall := 20.0
         plot_p_wall := 20.0
         plot_flip   := 19.5
         plot_c_gex  := 110946.34784822862
         plot_p_gex  := 62799.81953673318
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 16
         plot_c_wall := 20.0
         plot_p_wall := 20.0
         plot_flip   := 19.5
         plot_c_gex  := 67293.14609283254
         plot_p_gex  := 38090.460052546725
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 17
         plot_c_wall := 18.0
         plot_p_wall := 18.0
         plot_flip   := na
         plot_c_gex  := 9237.036313989409
         plot_p_gex  := 16626.665365180932
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 18
         plot_c_wall := 17.0
         plot_p_wall := 16.0
         plot_flip   := na
         plot_c_gex  := 0.809835619664991
         plot_p_gex  := 4653.415309087979
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 22
         plot_c_wall := 18.0
         plot_p_wall := 17.0
         plot_flip   := na
         plot_c_gex  := 5408.614049051366
         plot_p_gex  := 23991.575836378408
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 23
         plot_c_wall := 16.0
         plot_p_wall := 15.0
         plot_flip   := na
         plot_c_gex  := 6.701362628921723
         plot_p_gex  := 12617.086593247152
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 24
         plot_c_wall := 16.0
         plot_p_wall := 15.0
         plot_flip   := na
         plot_c_gex  := 2.9023653632290207
         plot_p_gex  := 8386.933250500546
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 26
         plot_c_wall := 15.0
         plot_p_wall := 12.0
         plot_flip   := 11.5
         plot_c_gex  := 45.90162228962861
         plot_p_gex  := 786.2729757703611
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 27
         plot_c_wall := 11.0
         plot_p_wall := 14.0
         plot_flip   := 13.5
         plot_c_gex  := 0.0
         plot_p_gex  := 116.01
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 28
         plot_c_wall := 11.0
         plot_p_wall := 14.0
         plot_flip   := 13.5
         plot_c_gex  := 0.0
         plot_p_gex  := 116.01
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 29
         plot_c_wall := 11.0
         plot_p_wall := 14.0
         plot_flip   := 13.5
         plot_c_gex  := 0.0
         plot_p_gex  := 116.01
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 30
         plot_c_wall := 11.0
         plot_p_wall := 12.0
         plot_flip   := 11.5
         plot_c_gex  := 0.0
         plot_p_gex  := 553.5799999999999
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2025 and month == 12 and dayofmonth == 31
         plot_c_wall := 11.0
         plot_p_wall := 13.0
         plot_flip   := 11.5
         plot_c_gex  := 0.0
         plot_p_gex  := 1402.8300000000002
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 1
         plot_c_wall := 10.0
         plot_p_wall := 12.0
         plot_flip   := 11.5
         plot_c_gex  := 0.0
         plot_p_gex  := 1532.564
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 2
         plot_c_wall := 13.0
         plot_p_wall := 12.0
         plot_flip   := 10.5
         plot_c_gex  := 139.68999999999997
         plot_p_gex  := 2841.89
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 3
         plot_c_wall := 14.0
         plot_p_wall := 12.0
         plot_flip   := na
         plot_c_gex  := 661.5840000000001
         plot_p_gex  := 3109.946
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 4
         plot_c_wall := 14.0
         plot_p_wall := 12.0
         plot_flip   := na
         plot_c_gex  := 1037.4840000000002
         plot_p_gex  := 2257.906
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 5
         plot_c_wall := 15.0
         plot_p_wall := 12.0
         plot_flip   := 10.5
         plot_c_gex  := 1526.3270000000002
         plot_p_gex  := 2293.9460000000004
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 6
         plot_c_wall := 15.0
         plot_p_wall := 12.0
         plot_flip   := na
         plot_c_gex  := 1633.038
         plot_p_gex  := 2541.492
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 7
         plot_c_wall := 15.0
         plot_p_wall := 14.0
         plot_flip   := na
         plot_c_gex  := 2191.893
         plot_p_gex  := 0.0
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 8
         plot_c_wall := 14.0
         plot_p_wall := 14.0
         plot_flip   := na
         plot_c_gex  := 3693.404000000001
         plot_p_gex  := 2095.236
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 9
         plot_c_wall := 14.0
         plot_p_wall := 13.0
         plot_flip   := 13.5
         plot_c_gex  := 4444.912
         plot_p_gex  := 3168.4400000000005
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 10
         plot_c_wall := 14.0
         plot_p_wall := 13.0
         plot_flip   := 13.5
         plot_c_gex  := 6084.200000000001
         plot_p_gex  := 3027.5999999999995
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 18
         plot_c_wall := 16.0
         plot_p_wall := 15.0
         plot_flip   := na
         plot_c_gex  := 3434.508
         plot_p_gex  := 724.4160000000002
-        plot_c_dex  := 32482.29600000001
-        plot_p_dex  := -4369.134
+        plot_c_delta := 32482.29600000001
+        plot_p_delta := -4369.134
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 19
         plot_c_wall := 16.0
         plot_p_wall := 15.0
         plot_flip   := na
         plot_c_gex  := 3434.508
         plot_p_gex  := 724.4160000000002
-        plot_c_dex  := 32482.29600000001
-        plot_p_dex  := -4369.134
+        plot_c_delta := 32482.29600000001
+        plot_p_delta := -4369.134
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 20
         plot_c_wall := 16.0
         plot_p_wall := 15.0
         plot_flip   := na
         plot_c_gex  := 3375.036
         plot_p_gex  := 711.8720000000001
-        plot_c_dex  := 31919.83200000001
-        plot_p_dex  := -4293.478
+        plot_c_delta := 31919.83200000001
+        plot_p_delta := -4293.478
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 21
         plot_c_wall := 16.0
         plot_p_wall := 13.0
         plot_flip   := 15.5
         plot_c_gex  := 3022.452
         plot_p_gex  := 2817.54
-        plot_c_dex  := 28585.224
-        plot_p_dex  := -12653.316
+        plot_c_delta := 28585.224
+        plot_p_delta := -12653.316
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 22
         plot_c_wall := 14.0
         plot_p_wall := 14.0
         plot_flip   := na
         plot_c_gex  := 1101.884
         plot_p_gex  := 10269.776
-        plot_c_dex  := 11303.81
-        plot_p_dex  := -51587.712
+        plot_c_delta := 11303.81
+        plot_p_delta := -51587.712
+        plot_is_greek := 0
+    if year == 2026 and month == 1 and dayofmonth == 23
+        plot_c_wall := 16.0
+        plot_p_wall := 14.0
+        plot_flip   := na
+        plot_c_gex  := 4181.444
+        plot_p_gex  := 11322.017999999998
+        plot_c_delta := 21512.429
+        plot_p_delta := -65835.438
+        plot_is_greek := 0
 
     if barstate.islast
-        cur_strikes := array.from(14.0, 12.0, 13.0, 15.0)
-        cur_lengths := array.from(40, 24, 16, 2)
-        cur_signs   := array.from(-1, -1, -1, -1)
-        cur_labels  := array.from('$-9K | D: $63K', '$-6K | D: $25K', '$-4K | D: $24K', '$-665 | D: $6K')
+        cur_strikes := array.from(14.0, 13.0, 16.0, 17.0, 15.0)
+        cur_lengths := array.from(40, 17, 6, 2, 2)
+        cur_signs   := array.from(-1, -1, 1, 1, 1)
+        cur_labels  := array.from('$-9K | D: $77K', '$-4K | D: $31K', '$1K | D: $44K', '$669 | D: $9K', '$54 | D: $4K')
 
 // ===== TSLL DATA =====
 if current_ticker == "TSLL"
@@ -3604,118 +4134,141 @@ if current_ticker == "TSLL"
         plot_flip   := na
         plot_c_gex  := 2011006.452
         plot_p_gex  := 6370775.228999999
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 3
         plot_c_wall := 20.43
         plot_p_wall := 20.0
         plot_flip   := na
         plot_c_gex  := 1010229.5161600002
         plot_p_gex  := 1736193.02022
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 4
         plot_c_wall := 21.0
         plot_p_wall := 19.5
         plot_flip   := na
         plot_c_gex  := 580563.0936
         plot_p_gex  := 1076115.16278
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 5
         plot_c_wall := 20.5
         plot_p_wall := 19.5
         plot_flip   := na
         plot_c_gex  := 343174.68
         plot_p_gex  := 1066445.3520000002
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 6
         plot_c_wall := 21.0
         plot_p_wall := 19.5
         plot_flip   := na
         plot_c_gex  := 610273.44
         plot_p_gex  := 1131185.412
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 7
         plot_c_wall := 20.0
         plot_p_wall := 19.5
         plot_flip   := na
         plot_c_gex  := 434970.13
         plot_p_gex  := 2026269.42
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 8
         plot_c_wall := 20.0
         plot_p_wall := 19.0
         plot_flip   := na
         plot_c_gex  := 2717499.47
         plot_p_gex  := 4282597.551000001
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 9
         plot_c_wall := 20.0
         plot_p_wall := 18.0
         plot_flip   := 15.75
         plot_c_gex  := 2644438.23
         plot_p_gex  := 8737275.120000001
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 10
         plot_c_wall := 20.0
         plot_p_wall := 18.0
         plot_flip   := na
         plot_c_gex  := 2446302.4875
         plot_p_gex  := 2702984.7875
-        plot_c_dex  := 0.0
-        plot_p_dex  := 0.0
+        plot_c_delta := 0.0
+        plot_p_delta := 0.0
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 18
         plot_c_wall := 20.0
         plot_p_wall := 18.0
         plot_flip   := na
         plot_c_gex  := 2639094.644
         plot_p_gex  := 4292488.7355
-        plot_c_dex  := 7385673.896
-        plot_p_dex  := -12265050.589999998
+        plot_c_delta := 7385673.896
+        plot_p_delta := -12265050.589999998
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 19
         plot_c_wall := 20.0
         plot_p_wall := 18.0
         plot_flip   := na
         plot_c_gex  := 2639094.644
         plot_p_gex  := 4292488.7355
-        plot_c_dex  := 7385673.896
-        plot_p_dex  := -12265050.589999998
+        plot_c_delta := 7385673.896
+        plot_p_delta := -12265050.589999998
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 20
         plot_c_wall := 20.0
         plot_p_wall := 18.0
         plot_flip   := na
         plot_c_gex  := 2609229.096
         plot_p_gex  := 4243912.407
-        plot_c_dex  := 7302093.264
-        plot_p_dex  := -12126252.06
+        plot_c_delta := 7302093.264
+        plot_p_delta := -12126252.06
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 21
         plot_c_wall := 18.0
         plot_p_wall := 18.0
         plot_flip   := na
         plot_c_gex  := 1096842.759
         plot_p_gex  := 3888475.857
-        plot_c_dex  := 4338912.306
-        plot_p_dex  := -11110653.06
+        plot_c_delta := 4338912.306
+        plot_p_delta := -11110653.06
+        plot_is_greek := 0
     if year == 2026 and month == 1 and dayofmonth == 22
         plot_c_wall := 18.0
         plot_p_wall := 18.0
         plot_flip   := na
         plot_c_gex  := 1887469.222
         plot_p_gex  := 4306867.197
-        plot_c_dex  := 4683746.173
-        plot_p_dex  := -22114993.232
+        plot_c_delta := 4683746.173
+        plot_p_delta := -22114993.232
+        plot_is_greek := 0
+    if year == 2026 and month == 1 and dayofmonth == 23
+        plot_c_wall := 18.0
+        plot_p_wall := 18.0
+        plot_flip   := na
+        plot_c_gex  := 4912065.970000001
+        plot_p_gex  := 5975307.449999999
+        plot_c_delta := 8287162.415
+        plot_p_delta := -18028642.975
+        plot_is_greek := 0
 
     if barstate.islast
-        cur_strikes := array.from(17.0, 18.0, 16.0, 15.0, 16.5, 17.5, 19.0, 15.5, 19.5, 18.5)
-        cur_lengths := array.from(40, 38, 31, 28, 27, 23, 16, 7, 7, 2)
-        cur_signs   := array.from(-1, -1, -1, -1, -1, -1, 1, -1, 1, 1)
-        cur_labels  := array.from('$-2.5M | D: $13.7M', '$-2.4M | D: $26.8M', '$-1.9M | D: $8.7M', '$-1.8M | D: $5.8M', '$-1.7M | D: $5.7M', '$-1.5M | D: $9.2M', '$1.0M | D: $13.5M', '$-493K | D: $2.3M', '$446K | D: $4.1M', '$38K | D: $8.4M')
+        cur_strikes := array.from(16.0, 20.0, 16.5, 17.0, 18.5, 19.0, 18.0, 20.5, 19.5, 21.0, 17.5)
+        cur_lengths := array.from(40, 37, 30, 29, 17, 16, 15, 12, 9, 6, 2)
+        cur_signs   := array.from(-1, 1, -1, -1, 1, 1, -1, 1, 1, 1, -1)
+        cur_labels  := array.from('$-2.7M | D: $8.9M', '$2.5M | D: $14.5M', '$-2.1M | D: $6.9M', '$-2.0M | D: $17.2M', '$1.2M | D: $8.6M', '$1.1M | D: $13.7M', '$-1.1M | D: $26.3M', '$854K | D: $2.6M', '$661K | D: $4.4M', '$417K | D: $9.1M', '$-9K | D: $10.2M')
 
 // --- Plotting History (Lines) ---
 plot(plot_c_wall, "Call Wall", color=color.new(color.green, 20), linewidth=2, style=plot.style_stepline)
@@ -3732,20 +4285,20 @@ if barstate.islast
     if overlap
         // Combined Label (Purple Box)
         string txt = "COMBINED WALL ($" + str.tostring(plot_c_wall) + ")\n" +
-                     "C_GEX: " + f_fmt(plot_c_gex) + " | D: " + f_fmt(plot_c_dex) + "\n" +
-                     "P_GEX: " + f_fmt(plot_p_gex) + " | D: " + f_fmt(plot_p_dex)
+                     "C_GEX: " + f_fmt(plot_c_gex) + " | " + f_delta(plot_c_delta, plot_is_greek) + "\n" +
+                     "P_GEX: " + f_fmt(plot_p_gex) + " | " + f_delta(plot_p_delta, plot_is_greek)
                      
         label.new(bar_index + 8, plot_c_wall, txt, style=label.style_label_left, textcolor=color.white, color=color.purple, size=sz_label)
     
     else
         // Call Wall (Green Box)
         if not na(plot_c_wall)
-            string c_txt = "CW ($" + str.tostring(plot_c_wall) + ")\nGEX: " + f_fmt(plot_c_gex) + "\nDEX: " + f_fmt(plot_c_dex)
+            string c_txt = "CW ($" + str.tostring(plot_c_wall) + ")\nGEX: " + f_fmt(plot_c_gex) + "\n" + f_delta(plot_c_delta, plot_is_greek)
             label.new(bar_index + 5, plot_c_wall, c_txt, style=label.style_label_left, textcolor=color.white, color=color.green, size=sz_label)
             
         // Put Wall (Red Box)
         if not na(plot_p_wall)
-            string p_txt = "PW ($" + str.tostring(plot_p_wall) + ")\nGEX: " + f_fmt(plot_p_gex) + "\nDEX: " + f_fmt(plot_p_dex)
+            string p_txt = "PW ($" + str.tostring(plot_p_wall) + ")\nGEX: " + f_fmt(plot_p_gex) + "\n" + f_delta(plot_p_delta, plot_is_greek)
             label.new(bar_index + 12, plot_p_wall, p_txt, style=label.style_label_left, textcolor=color.white, color=color.red, size=sz_label)
 
     // Flip Zone Label
