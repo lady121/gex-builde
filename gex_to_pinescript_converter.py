@@ -1,11 +1,10 @@
 # ===========================================================
-# GEX to Pine Script Converter v6.1 (Clean Box Labels)
+# GEX to Pine Script Converter v6.2 (Greek Delta)
 # ===========================================================
 # Features:
-#   ✅ STRUCTURE: Classic "If Ticker / If Date" logic
-#   ✅ VISUALS: STRICT Box Labels for all data points
-#   ✅ CLEANUP: Consolidates GEX/Delta into single labels per strike
-#   ✅ DATA: Includes GEX and Delta (DEX) with K/M/B formatting
+#   ✅ VISUALS: Shows Greek Delta (Δ) instead of Dollar DEX
+#   ✅ DATA: Reads 'net_greek_delta' from the CSV
+#   ✅ LOGIC: Handles missing delta columns gracefully
 # ===========================================================
 
 import os
@@ -14,7 +13,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 
-print("🌲 Starting Historical GEX Converter (v6.1 - Clean Box Labels)...")
+print("🌲 Starting Historical GEX Converter (v6.2 - Greek Delta)...")
 
 # ===============================================
 # Configuration
@@ -62,11 +61,14 @@ def format_value(val):
 def process_file_data(filepath):
     try:
         df = pd.read_csv(filepath)
-        has_dex = 'call_dex' in df.columns and 'put_dex' in df.columns
         
         required_cols = ['strike', 'call_gex', 'put_gex', 'net_gex']
         if not all(col in df.columns for col in required_cols):
             return None
+        
+        # Check if we have the new "net_greek_delta" column
+        has_greek = 'net_greek_delta' in df.columns
+        has_dex = 'call_dex' in df.columns and 'put_dex' in df.columns # Legacy fallback
 
         # 1️⃣ Compute metrics
         flip_zone = compute_flip_zone(df)
@@ -75,12 +77,13 @@ def process_file_data(filepath):
         cw_idx = df['call_gex'].idxmax()
         call_wall = df.loc[cw_idx, 'strike']
         cw_gex = df.loc[cw_idx, 'call_gex']
-        cw_dex = df.loc[cw_idx, 'call_dex'] if has_dex else 0.0
+        # Use Greek Delta if available, otherwise DEX, otherwise 0
+        cw_d = df.loc[cw_idx, 'net_greek_delta'] if has_greek else (df.loc[cw_idx, 'call_dex'] if has_dex else 0.0)
 
         pw_idx = df['put_gex'].abs().idxmax()
         put_wall = df.loc[pw_idx, 'strike']
         pw_gex = df.loc[pw_idx, 'put_gex']
-        pw_dex = df.loc[pw_idx, 'put_dex'] if has_dex else 0.0
+        pw_d = df.loc[pw_idx, 'net_greek_delta'] if has_greek else (df.loc[pw_idx, 'put_dex'] if has_dex else 0.0)
 
         # 2️⃣ Prepare Histogram Data (Top 40)
         df['abs_net_gex'] = df['net_gex'].abs()
@@ -101,11 +104,15 @@ def process_file_data(filepath):
             gex_str = format_value(row['net_gex'])
             label_text = f"{gex_str}"
             
-            # Add Delta if significant and available
-            if has_dex:
-                # We approximate Net DEX for the strike (Call Dex - Put Dex)
+            # VISUAL LOGIC: Prioritize Greek Delta (-1.0 to 1.0)
+            if has_greek:
+                d_val = row['net_greek_delta']
+                # Show Δ with 2 decimal places
+                label_text += f" | Δ: {d_val:.2f}"
+            elif has_dex:
+                # Fallback to dollar DEX if greek not available
                 net_dex = row.get('call_dex', 0) - row.get('put_dex', 0)
-                if abs(net_dex) > 1000: # Only show if not trivial
+                if abs(net_dex) > 1000: 
                     dex_str = format_value(net_dex)
                     label_text += f" | D: {dex_str}"
 
@@ -120,8 +127,9 @@ def process_file_data(filepath):
             "p_wall": float(put_wall),
             "c_gex": float(cw_gex),
             "p_gex": float(pw_gex),
-            "c_dex": float(cw_dex),
-            "p_dex": float(pw_dex),
+            "c_delta": float(cw_d), # This is now generic (either Greek or DEX)
+            "p_delta": float(pw_d),
+            "is_greek": 1 if has_greek else 0, # Flag to tell PineScript how to format wall labels
             "strikes": ", ".join(p_strikes),
             "lengths": ", ".join(p_lengths),
             "signs": ", ".join(p_signs),
@@ -177,7 +185,7 @@ pine_code = f"""//@version=6
 indicator("Universal GEX History (Bar Replay)", overlay=true, max_lines_count=500, max_labels_count=500)
 
 // --- Generated {datetime.now().strftime('%Y-%m-%d')} ---
-// Mode: V6.1 (Clean Box Labels)
+// Mode: V6.2 (Greek Delta Support)
 
 // --- Settings ---
 sz_label = input.string("normal", "Label Size", options=["auto", "tiny", "small", "normal", "large", "huge"], group="Visuals")
@@ -190,8 +198,9 @@ var float plot_p_wall = na
 var float plot_flip   = na
 var float plot_c_gex  = na
 var float plot_p_gex  = na
-var float plot_c_dex  = na
-var float plot_p_dex  = na
+var float plot_c_delta = na
+var float plot_p_delta = na
+var int   plot_is_greek = 0
 
 // --- Arrays for Current Day Histogram ---
 var float[] cur_strikes = array.new<float>()
@@ -211,6 +220,16 @@ f_fmt(float v) =>
         s := str.format("${{0,number,#.##}}K", v / 1000)
     else
         s := str.format("${{0,number,#}}", v)
+    s
+
+// --- Helper: Format Delta (Greek vs Dollars) ---
+f_delta(float v, int is_g) =>
+    string s = ""
+    if is_g == 1
+        s := "Δ: " + str.tostring(v, "#.##")
+    else
+        // Fallback for old data
+        s := "D: " + f_fmt(v)
     s
 """
 
@@ -233,8 +252,9 @@ if current_ticker == "{symbol}"
         plot_flip   := {flip_val}
         plot_c_gex  := {d_dat['c_gex']}
         plot_p_gex  := {d_dat['p_gex']}
-        plot_c_dex  := {d_dat['c_dex']}
-        plot_p_dex  := {d_dat['p_dex']}
+        plot_c_delta := {d_dat['c_delta']}
+        plot_p_delta := {d_dat['p_delta']}
+        plot_is_greek := {d_dat['is_greek']}
 """
 
     ld = last_record['data']
@@ -263,20 +283,20 @@ if barstate.islast
     if overlap
         // Combined Label (Purple Box)
         string txt = "COMBINED WALL ($" + str.tostring(plot_c_wall) + ")\\n" +
-                     "C_GEX: " + f_fmt(plot_c_gex) + " | D: " + f_fmt(plot_c_dex) + "\\n" +
-                     "P_GEX: " + f_fmt(plot_p_gex) + " | D: " + f_fmt(plot_p_dex)
+                     "C_GEX: " + f_fmt(plot_c_gex) + " | " + f_delta(plot_c_delta, plot_is_greek) + "\\n" +
+                     "P_GEX: " + f_fmt(plot_p_gex) + " | " + f_delta(plot_p_delta, plot_is_greek)
                      
         label.new(bar_index + 8, plot_c_wall, txt, style=label.style_label_left, textcolor=color.white, color=color.purple, size=sz_label)
     
     else
         // Call Wall (Green Box)
         if not na(plot_c_wall)
-            string c_txt = "CW ($" + str.tostring(plot_c_wall) + ")\\nGEX: " + f_fmt(plot_c_gex) + "\\nDEX: " + f_fmt(plot_c_dex)
+            string c_txt = "CW ($" + str.tostring(plot_c_wall) + ")\\nGEX: " + f_fmt(plot_c_gex) + "\\n" + f_delta(plot_c_delta, plot_is_greek)
             label.new(bar_index + 5, plot_c_wall, c_txt, style=label.style_label_left, textcolor=color.white, color=color.green, size=sz_label)
             
         // Put Wall (Red Box)
         if not na(plot_p_wall)
-            string p_txt = "PW ($" + str.tostring(plot_p_wall) + ")\\nGEX: " + f_fmt(plot_p_gex) + "\\nDEX: " + f_fmt(plot_p_dex)
+            string p_txt = "PW ($" + str.tostring(plot_p_wall) + ")\\nGEX: " + f_fmt(plot_p_gex) + "\\n" + f_delta(plot_p_delta, plot_is_greek)
             label.new(bar_index + 12, plot_p_wall, p_txt, style=label.style_label_left, textcolor=color.white, color=color.red, size=sz_label)
 
     // Flip Zone Label
@@ -307,4 +327,4 @@ if barstate.islast
 with open(output_filename, "w") as f:
     f.write(pine_code)
 
-print(f"✅ Created {output_filename} (v6.1 - Clean Box Labels)")
+print(f"✅ Created {output_filename} (v6.2 - Greek Delta)")
