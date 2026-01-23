@@ -1,13 +1,11 @@
 # ===========================================================
-# GEX to Pine Script Converter v7.1 (Type Safety Fix)
+# GEX to Pine Script Converter v7.3 (Walls with GEX+Delta)
 # ===========================================================
 # FEATURES:
-#   ✅ FIX: "Value with NA type" error resolved using float(na)
-#   ✅ Auto-detect current chart symbol (syminfo.ticker)
-#   ✅ Compressed daily data (ymd => [CW, PW, Flip, DataStr, Max])
-#   ✅ Bar replay support (Date-keyed lookup)
-#   ✅ Token-safe compression (Top levels only)
-#   ✅ Configurable history length (Max 250 days)
+#   ✅ VISUALS: Call/Put Walls now show GEX & Delta (e.g., "$5B | Δ0.50")
+#   ✅ VISUALS: Flip Zone separated (Blue label)
+#   ✅ DATA: Efficient string packing for Wall stats
+#   ✅ FIX: Maintained type safety and structure
 # ===========================================================
 
 import os
@@ -16,7 +14,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 
-print("🌲 Starting GEX Converter v7.1 (Type Safety Fix)...")
+print("🌲 Starting GEX Converter v7.3 (Walls with GEX/Delta)...")
 
 # ===============================================
 # Configuration
@@ -40,7 +38,7 @@ def format_value(val):
     if abs_val >= 1_000_000_000:
         return f"${val/1_000_000_000:.1f}B"
     elif abs_val >= 1_000_000:
-        return f"${val/1_000_000:.0f}M" # Removed decimal for compactness
+        return f"${val/1_000_000:.0f}M"
     elif abs_val >= 1_000:
         return f"${val/1_000:.0f}K"
     else:
@@ -61,6 +59,17 @@ def compute_flip_zone(df):
         return None
     return None
 
+def get_delta_str(row, has_greek, has_dex):
+    """Helper to format delta string based on available columns"""
+    if has_greek:
+        d = row.get('net_greek_delta', 0)
+        return f"|Δ{d:.2f}"
+    elif has_dex:
+        net_dex = row.get('call_dex', 0) - row.get('put_dex', 0)
+        if abs(net_dex) > 1000:
+            return f"|D{format_value(net_dex)}"
+    return ""
+
 def process_file_data(filepath):
     try:
         df = pd.read_csv(filepath)
@@ -72,58 +81,56 @@ def process_file_data(filepath):
         has_greek = 'net_greek_delta' in df.columns
         has_dex = 'call_dex' in df.columns and 'put_dex' in df.columns
 
-        # 1. Key Metrics
+        # 1. Flip Zone Logic
         flip_zone = compute_flip_zone(df)
-        
+        flip_delta = 0.0
+        if flip_zone is not None:
+            # Find strike closest to flip
+            closest_idx = (df['strike'] - flip_zone).abs().idxmin()
+            if has_greek:
+                flip_delta = df.loc[closest_idx, 'net_greek_delta']
+
+        # 2. Wall Logic (Extract GEX & Delta strings)
         cw_idx = df['call_gex'].idxmax()
         call_wall = df.loc[cw_idx, 'strike']
+        cw_row = df.loc[cw_idx]
+        cw_str = f"{format_value(cw_row['call_gex'])}{get_delta_str(cw_row, has_greek, has_dex)}"
         
         pw_idx = df['put_gex'].abs().idxmax()
         put_wall = df.loc[pw_idx, 'strike']
+        pw_row = df.loc[pw_idx]
+        pw_str = f"{format_value(pw_row['put_gex'])}{get_delta_str(pw_row, has_greek, has_dex)}"
 
-        # 2. Histogram Data Compression
-        # Filter for significant levels only (> 25% of max) to save tokens
+        # 3. Histogram Data Compression
         df['abs_net_gex'] = df['net_gex'].abs()
         max_gex = df['abs_net_gex'].max()
         if max_gex == 0: max_gex = 1.0
 
-        # Filter: Top 40 AND > Threshold
         significant_df = df[df['abs_net_gex'] > (max_gex * MIN_PCT_THRESHOLD)].copy()
-        significant_df = significant_df.sort_values('abs_net_gex', ascending=False).head(15) # Cap at top 15 lines per day for safety
+        significant_df = significant_df.sort_values('abs_net_gex', ascending=False).head(15)
 
         data_str_parts = []
         for _, row in significant_df.iterrows():
             strike = float(row['strike'])
             val_str = format_value(row['net_gex'])
-            
-            # Delta formatting
-            delta_str = ""
-            if has_greek:
-                d = row['net_greek_delta']
-                delta_str = f"|Δ{d:.2f}"
-            elif has_dex:
-                net_dex = row.get('call_dex', 0) - row.get('put_dex', 0)
-                if abs(net_dex) > 1000:
-                    delta_str = f"|D{format_value(net_dex)}"
-            
-            # Compact Line: "4500:$5B|Δ0.5"
-            line = f"{strike:.1f}:{val_str}{delta_str}"
+            d_str = get_delta_str(row, has_greek, has_dex)
+            line = f"{strike:.1f}:{val_str}{d_str}"
             data_str_parts.append(line)
         
-        # Join with specific delimiter for display
-        # We use newline so it stacks in the label automatically
         compact_str = "\\n".join(data_str_parts)
 
         return {
             "cw": float(call_wall),
+            "cw_info": cw_str,
             "pw": float(put_wall),
+            "pw_info": pw_str,
             "flip": float(flip_zone) if flip_zone else None,
+            "flip_delta": float(flip_delta),
             "max": float(max_gex),
             "data_str": compact_str
         }
 
     except Exception as e:
-        # print(f"   ⚠️ Error processing {filepath}: {e}")
         return None
 
 # ===============================================
@@ -147,7 +154,6 @@ for f in files:
     date_str = parts[-1].replace('.csv', '')
     if len(date_str) != 8: continue
     
-    # YMD Integer for Switch Case (e.g., 20231025)
     ymd_int = int(date_str) 
     
     data = process_file_data(f)
@@ -174,21 +180,20 @@ pine_code = f"""//@version=6
 indicator("Universal GEX History (Optimized)", overlay=true, max_labels_count=500, max_lines_count=500)
 
 // --- Generated {datetime.now().strftime('%Y-%m-%d')} ---
-// Architecture: Date-Keyed Lookup (YMD) with Type Safety
+// Architecture: Date-Keyed Lookup with Full GEX/Delta Details
 
 // --- Settings ---
 sz_label = input.string("normal", "Label Size", options=["auto", "tiny", "small", "normal", "large", "huge"])
 show_hist = input.bool(true, "Show Historic Labels")
 
 // --- Helper: Get Date Integer ---
-// Converts current bar time to YYYYMMDD integer
 f_ymd() =>
     year * 10000 + month * 100 + dayofmonth
 
 // ==========================================
 // DATA FUNCTIONS (One per Ticker)
 // ==========================================
-// Returns: [CallWall, PutWall, Flip, DataString, MaxGex]
+// Returns: [CW, CW_Info, PW, PW_Info, Flip, FlipDelta, DataStr, Max]
 """
 
 # Generate Ticker Functions
@@ -202,14 +207,17 @@ f_data_{safe_sym}(int ymd) =>
     for rec in records:
         d = rec['data']
         f_val = d['flip'] if d['flip'] is not None else "float(na)"
-        # Escape string for Pine
-        safe_str = d['data_str'].replace('"', '\\"')
+        f_del = d['flip_delta'] if d['flip_delta'] is not None else 0.0
         
-        # Pine Switch Line: case => [return tuple]
-        pine_code += f"        {rec['ymd']} => [{d['cw']}, {d['pw']}, {f_val}, \"{safe_str}\", {d['max']}]\n"
+        # Escape strings
+        d_str_safe = d['data_str'].replace('"', '\\"')
+        cw_safe = d['cw_info']
+        pw_safe = d['pw_info']
+        
+        pine_code += f"        {rec['ymd']} => [{d['cw']}, \"{cw_safe}\", {d['pw']}, \"{pw_safe}\", {f_val}, {f_del}, \"{d_str_safe}\", {d['max']}]\n"
 
-    # Default Case (Fixed: Explicit casting)
-    pine_code += "        => [float(na), float(na), float(na), \"\", float(na)]\n"
+    # Default Case
+    pine_code += "        => [float(na), \"\", float(na), \"\", float(na), 0.0, \"\", float(na)]\n"
 
 # Main Dispatcher
 pine_code += """
@@ -219,15 +227,15 @@ pine_code += """
 int cur_ymd = f_ymd()
 
 // Dispatch based on Ticker
-[cw, pw, flip, d_str, d_max] = switch syminfo.ticker
+[cw, cw_info, pw, pw_info, flip, flip_d, d_str, d_max] = switch syminfo.ticker
 """
 
 for symbol in history_map:
     safe_sym = symbol.replace("-", "_").replace(".", "")
     pine_code += f'    "{symbol}" => f_data_{safe_sym}(cur_ymd)\n'
 
-# Default dispatch (Fixed: Explicit casting)
-pine_code += '    => [float(na), float(na), float(na), "", float(na)]\n'
+# Default dispatch
+pine_code += '    => [float(na), "", float(na), "", float(na), 0.0, "", float(na)]\n'
 
 pine_code += """
 // ==========================================
@@ -237,43 +245,48 @@ pine_code += """
 // 1. Plot Walls & Flip (Lines)
 plot(cw, "Call Wall", color=color.new(color.green, 30), linewidth=2, style=plot.style_stepline)
 plot(pw, "Put Wall",  color=color.new(color.red, 30),   linewidth=2, style=plot.style_stepline)
-plot(flip, "Flip Zone", color=color.new(color.purple, 0), linewidth=1, style=plot.style_circles)
+plot(flip, "Flip Zone", color=color.new(color.blue, 0), linewidth=1, style=plot.style_circles)
 
 // 2. Labels (History & Current)
-// Only draw if we have data
-if not na(cw) and show_hist
+if show_hist
     
-    // Combined Data Label (Off-Candle)
-    // We position this at the Call Wall or Max GEX level
-    float anchor_price = cw
-    
-    // Construct Label Text
-    string txt = "CW: " + str.tostring(cw) + "\\n" + "PW: " + str.tostring(pw)
-    
-    if not na(flip)
-        txt := txt + "\\nFlip: " + str.tostring(flip, "#.##")
+    // A. Main Data Label (Walls + Histogram)
+    if not na(cw)
+        float anchor_price = cw
         
-    // Add the compressed histogram data
-    if d_str != ""
-        txt := txt + "\\n----------------\\n" + d_str
+        // Build Header with GEX/Delta info: CW: 4500 ($5B | Δ0.50)
+        string txt = "CW: " + str.tostring(cw) + " (" + cw_info + ")" + "\\n" + 
+                     "PW: " + str.tostring(pw) + " (" + pw_info + ")"
+        
+        if d_str != ""
+            txt := txt + "\\n----------------\\n" + d_str
 
-    // Color based on regime (simple check)
-    color lab_col = color.gray
+        color lab_col = color.gray
+        if not na(flip)
+            lab_col := close > flip ? color.green : color.red
+        else
+            lab_col := close > cw ? color.green : (close < pw ? color.red : color.gray)
+
+        label.new(bar_index, anchor_price, txt, 
+                  color=lab_col, 
+                  textcolor=color.white, 
+                  style=label.style_label_left, 
+                  size=sz_label)
+
+    // B. SEPARATE FLIP LABEL
     if not na(flip)
-        lab_col := close > flip ? color.green : color.red
-    else
-        lab_col := close > cw ? color.green : (close < pw ? color.red : color.gray)
-
-    // Draw Label
-    // style_label_left places it to the right of the bar (off-candle)
-    label.new(bar_index, anchor_price, txt, 
-              color=lab_col, 
-              textcolor=color.white, 
-              style=label.style_label_left, 
-              size=sz_label)
+        string f_txt = "Flip: " + str.tostring(flip, "#.##")
+        if flip_d != 0.0
+            f_txt := f_txt + "\\nΔ: " + str.tostring(flip_d, "#.2f")
+            
+        label.new(bar_index, flip, f_txt, 
+                  color=color.blue, 
+                  textcolor=color.white, 
+                  style=label.style_label_left, 
+                  size=sz_label)
 """
 
 with open(output_filename, "w") as f:
     f.write(pine_code)
 
-print(f"✅ Created {output_filename} (v7.1 Type Safe)")
+print(f"✅ Created {output_filename} (v7.3 Walls + Delta)")
