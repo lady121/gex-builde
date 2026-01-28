@@ -1,7 +1,7 @@
 //@version=6
 indicator("Universal GEX History (Smart Labels)", overlay=true, max_labels_count=500, max_lines_count=500)
 
-// --- Generated 2026-01-27 ---
+// --- Generated 2026-01-28 ---
 // Architecture: Date-Keyed Lookup + Smart Label Persistence
 
 // --- Settings ---
@@ -253,6 +253,7 @@ f_data_HIMZ(int ymd) =>
         20260122 => [5.0, "GEX: $325K", 5.0, "GEX: $947K", float(na), 0.0, "5.0: $-622K"]
         20260123 => [5.0, "GEX: $120K", 5.0, "GEX: $337K", float(na), 0.0, "5.0: $-217K"]
         20260126 => [5.0, "GEX: $344K", 5.0, "GEX: $970K", float(na), 0.0, "5.0: $-626K"]
+        20260128 => [5.0, "GEX: $51K | D: Δ-0.21", 5.0, "GEX: $158K | D: Δ-0.21", float(na), 0.0, "4.0: $-151K, Δ-0.19\n5.0: $-107K, Δ-0.21"]
         => [float(na), "", float(na), "", float(na), 0.0, ""]
 
 f_data_MSTU(int ymd) =>
@@ -633,7 +634,7 @@ f_arrays_CLF() =>
     [array.from(15.0, 12.0, 14.0, 13.0), array.from(30, 14, 13, 8), array.from(1, 1, 1, 1), array.from('[$10.4M]', '[$5.1M]', '[$4.5M]', '[$3.1M]')]
 
 f_arrays_HIMZ() =>
-    [array.from(5.0), array.from(30), array.from(-1), array.from('[$-626K]')]
+    [array.from(4.0, 5.0), array.from(30, 21), array.from(-1, -1), array.from('[$-151K, Δ-0.19]', '[$-107K, Δ-0.21]')]
 
 f_arrays_MSTU() =>
     [array.from(9.5, 8.5), array.from(30, 11), array.from(1, -1), array.from('[$434K, D$631K]', '[$-168K, D$237K]')]
