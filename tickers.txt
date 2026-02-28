@@ -1,8 +1,1 @@
-spx500
-ET
-SOFI
-BITO
-NOK
-BBAI
-BMNU
-RR
+spx
