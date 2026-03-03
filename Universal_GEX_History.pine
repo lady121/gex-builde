@@ -1,7 +1,7 @@
 //@version=6
 indicator("Universal GEX History (Smart Labels)", overlay=true, max_labels_count=500, max_lines_count=500)
 
-// --- Generated 2026-03-02 ---
+// --- Generated 2026-03-03 ---
 // Architecture: Date-Keyed Lookup + Smart Label Persistence
 
 // --- Settings ---
@@ -511,6 +511,7 @@ f_data_SPX(int ymd) =>
     switch ymd
         20260301 => [5850.0, "GEX: $0 | D: Δ0.00", 6900.0, "GEX: $38.2M | D: Δ0.05", 6365.0, -0.0078576923076923, "6900.0: $-38.2M, Δ0.05\n6905.0: $-18.2M, Δ0.11\n6850.0: $-9.7M, Δ-0.21"]
         20260302 => [5850.0, "GEX: $0 | D: Δ0.00", 6900.0, "GEX: $38.2M | D: Δ0.05", 6365.0, -0.0078576923076923, "6900.0: $-38.2M, Δ0.05\n6905.0: $-18.2M, Δ0.11\n6850.0: $-9.7M, Δ-0.21"]
+        20260303 => [5850.0, "GEX: $0 | D: Δ0.00", 6900.0, "GEX: $26.0M | D: Δ0.01", 6287.5, -0.0068540983606557, "6900.0: $-26.0M, Δ0.01\n6905.0: $-13.7M, Δ0.33\n6950.0: $-7.3M, Δ-0.03"]
         => [float(na), "", float(na), "", float(na), 0.0, ""]
 
 // --- Array Functions ---
@@ -540,7 +541,7 @@ f_arrays_SOFI() =>
     [array.from(18.0, 17.0), array.from(30, 9), array.from(-1, -1), array.from('[$-10.6M, Δ-0.22]', '[$-3.5M, Δ-0.05]')]
 
 f_arrays_SPX() =>
-    [array.from(6900.0, 6905.0, 6850.0), array.from(30, 14, 7), array.from(-1, -1, -1), array.from('[$-38.2M, Δ0.05]', '[$-18.2M, Δ0.11]', '[$-9.7M, Δ-0.21]')]
+    [array.from(6900.0, 6905.0, 6950.0), array.from(30, 15, 8), array.from(-1, -1, -1), array.from('[$-26.0M, Δ0.01]', '[$-13.7M, Δ0.33]', '[$-7.3M, Δ-0.03]')]
 
 // ==========================================
 // MAIN LOGIC
