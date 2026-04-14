@@ -290,7 +290,7 @@ f_data_BMNU(int ymd) =>
         20260411 => [2.0, "GEX: $2.8M | D: Δ0.29", 2.0, "GEX: $902K | D: Δ0.29", float(na), 0.0, "2.0: $1.9M, Δ0.29"]
         20260412 => [2.0, "GEX: $2.8M | D: Δ0.29", 2.0, "GEX: $902K | D: Δ0.29", float(na), 0.0, "2.0: $1.9M, Δ0.29"]
         20260413 => [2.0, "GEX: $3.2M | D: Δ0.30", 2.0, "GEX: $1.0M | D: Δ0.30", float(na), 0.0, "2.0: $2.2M, Δ0.30"]
-        20260414 => [2.0, "GEX: $3.2M | D: Δ0.30", 2.0, "GEX: $1.0M | D: Δ0.30", float(na), 0.0, "2.0: $2.2M, Δ0.30"]
+        20260414 => [2.0, "GEX: $4.5M | D: Δ0.33", 2.0, "GEX: $1.3M | D: Δ0.33", float(na), 0.0, "2.0: $3.2M, Δ0.33\n3.0: $1.6M, Δ0.18"]
         => [float(na), "", float(na), "", float(na), 0.0, ""]
 
 f_data_ET(int ymd) =>
@@ -581,7 +581,7 @@ f_data_RR(int ymd) =>
         20260411 => [2.0, "GEX: $325K | D: Δ-0.06", 2.0, "GEX: $475K | D: Δ-0.06", float(na), 0.0, "2.0: $-150K, Δ-0.06"]
         20260412 => [2.0, "GEX: $325K | D: Δ-0.06", 2.0, "GEX: $475K | D: Δ-0.06", float(na), 0.0, "2.0: $-150K, Δ-0.06"]
         20260413 => [2.0, "GEX: $314K | D: Δ-0.05", 2.0, "GEX: $606K | D: Δ-0.05", float(na), 0.0, "2.0: $-292K, Δ-0.05"]
-        20260414 => [2.0, "GEX: $314K | D: Δ-0.05", 2.0, "GEX: $606K | D: Δ-0.05", float(na), 0.0, "2.0: $-292K, Δ-0.05"]
+        20260414 => [2.0, "GEX: $458K | D: Δ0.05", 2.0, "GEX: $590K | D: Δ0.05", float(na), 0.0, "2.0: $-132K, Δ0.05"]
         => [float(na), "", float(na), "", float(na), 0.0, ""]
 
 f_data_SOFI(int ymd) =>
@@ -803,7 +803,7 @@ f_arrays_BITO() =>
     [array.from(10.0, 10.5, 11.0, 9.0), array.from(30, 13, 12, 9), array.from(1, 1, 1, -1), array.from('[$1.7M, Δ0.14]', '[$796K, Δ0.20]', '[$749K, Δ0.07]', '[$-529K, Δ0.19]')]
 
 f_arrays_BMNU() =>
-    [array.from(2.0), array.from(30), array.from(1), array.from('[$2.2M, Δ0.30]')]
+    [array.from(2.0, 3.0), array.from(30, 14), array.from(1, 1), array.from('[$3.2M, Δ0.33]', '[$1.6M, Δ0.18]')]
 
 f_arrays_ET() =>
     [array.from(20.0, 21.0), array.from(30, 8), array.from(1, 1), array.from('[$30.5M, Δ0.12]', '[$8.5M, Δ0.07]')]
@@ -815,7 +815,7 @@ f_arrays_NOK() =>
     [array.from(10.0), array.from(30), array.from(1), array.from('[$44.4M, Δ0.35]')]
 
 f_arrays_RR() =>
-    [array.from(2.0), array.from(30), array.from(-1), array.from('[$-292K, Δ-0.05]')]
+    [array.from(2.0), array.from(30), array.from(-1), array.from('[$-132K, Δ0.05]')]
 
 f_arrays_SOFI() =>
     [array.from(16.0, 15.0, 17.0), array.from(30, 13, 9), array.from(-1, -1, 1), array.from('[$-30.3M, Δ-0.22]', '[$-13.5M, Δ-0.15]', '[$9.9M, Δ-0.07]')]
