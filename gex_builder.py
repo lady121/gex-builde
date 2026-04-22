@@ -2,11 +2,6 @@
 # MarketData.app GEX Builder v9.1 — Greek Delta Added
 # Author: PulsR | Maintained by Code GPT
 # ===========================================================
-# Updates in v9.1:
-#  ✅ Calculates 'Net Greek Delta' (Weighted Avg Delta per Strike).
-#  ✅ This provides the -1.0 to 1.0 metric the user requested.
-#  ✅ Saves 'net_greek_delta' to the CSV.
-# ===========================================================
 
 import os
 import time
@@ -18,9 +13,15 @@ from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
 
 # ===============================================
-# Configuration
+# Configuration & API Key Check
 # ===============================================
 API_KEY = os.getenv("MARKETDATA_KEY") or ""
+
+if not API_KEY:
+    print("⚠️ WARNING: GitHub Secret 'MARKETDATA_KEY' was not found! Using unauthenticated/delayed data.")
+else:
+    print("✅ API Key successfully loaded from GitHub Secrets!")
+
 BASE_URL = "https://api.marketdata.app/v1"
 ENABLE_PLOTS = True
 MAX_OPTIONS = 1000
@@ -48,14 +49,14 @@ def get_underlying_price(symbol):
     for url in endpoints:
         try:
             r = requests.get(url, timeout=5)
-            if r.status_code == 200:
+            # 200 = Success, 203 = Success (Delayed)
+            if r.status_code in (200, 203):
                 data = r.json()
                 if data.get("s") == "ok":
                     if "last" in data: return float(data["last"][0])
                     if "mid" in data: return float(data["mid"][0])
                     if "c" in data: return float(data["c"][0])
             else:
-                # NEW LOGGING: Tells us if the spot price request failed
                 print(f"   ⚠️ Spot API Error {r.status_code}: {r.text}")
         except Exception as e: 
             print(f"   ⚠️ Spot Request Exception: {e}")
@@ -68,11 +69,11 @@ def get_chain_symbols(symbol):
     url = f"{BASE_URL}/options/chain/{symbol}?from={d_from}&to={d_to}&token={API_KEY}"
     try:
         r = requests.get(url, timeout=20)
+        # 200 = Success, 203 = Success (Delayed)
         if r.status_code in (200, 203):
             data = r.json()
             if data.get("s") == "ok": return data.get("optionSymbol", [])
         else:
-            # NEW LOGGING: Tells us EXACTLY why MarketData is blocking the options chain
             print(f"   ⚠️ Chain API Error {r.status_code}: {r.text}")
     except Exception as e:
         print(f"   ⚠️ Chain Request Exception: {e}")
@@ -195,7 +196,6 @@ def build_gex(symbol):
             dex = f_delta * f_oi * 100 * float(underlying)
             
             # Helper for Greek Delta Calculation
-            # We want: (Sum of Delta * OI) / Total OI per strike
             weighted_delta = f_delta * f_oi
 
             otype = infer_option_type(opt)
@@ -214,28 +214,20 @@ def build_gex(symbol):
     if df.empty: return None, {}
 
     # 4. Aggregation (GEX & DEX)
-    # Group by Strike/Type and sum metrics
     grouped = df.groupby(["strike", "type"])[["GEX", "DEX"]].sum().unstack(fill_value=0)
-    
-    # Flatten MultiIndex columns (e.g., GEX_C, DEX_P)
     grouped.columns = ['_'.join(col).strip() for col in grouped.columns.values]
     
-    # Calculate Net Greek Delta (Aggregated by Strike only)
-    # This gives us the average delta coefficient (-1.0 to 1.0) for the strike
     strike_stats = df.groupby("strike")[["weighted_delta", "OI"]].sum()
-    strike_stats["net_greek_delta"] = strike_stats["weighted_delta"] / strike_stats["OI"].replace(0, 1) # Avoid div/0
+    strike_stats["net_greek_delta"] = strike_stats["weighted_delta"] / strike_stats["OI"].replace(0, 1) 
     
-    # Join the net_greek_delta back to the grouped dataframe
     grouped = grouped.join(strike_stats["net_greek_delta"])
 
-    # Rename to standard friendly names
     rename_map = {
         "GEX_C": "call_gex", "GEX_P": "put_gex",
         "DEX_C": "call_dex", "DEX_P": "put_dex"
     }
     grouped.rename(columns=rename_map, inplace=True)
     
-    # Ensure all columns exist
     for col in ["call_gex", "put_gex", "call_dex", "put_dex"]:
         if col not in grouped.columns: grouped[col] = 0.0
 
@@ -264,7 +256,7 @@ def build_gex(symbol):
         "regime": regime
     }
 
-    # Save CSV (Includes Net Greek Delta)
+    # Save CSV
     date_tag = datetime.now().strftime("%Y%m%d")
     fname = f"{symbol}_GEX_robust_{date_tag}.csv"
     grouped.reset_index().to_csv(fname, index=False)
