@@ -54,7 +54,12 @@ def get_underlying_price(symbol):
                     if "last" in data: return float(data["last"][0])
                     if "mid" in data: return float(data["mid"][0])
                     if "c" in data: return float(data["c"][0])
-        except: continue
+            else:
+                # NEW LOGGING: Tells us if the spot price request failed
+                print(f"   ⚠️ Spot API Error {r.status_code}: {r.text}")
+        except Exception as e: 
+            print(f"   ⚠️ Spot Request Exception: {e}")
+            continue
     return None
 
 def get_chain_symbols(symbol):
@@ -66,7 +71,11 @@ def get_chain_symbols(symbol):
         if r.status_code in (200, 203):
             data = r.json()
             if data.get("s") == "ok": return data.get("optionSymbol", [])
-    except: pass
+        else:
+            # NEW LOGGING: Tells us EXACTLY why MarketData is blocking the options chain
+            print(f"   ⚠️ Chain API Error {r.status_code}: {r.text}")
+    except Exception as e:
+        print(f"   ⚠️ Chain Request Exception: {e}")
     return []
 
 def get_quote(option_symbol):
