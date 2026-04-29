@@ -1,59 +1,51 @@
-import os
-import time
-import requests
+name: GEX + DEX Backfill 🧠
 
-def fetch_marketdata_chain(ticker, date_str):
-    """
-    Fetches options chain data from MarketData API for a specific date,
-    with built-in debugging and rate-limit handling.
-    """
-    api_key = os.getenv("MARKETDATA_KEY")
-    if not api_key:
-        print("   ❌ ERROR: MARKETDATA_KEY is missing from environment variables!")
-        return None
+on:
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "Days to backfill (default 30)"
+        required: false
+        default: "30"
 
-    # Replace this URL with the exact MarketData endpoint you are using 
-    # (e.g., /v1/options/chain/{ticker} or /v1/stocks/candles/...)
-    url = f"https://api.marketdata.app/v1/options/chain/{ticker}?date={date_str}"
-    
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Accept": "application/json"
-    }
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
 
-    try:
-        # 🛑 Rate Limiting Guard: MarketData has strict limits on historical chains.
-        # Pausing for 1 to 1.5 seconds prevents "429 Too Many Requests" errors.
-        time.sleep(1.5) 
-        
-        response = requests.get(url, headers=headers, timeout=15)
-        
-        # 🐛 THE FIX: Catch non-200 responses and print the EXACT error from MarketData
-        if response.status_code not in (200, 203):
-            print(f"      ⚠️ API ERROR {response.status_code} on {date_str} for {ticker}!")
-            print(f"      Raw Response: {response.text}")
-            return None
-            
-        data = response.json()
-        
-        # Check if the API returned a structured error inside a successful response
-        if data.get("s") == "error":
-            # Sometimes it legitimately says "No data" for weekends/holidays, 
-            # but if it says "Rate limit exceeded", you will now see it.
-            if "No data" not in data.get("errmsg", ""):
-                print(f"      ⚠️ MarketData Error Msg: {data.get('errmsg')}")
-            else:
-                print("      ⚠️ No price data (Market Closed).")
-            return None
+    steps:
+      - name: 🧾 Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-        return data
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
 
-    except requests.exceptions.RequestException as e:
-        print(f"      ⚠️ Network Request Failed: {e}")
-        return None
-    except ValueError:
-        print(f"      ⚠️ Failed to parse JSON. Raw API text: {response.text}")
-        return None
-    except Exception as e:
-        print(f"      ⚠️ Unknown Python Crash on {date_str}: {str(e)}")
-        return None
+      - name: 📦 Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas numpy requests matplotlib
+
+      - name: 🧠 Run GEX Backfill Utility (includes DEX)
+        env:
+          MARKETDATA_KEY: ${{ secrets.MARKETDATA_KEY }}
+          DAYS_TO_BACKFILL: ${{ github.event.inputs.days }}
+        run: |
+          echo "🔄 Running backfill with DEX support..."
+          python gex_backfill_utility.py
+
+      - name: 🚀 Commit and Push Updated CSVs
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin ${{ github.ref_name }}
+          git checkout ${{ github.ref_name }}
+
+          git add *.csv || true
+          git commit -m "📈 Auto-backfill GEX+DEX data [$(date +'%Y-%m-%d %H:%M:%S')]" || echo "No changes to commit"
+          git pull --no-rebase --autostash origin ${{ github.ref_name }} || true
+          git push origin HEAD:${{ github.ref_name }} || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
