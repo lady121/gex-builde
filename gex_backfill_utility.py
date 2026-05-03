@@ -1,10 +1,10 @@
 # ===========================================================
-# MarketData.app GEX Backfill Utility (v9.2 - DEX Integrated)
+# MarketData.app GEX Backfill Utility (v9.3 - DEX + Debugging)
 # ===========================================================
 # FIXES / UPDATES:
-#  ✅ Adds DEX (Delta Exposure) alongside GEX in historical backfill.
-#  ✅ Maintains full backwards compatibility with v9.1.
-#  ✅ Keeps same print messages, filenames, and error handling.
+#  ✅ Added HTTP 203 support for historical price fetching.
+#  ✅ Added verbose API error logging (no more silent "Market Closed" errors).
+#  ✅ Added slight delays to prevent API rate limiting.
 # ===========================================================
 
 import os
@@ -71,18 +71,22 @@ def calculate_local_gamma(S, K, T, sigma=0.18, r=0.045):
         return 0.0
 
 # ===============================================
-# API Functions
+# API Functions (UPDATED WITH DEBUGGING)
 # ===============================================
 def get_historical_price(symbol, date_str):
     url = f"{BASE_URL}/stocks/candles/D/{symbol}?from={date_str}&to={date_str}&token={API_KEY}"
     try:
-        r = requests.get(url, timeout=5)
-        if r.status_code == 200:
+        r = requests.get(url, timeout=10)
+        if r.status_code in (200, 203): # ADDED 203 SUPPORT
             data = r.json()
             if data.get("s") == "ok" and "c" in data:
                 return float(data["c"][0])
-    except:
-        pass
+            else:
+                print(f"      ⚠️ Price API returned: {data}")
+        else:
+            print(f"      ❌ Price API Error {r.status_code}: {r.text}")
+    except Exception as e:
+        print(f"      ❌ Price Request Exception: {e}")
     return None
 
 def get_historical_chain(symbol, date_str):
@@ -93,8 +97,12 @@ def get_historical_chain(symbol, date_str):
             data = r.json()
             if data.get("s") == "ok":
                 return data.get("optionSymbol", [])
+            else:
+                print(f"      ⚠️ Chain API returned: {data}")
+        else:
+            print(f"      ❌ Chain API Error {r.status_code}: {r.text}")
     except Exception as e:
-        print(f"   ❌ Chain error {date_str}: {e}")
+        print(f"      ❌ Chain Request Exception: {e}")
     return []
 
 def get_historical_quote(option_symbol, date_str):
@@ -150,12 +158,12 @@ def build_day(symbol, target_date):
 
     spot_price = get_historical_price(symbol, date_str)
     if not spot_price:
-        print(f"      ⚠️ No price data (Market Closed?).")
+        print(f"      ⚠️ No price data (Market Closed or API Error).")
         return
 
     raw_chain = get_historical_chain(symbol, date_str)
     if not raw_chain:
-        print("      No chain data.")
+        print("      ⚠️ No chain data found.")
         return
 
     # Filter Strikes
@@ -219,7 +227,7 @@ def build_day(symbol, target_date):
             continue
 
         if i % 50 == 0:
-            time.sleep(0.02)
+            time.sleep(0.05) # Increased sleep slightly to prevent rate limits
 
     if recalc_count > 0:
         print(f"      🔧 Locally calculated Gamma for {recalc_count} options (API was empty).")
@@ -268,5 +276,8 @@ for i in range(1, DAYS_TO_BACKFILL + 1):
             build_day(ticker, past_date)
         except Exception as e:
             print(f"❌ Error {ticker}: {e}")
+            
+    # Sleep slightly between days to respect MarketData rate limits
+    time.sleep(1)
 
 print("\n🏁 Backfill Complete.")
