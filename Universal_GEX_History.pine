@@ -1,7 +1,7 @@
 //@version=6
 indicator("Universal GEX History (Smart Labels)", overlay=true, max_labels_count=500, max_lines_count=500)
 
-// --- Generated 2026-05-02 ---
+// --- Generated 2026-05-03 ---
 // Architecture: Date-Keyed Lookup + Smart Label Persistence
 
 // --- Settings ---
@@ -48,6 +48,7 @@ f_data_EOSE(int ymd) =>
         20260429 => [7.0, "GEX: $2.6M | D: Δ0.11", 7.0, "GEX: $2.2M | D: Δ0.11", float(na), 0.0, "5.5: $1.1M, Δ0.49\n7.0: $393K, Δ0.11\n6.5: $-336K, Δ0.04\n6.0: $-310K, Δ0.27"]
         20260501 => [7.0, "GEX: $4.5M | D: Δ0.09", 7.0, "GEX: $3.4M | D: Δ0.09", 6.75, 0.1276015408163265, "7.0: $1.1M, Δ0.09\n7.5: $436K, Δ-0.18\n6.0: $-353K, Δ0.24\n6.5: $-325K, Δ0.13"]
         20260502 => [7.0, "GEX: $2.9M | D: Δ0.18", 7.0, "GEX: $1.4M | D: Δ0.18", float(na), 0.0, "7.0: $1.5M, Δ0.18\n5.5: $1.3M, Δ0.52"]
+        20260503 => [7.0, "GEX: $3.4M | D: Δ0.12", 7.0, "GEX: $1.5M | D: Δ0.12", float(na), 0.0, "7.0: $2.0M, Δ0.12\n5.5: $1.4M, Δ0.48"]
         => [float(na), "", float(na), "", float(na), 0.0, ""]
 
 f_data_ET(int ymd) =>
@@ -470,7 +471,7 @@ f_arrays_BITO() =>
     [array.from(10.0, 11.0), array.from(30, 12), array.from(1, 1), array.from('[$4.4M, Δ0.58]', '[$1.9M, Δ0.23]')]
 
 f_arrays_EOSE() =>
-    [array.from(7.0, 5.5), array.from(30, 26), array.from(1, 1), array.from('[$1.5M, Δ0.18]', '[$1.3M, Δ0.52]')]
+    [array.from(7.0, 5.5), array.from(30, 21), array.from(1, 1), array.from('[$2.0M, Δ0.12]', '[$1.4M, Δ0.48]')]
 
 f_arrays_ET() =>
     [array.from(20.0, 20.5), array.from(30, 8), array.from(1, 1), array.from('[$47.0M, Δ0.62]', '[$13.5M, Δ0.38]')]
