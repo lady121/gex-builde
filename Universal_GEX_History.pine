@@ -1,7 +1,7 @@
 //@version=6
 indicator("Universal GEX History (Smart Labels)", overlay=true, max_labels_count=500, max_lines_count=500)
 
-// --- Generated 2026-05-04 ---
+// --- Generated 2026-05-05 ---
 // Architecture: Date-Keyed Lookup + Smart Label Persistence
 
 // --- Settings ---
@@ -83,6 +83,7 @@ f_data_EOSE(int ymd) =>
         20260502 => [7.0, "GEX: $2.9M | D: Δ0.18", 7.0, "GEX: $1.4M | D: Δ0.18", float(na), 0.0, "7.0: $1.5M, Δ0.18\n5.5: $1.3M, Δ0.52"]
         20260503 => [7.0, "GEX: $2.9M | D: Δ0.18", 7.0, "GEX: $1.4M | D: Δ0.18", float(na), 0.0, "7.0: $1.5M, Δ0.18\n5.5: $1.3M, Δ0.52"]
         20260504 => [7.0, "GEX: $3.5M | D: Δ0.10", 7.0, "GEX: $1.6M | D: Δ0.10", float(na), 0.0, "7.0: $1.9M, Δ0.10\n5.5: $1.4M, Δ0.48"]
+        20260505 => [7.0, "GEX: $3.5M | D: Δ0.10", 7.0, "GEX: $1.6M | D: Δ0.10", float(na), 0.0, "7.0: $1.9M, Δ0.10\n5.5: $1.4M, Δ0.48"]
         => [float(na), "", float(na), "", float(na), 0.0, ""]
 
 f_data_ET(int ymd) =>
