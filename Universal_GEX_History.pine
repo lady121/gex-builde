@@ -1,7 +1,7 @@
 //@version=6
 indicator("Universal GEX History (Smart Labels)", overlay=true, max_labels_count=500, max_lines_count=500)
 
-// --- Generated 2026-06-24 ---
+// --- Generated 2026-06-25 ---
 // Architecture: Date-Keyed Lookup + Smart Label Persistence
 
 // --- Settings ---
