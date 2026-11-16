@@ -317,6 +317,7 @@ f_data_ET(int ymd) =>
         20261113 => [18.5, "GEX: $47K | D: Δ0.91", 17.0, "GEX: $0 | D: Δ0.93", float(na), 0.0, "18.5: $47K, Δ0.91"]
         20261114 => [21.0, "GEX: $9.4M | D: Δ0.04", 19.0, "GEX: $1.5M | D: Δ0.01", 16.75, 0.0, "21.0: $9.4M, Δ0.04"]
         20261115 => [21.0, "GEX: $9.4M | D: Δ0.04", 19.0, "GEX: $1.5M | D: Δ0.01", 16.75, 0.0, "21.0: $9.4M, Δ0.04"]
+        20261116 => [19.0, "GEX: $585K | D: Δ0.72", 16.5, "GEX: $0 | D: Δ0.00", 16.75, 0.0, "19.0: $585K, Δ0.72\n18.5: $576K, Δ0.81"]
         => [float(na), "", float(na), "", float(na), 0.0, ""]
 
 f_data_NOK(int ymd) =>
@@ -878,7 +879,7 @@ f_arrays_EOSE() =>
     [array.from(8.0, 7.0), array.from(30, 25), array.from(1, 1), array.from('[$1.7M, Δ0.31]', '[$1.4M, Δ0.41]')]
 
 f_arrays_ET() =>
-    [array.from(21.0), array.from(30), array.from(1), array.from('[$9.4M, Δ0.04]')]
+    [array.from(19.0, 18.5), array.from(30, 29), array.from(1, 1), array.from('[$585K, Δ0.72]', '[$576K, Δ0.81]')]
 
 f_arrays_NOK() =>
     [array.from(15.0), array.from(30), array.from(1), array.from('[$19.3M, Δ0.28]')]
